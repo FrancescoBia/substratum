@@ -1,0 +1,27 @@
+node_modules/
+dist/
+build/
+.output/
+.wxt/
+.react-router/
+*.local
+.env
+.env.*
+!.env.example
+
+# Local instance data (SQLite file + stored images)
+data/
+
+# Playwright: throwaway instance, saved session, reports, generated screenshots
+.playwright-data/
+**/e2e/.auth/
+playwright-report/
+test-results/
+screenshots/
+
+.DS_Store
+*.log
+
+# Local agent/editor scaffolding and planning notes (not part of the project)
+.claude/settings.local.json
+.scratch/

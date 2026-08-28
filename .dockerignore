@@ -1,0 +1,11 @@
+**/node_modules
+**/build
+**/.output
+**/.wxt
+**/.react-router
+.git
+.scratch
+prototype-gallery
+data
+*.log
+.DS_Store

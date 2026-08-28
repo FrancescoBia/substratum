@@ -1,0 +1,23 @@
+{
+  "name": "substratum",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.3.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+  },
+  "scripts": {
+    "dev": "pnpm --filter @repo/web dev",
+    "build": "pnpm --recursive build",
+    "typecheck": "pnpm --recursive typecheck",
+    "db:generate": "pnpm --filter @repo/web db:generate",
+    "reset-password": "pnpm --filter @repo/web reset-password",
+    "seed": "pnpm --filter @repo/web seed",
+    "test:e2e": "pnpm --filter @repo/web test:e2e",
+    "shots": "pnpm --filter @repo/web shots"
+  }
+}

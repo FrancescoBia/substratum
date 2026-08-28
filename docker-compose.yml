@@ -1,0 +1,23 @@
+services:
+  app:
+    # Swap for the published image once releases exist:
+    #   image: ghcr.io/francescobia/substratum:latest
+    build: .
+    ports:
+      # Published on 4677 rather than 3000, which is what almost every
+      # local dev server wants. The container still listens on 3000 internally,
+      # where nothing can collide with it.
+      - "4677:3000"
+    volumes:
+      - data:/data
+    environment:
+      # Required whenever the published port differs from the container's, which
+      # it does here: the app can't see the host side of the mapping, and
+      # published board links are built from this.
+      SUBSTRATUM_URL: http://localhost:4677
+      # How long a trashed image stays recoverable before it is purged.
+      SUBSTRATUM_TRASH_RETENTION_DAYS: 30
+    restart: unless-stopped
+
+volumes:
+  data:

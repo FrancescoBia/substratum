@@ -1,0 +1,305 @@
+// File generated with Overlay Studio, a code-first UI design editor.
+// Learn more: https://docs.overlay.studio
+
+// Note: you can commit this file to the repo if you want to collaborate
+// with others (and share Overlay component mappings).
+// If not, add `.overlay` to your `.gitignore` file.
+{
+  "components": [
+    { "source": "apps/web/app/components/ui/button.tsx", "preset": "shadcn" },
+    { "source": "apps/web/app/components/ui/input.tsx", "preset": "shadcn" },
+    { "source": "apps/web/app/components/ui/textarea.tsx", "preset": "shadcn" },
+    { "source": "apps/web/app/components/ui/label.tsx", "preset": "shadcn" },
+    { "source": "apps/web/app/components/ui/checkbox.tsx", "preset": "shadcn" },
+    { "source": "apps/web/app/components/ui/badge.tsx", "preset": "shadcn" },
+    { "source": "apps/web/app/components/ui/separator.tsx", "preset": "shadcn" },
+    { "source": "apps/web/app/components/ui/scroll-area.tsx", "preset": "shadcn" },
+    {
+      "source": "apps/web/app/components/ui/scroll-area.tsx",
+      "export": "ScrollBar",
+      "props": {
+        "orientation": { "type": "string", "enum": ["vertical", "horizontal"], "default": "vertical" }
+      }
+    },
+    { "source": "apps/web/app/components/ui/card.tsx", "preset": "shadcn" },
+    {
+      "source": "apps/web/app/components/ui/card.tsx",
+      "export": "CardAction",
+      "props": {
+        "children": { "type": "ReactNode", "default": "<Button variant='ghost' size='sm'>Action</Button>" }
+      }
+    },
+    { "source": "apps/web/app/components/ui/alert.tsx", "preset": "shadcn" },
+    {
+      "source": "apps/web/app/components/ui/alert.tsx",
+      "export": "AlertAction",
+      "props": {
+        "children": { "type": "ReactNode", "default": "<Button variant='ghost' size='sm'>Dismiss</Button>" }
+      }
+    },
+
+    {
+      "source": "apps/web/app/components/ui/dialog.tsx",
+      "export": "Dialog",
+      "props": {
+        "open": { "type": "boolean", "default": true },
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<DialogContent><DialogHeader><DialogTitle>Edit profile</DialogTitle><DialogDescription>Make changes to your profile here.</DialogDescription></DialogHeader><DialogFooter><Button variant='outline'>Cancel</Button><Button>Save</Button></DialogFooter></DialogContent>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/dialog.tsx",
+      "export": "DialogTrigger",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Open" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/dialog.tsx",
+      "export": "DialogClose",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Close" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/dialog.tsx",
+      "export": "DialogContent",
+      "props": {
+        "showCloseButton": { "type": "boolean", "default": true },
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<DialogHeader><DialogTitle>Edit profile</DialogTitle><DialogDescription>Make changes to your profile here.</DialogDescription></DialogHeader>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/dialog.tsx",
+      "export": "DialogHeader",
+      "props": {
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<DialogTitle>Edit profile</DialogTitle>",
+            "<DialogDescription>Make changes to your profile here.</DialogDescription>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/dialog.tsx",
+      "export": "DialogFooter",
+      "props": {
+        "showCloseButton": { "type": "boolean", "default": false },
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<Button variant='outline'>Cancel</Button>",
+            "<Button>Save</Button>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/dialog.tsx",
+      "export": "DialogTitle",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Edit profile" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/dialog.tsx",
+      "export": "DialogDescription",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Make changes to your profile here." }
+      }
+    },
+
+    {
+      "source": "apps/web/app/components/ui/sheet.tsx",
+      "export": "Sheet",
+      "props": {
+        "open": { "type": "boolean", "default": true },
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<SheetContent><SheetHeader><SheetTitle>Details</SheetTitle><SheetDescription>Inspect this item.</SheetDescription></SheetHeader></SheetContent>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/sheet.tsx",
+      "export": "SheetTrigger",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Open" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/sheet.tsx",
+      "export": "SheetClose",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Close" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/sheet.tsx",
+      "export": "SheetContent",
+      "props": {
+        "side": { "type": "string", "enum": ["top", "right", "bottom", "left"], "default": "right" },
+        "showCloseButton": { "type": "boolean", "default": true },
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<SheetHeader><SheetTitle>Details</SheetTitle><SheetDescription>Inspect this item.</SheetDescription></SheetHeader>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/sheet.tsx",
+      "export": "SheetHeader",
+      "props": {
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<SheetTitle>Details</SheetTitle>",
+            "<SheetDescription>Inspect this item.</SheetDescription>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/sheet.tsx",
+      "export": "SheetFooter",
+      "props": {
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<Button variant='outline'>Cancel</Button>",
+            "<Button>Save</Button>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/sheet.tsx",
+      "export": "SheetTitle",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Details" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/sheet.tsx",
+      "export": "SheetDescription",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Inspect this item." }
+      }
+    },
+
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "Field",
+      "props": {
+        "orientation": { "type": "string", "enum": ["vertical", "horizontal", "responsive"], "default": "vertical" },
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<FieldLabel>Email</FieldLabel>",
+            "<Input type='email' placeholder='you@example.com' />",
+            "<FieldDescription>We'll never share your email.</FieldDescription>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldSet",
+      "props": {
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<FieldLegend>Account</FieldLegend>",
+            "<Field><FieldLabel>Email</FieldLabel><Input type='email' placeholder='you@example.com' /></Field>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldGroup",
+      "props": {
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<Field><FieldLabel>Email</FieldLabel><Input type='email' placeholder='you@example.com' /></Field>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldLegend",
+      "props": {
+        "variant": { "type": "string", "enum": ["legend", "label"], "default": "legend" },
+        "children": { "type": "ReactNode", "default": "Account" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldLabel",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Email" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldTitle",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Email" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldDescription",
+      "props": {
+        "children": { "type": "ReactNode", "default": "We'll never share your email." }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldContent",
+      "props": {
+        "children": {
+          "type": "ReactNode",
+          "default": [
+            "<FieldTitle>Email</FieldTitle>",
+            "<FieldDescription>We'll never share your email.</FieldDescription>"
+          ]
+        }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldSeparator",
+      "props": {
+        "children": { "type": "ReactNode", "default": "Or continue with" }
+      }
+    },
+    {
+      "source": "apps/web/app/components/ui/field.tsx",
+      "export": "FieldError",
+      "props": {
+        "children": { "type": "ReactNode", "default": "This field is required." }
+      }
+    }
+  ],
+  "iconLibraries": [
+    { "preset": "lucide-react", "resolveFrom": "apps/web" }
+  ]
+}

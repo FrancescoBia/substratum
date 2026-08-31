@@ -40,6 +40,9 @@ RUN pnpm --filter @repo/web build
 RUN pnpm --filter @repo/web deploy --prod --legacy /deploy
 
 FROM base AS runtime
+# Links the GHCR package back to this repo, so the package page shows the
+# source and README instead of standing on its own.
+LABEL org.opencontainers.image.source="https://github.com/FrancescoBia/substratum"
 ENV NODE_ENV=production
 ENV SUBSTRATUM_DATA_DIR=/data
 # Stays 3000 inside the container, where it collides with nothing — the port

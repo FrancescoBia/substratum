@@ -1,6 +1,7 @@
-import { LayoutDashboard, LayoutGrid } from "lucide-react";
+import { Info, LayoutDashboard, LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
+import { Lightbox, LIGHTBOX_PARAM } from "~/components/lightbox";
 import { Button } from "~/components/ui/button";
 import type { GridImage } from "~/lib/library.server";
 
@@ -10,9 +11,11 @@ const GRID_LAYOUT_STORAGE_KEY = "substratum-grid-layout";
 
 /**
  * The library grid can either use uniform aspect-cropped tiles or a masonry-like
- * mosaic that preserves each thumbnail's proportions. Selecting an Image is a
- * URL change (`?image=`), so the detail panel is shareable, reload-stable, and
- * closable with the back button.
+ * mosaic that preserves each thumbnail's proportions.
+ *
+ * A tile opens the Image full size; the corner control opens its detail panel.
+ * Both are URL changes (`?view=` and `?image=`), so either state is shareable,
+ * reload-stable, and closable with the back button.
  */
 export function ImageGrid({
   images,
@@ -44,8 +47,18 @@ export function ImageGrid({
     }
   }
 
-  function linkTo(id: string) {
+  // The two surfaces are mutually exclusive, so each link clears the other's
+  // param rather than leaving a stale one behind in a shared URL.
+  function viewHref(id: string) {
     const params = new URLSearchParams(location.search);
+    params.delete("image");
+    params.set(LIGHTBOX_PARAM, id);
+    return `${location.pathname}?${params}`;
+  }
+
+  function detailsHref(id: string) {
+    const params = new URLSearchParams(location.search);
+    params.delete(LIGHTBOX_PARAM);
     params.set("image", id);
     return `${location.pathname}?${params}`;
   }
@@ -96,36 +109,54 @@ export function ImageGrid({
         }
       >
         {images.map((image) => (
-          <Link
+          <div
             key={image.id}
-            to={linkTo(image.id)}
-            preventScrollReset
             className={
-              layout === "mosaic"
-                ? "group relative mb-3 block break-inside-avoid"
-                : "group relative block"
+              layout === "mosaic" ? "group relative mb-3 break-inside-avoid" : "group relative"
             }
-            aria-label={image.title ?? "Uploaded image"}
           >
-            <img
-              src={`/img/${image.id}/thumb`}
-              alt={image.title ?? ""}
-              width={image.width}
-              height={image.height}
-              loading="lazy"
-              className={`bg-muted w-full rounded-lg object-cover transition group-hover:brightness-90 ${
-                layout === "mosaic" ? "h-auto" : "aspect-4/5"
-              }`}
-            />
+            <Link
+              to={viewHref(image.id)}
+              preventScrollReset
+              className="block"
+              aria-label={image.title ?? "Uploaded image"}
+            >
+              <img
+                src={`/img/${image.id}/thumb`}
+                alt={image.title ?? ""}
+                width={image.width}
+                height={image.height}
+                loading="lazy"
+                className={`bg-muted w-full rounded-lg object-cover transition group-hover:brightness-90 ${
+                  layout === "mosaic" ? "h-auto" : "aspect-4/5"
+                }`}
+              />
+            </Link>
+
+            {/* A sibling of the tile link rather than a child: nesting one link
+                inside another is invalid, and the panel is a different place to
+                go than the full-size view. */}
+            <Link
+              to={detailsHref(image.id)}
+              preventScrollReset
+              title="Details"
+              className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-lg bg-black/50 text-white/80 opacity-0 transition group-hover:opacity-100 hover:bg-black/70 hover:text-white focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none"
+            >
+              <Info className="size-4" />
+              <span className="sr-only">Details for {image.title ?? "this image"}</span>
+            </Link>
+
             {image.untriaged && (
               <span
-                className="bg-primary ring-background absolute top-2 left-2 size-2 rounded-full ring-2"
+                className="bg-primary ring-background pointer-events-none absolute top-2 left-2 size-2 rounded-full ring-2"
                 title="Not on any board or tagged yet"
               />
             )}
-          </Link>
+          </div>
         ))}
       </div>
+
+      <Lightbox images={images} detailsHref={detailsHref} />
     </section>
   );
 }

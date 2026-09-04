@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createBoard, uploadImages } from "./helpers";
+import { createBoard, openDetails, uploadImages } from "./helpers";
 
 const SHOTS = "screenshots";
 
@@ -23,7 +23,7 @@ test("capture every view", async ({ page, request }) => {
   await page.screenshot({ path: `${SHOTS}/01-stream-untriaged.png` });
 
   // Detail panel open over the grid.
-  await page.locator("main a").first().click();
+  await openDetails(page);
   const panel = page.getByRole("dialog");
   await panel.waitFor();
   await panel.getByPlaceholder("Add a tag…").fill("editorial");
@@ -36,6 +36,19 @@ test("capture every view", async ({ page, request }) => {
   await expect(panel).toBeHidden(); // the overlay animates out — don't shoot through it
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/03-stream-with-sidebar.png` });
+
+  // An image at full size over the Stream. The larger variant is fetched on
+  // open and the scrim fades in, so wait for both rather than shooting through
+  // a half-drawn overlay.
+  await page.locator("main a").first().click();
+  const viewer = page.getByRole("dialog");
+  await viewer.waitFor();
+  await viewer.locator("img").evaluate((node) => (node as HTMLImageElement).decode());
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${SHOTS}/09-full-size.png` });
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
 
   // Triage mode mid-queue.
   await page.goto("/triage");
@@ -58,7 +71,7 @@ test("capture every view", async ({ page, request }) => {
 
   // Trash with one item in it.
   await page.goto("/");
-  await page.locator("main a").nth(1).click();
+  await openDetails(page, 1);
   await page.getByRole("dialog").getByRole("button", { name: /Move to Trash/ }).click();
   await page.goto("/trash");
   await page.waitForLoadState("networkidle");

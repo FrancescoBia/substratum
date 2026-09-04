@@ -86,6 +86,16 @@ export async function resetLibrary(request: APIRequestContext) {
   }
 }
 
+/**
+ * Opens an Image's detail panel. The tile itself now opens the full-size viewer,
+ * so the panel is reached through the corner control that appears on hover.
+ */
+export async function openDetails(page: Page, nth = 0) {
+  const link = page.getByRole("link", { name: /^Details for/ }).nth(nth);
+  await link.hover();
+  await link.click();
+}
+
 /** Ids of live Images, newest first — read from the page the app renders. */
 export async function visibleImageIds(page: Page): Promise<string[]> {
   return page.locator("main img").evaluateAll((nodes) =>

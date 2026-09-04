@@ -1,12 +1,17 @@
 import { isNotNull } from "drizzle-orm";
 import { Outlet, useFetcher, useLocation } from "react-router";
 import { DetailPanel } from "~/components/detail-panel";
+import { skipLightboxRevalidation } from "~/components/lightbox";
 import { Sidebar } from "~/components/sidebar";
 import { UploadDropzone, type UploadDestination } from "~/components/upload-dropzone";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { getImageDetail, listBoards, listStream, listTags } from "~/lib/library.server";
 import type { Route } from "./+types/library";
+
+// Opening or stepping the full-size viewer only moves `?view=`, which no loader
+// here reads. Without this, every arrow key would re-run these queries.
+export const shouldRevalidate = skipLightboxRevalidation;
 
 /**
  * The shell every library view renders inside: sidebar, the selected Image's

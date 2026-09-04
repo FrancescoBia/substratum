@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   createBoard,
   dropFiles,
+  openDetails,
   png,
   resetLibrary,
   uploadImages,
@@ -51,7 +52,7 @@ test.describe("Stream and upload", () => {
     await expect(page.locator('[data-layout="flat"]')).toBeVisible();
 
     // File an image so the same preference can be checked in a Board view.
-    await page.locator("main a").first().click();
+    await openDetails(page);
     await page.getByRole("dialog").getByRole("checkbox").first().click();
     await page.keyboard.press("Escape");
 
@@ -86,7 +87,7 @@ test.describe("Detail panel", () => {
   }) => {
     await uploadImages(request, 1);
     await page.goto("/");
-    await page.locator("main a").first().click();
+    await openDetails(page);
 
     const panel = page.getByRole("dialog");
     await expect(panel).toBeVisible();
@@ -99,7 +100,7 @@ test.describe("Detail panel", () => {
   test("tagging from the panel updates the sidebar", async ({ page, request }) => {
     await uploadImages(request, 1);
     await page.goto("/");
-    await page.locator("main a").first().click();
+    await openDetails(page);
 
     const panel = page.getByRole("dialog");
     await panel.getByPlaceholder("Add a tag…").fill("Editorial Layout");
@@ -119,7 +120,7 @@ test.describe("Detail panel", () => {
     await createBoard(request, "Dark UI");
     await page.goto("/");
 
-    await page.locator("main a").first().click();
+    await openDetails(page);
     const panel = page.getByRole("dialog");
     await panel.getByRole("checkbox").first().click();
     await page.keyboard.press("Escape");
@@ -136,7 +137,7 @@ test.describe("Detail panel", () => {
     await uploadImages(request, 2);
     await page.goto("/");
 
-    await page.locator("main a").first().click();
+    await openDetails(page);
     await page.getByRole("dialog").getByRole("button", { name: /Move to Trash/ }).click();
 
     await expect(page.locator("main img")).toHaveCount(1);
@@ -148,6 +149,61 @@ test.describe("Detail panel", () => {
 
     await page.getByRole("link", { name: /Stream/ }).click();
     await expect(page.locator("main img")).toHaveCount(2);
+  });
+});
+
+test.describe("Full-size view", () => {
+  test("a tile opens the image over the grid and arrows walk it", async ({ page, request }) => {
+    await uploadImages(request, 3);
+    await page.goto("/");
+    const ids = await visibleImageIds(page);
+
+    await page.locator("main a").first().click();
+    await expect(page).toHaveURL(new RegExp(`\\?view=${ids[0]}`));
+
+    const viewer = page.getByRole("dialog");
+    await expect(viewer.locator("img")).toHaveAttribute("src", `/img/${ids[0]}/medium`);
+    await expect(viewer.getByText("1 / 3")).toBeVisible();
+    // The grid is still there underneath, as it is behind the detail panel.
+    await expect(page.locator("main img")).toHaveCount(3);
+
+    // Stepping moves `?view=`, which no loader reads. If a route ever forgets
+    // its `shouldRevalidate`, walking the grid re-fetches it on every keypress.
+    const loaderFetches: string[] = [];
+    page.on("request", (request) => {
+      const kind = request.resourceType();
+      if (kind === "fetch" || kind === "xhr" || kind === "document") {
+        loaderFetches.push(request.url());
+      }
+    });
+
+    await page.keyboard.press("ArrowRight");
+    await expect(page).toHaveURL(new RegExp(`\\?view=${ids[1]}`));
+    await expect(viewer.getByText("2 / 3")).toBeVisible();
+    expect(loaderFetches).toEqual([]);
+
+    // Stepping past the first image wraps round to the last.
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowLeft");
+    await expect(viewer.getByText("3 / 3")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(viewer).toBeHidden();
+    await expect(page).not.toHaveURL(/view=/);
+  });
+
+  test("leads through to the detail panel", async ({ page, request }) => {
+    await uploadImages(request, 1);
+    await page.goto("/");
+    await page.locator("main a").first().click();
+
+    await page.getByRole("dialog").getByRole("link", { name: "Details" }).click();
+
+    // Handing over rather than stacking: the viewer's param goes as the panel's
+    // arrives, so only one of the two is ever open.
+    await expect(page).toHaveURL(/\?image=/);
+    await expect(page).not.toHaveURL(/view=/);
+    await expect(page.getByText("Uploaded — no source page")).toBeVisible();
   });
 });
 
@@ -236,7 +292,7 @@ test.describe("Boards", () => {
     await uploadImages(request, 1);
     const boardId = await createBoard(request, "Temporary");
     await page.goto("/");
-    await page.locator("main a").first().click();
+    await openDetails(page);
     await page.getByRole("dialog").getByRole("checkbox").first().click();
     await page.keyboard.press("Escape");
 
@@ -256,7 +312,7 @@ test.describe("Tags", () => {
     // the only way in — Tags are created by first use, not up front.
     await uploadImages(request, 1);
     await page.goto("/");
-    await page.locator("main a").first().click();
+    await openDetails(page);
     const panel = page.getByRole("dialog");
     await panel.getByPlaceholder("Add a tag…").fill("palette");
     await panel.getByPlaceholder("Add a tag…").press("Enter");

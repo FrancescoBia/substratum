@@ -63,6 +63,32 @@ test("a published board is readable with no session at all", async ({ browser, r
   });
 });
 
+test("a visitor can open an image at full size", async ({ browser, request }) => {
+  const { slug, ids } = await publishBoard(request, "Dark UI", 2);
+
+  await asStranger(browser, async (page) => {
+    await page.goto(`/board/${slug}`);
+    await page.locator("main a").first().click();
+
+    const viewer = page.getByRole("dialog");
+    await expect(viewer).toBeVisible();
+
+    const source = await viewer.locator("img").getAttribute("src");
+    expect(ids).toContain(source?.match(/\/img\/([^/]+)\//)?.[1]);
+
+    // The larger variant has to be served to a stranger too, not just the
+    // thumbnail the tile uses — a 404 would still render an <img>.
+    const loaded = await viewer.locator("img").evaluate((node) => {
+      const image = node as HTMLImageElement;
+      return image.complete && image.naturalWidth > 0;
+    });
+    expect(loaded).toBe(true);
+
+    await page.keyboard.press("Escape");
+    await expect(viewer).toBeHidden();
+  });
+});
+
 test("unpublishing takes the page down", async ({ browser, request }) => {
   const { slug, boardId } = await publishBoard(request, "Private Thoughts", 1);
   await request.post("/boards", { form: { intent: "unpublish", boardId } });

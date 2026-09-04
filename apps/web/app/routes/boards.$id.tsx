@@ -3,6 +3,7 @@ import { Globe, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import { EmptyState, ImageGrid, ViewHeader } from "~/components/image-grid";
+import { skipLightboxRevalidation } from "~/components/lightbox";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { requireOwnerSession } from "~/auth/session.server";
@@ -10,6 +11,10 @@ import { db, schema } from "~/db/index.server";
 import { instanceUrl } from "~/lib/config.server";
 import { listBoardImages } from "~/lib/library.server";
 import type { Route } from "./+types/boards.$id";
+
+// Opening or stepping the full-size viewer only moves `?view=`, which no loader
+// here reads. Without this, every arrow key would re-run these queries.
+export const shouldRevalidate = skipLightboxRevalidation;
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: loaderData ? `${loaderData.board.name} · Substratum` : "Board · Substratum" }];

@@ -1,7 +1,13 @@
 import { ExternalLink } from "lucide-react";
+import { Link, useLocation } from "react-router";
+import { Lightbox, LIGHTBOX_PARAM, skipLightboxRevalidation } from "~/components/lightbox";
 import { instanceUrl } from "~/lib/config.server";
 import { getPublishedBoard, listPublicBoardImages } from "~/lib/library.server";
 import type { Route } from "./+types/board.$slug";
+
+// Opening the full-size viewer is only a `?view=` change, and this loader never
+// reads it. Without this, stepping through the board would re-fetch it per image.
+export const shouldRevalidate = skipLightboxRevalidation;
 
 /**
  * `meta` runs on the client as well as the server, so it cannot reach into
@@ -53,6 +59,13 @@ export async function loader({ params }: Route.LoaderArgs) {
 
 export default function PublicBoard({ loaderData }: Route.ComponentProps) {
   const { board, images } = loaderData;
+  const location = useLocation();
+
+  function viewHref(id: string) {
+    const params = new URLSearchParams(location.search);
+    params.set(LIGHTBOX_PARAM, id);
+    return `${location.pathname}?${params}`;
+  }
 
   return (
     <main className="mx-auto max-w-7xl px-6 pb-24">
@@ -71,14 +84,21 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {images.map((image) => (
             <figure key={image.id}>
-              <img
-                src={`/img/${image.id}/thumb`}
-                alt={image.sourcePageTitle ?? ""}
-                width={image.width}
-                height={image.height}
-                loading="lazy"
-                className="bg-muted aspect-4/5 w-full rounded-lg object-cover"
-              />
+              <Link
+                to={viewHref(image.id)}
+                preventScrollReset
+                aria-label={image.sourcePageTitle ?? "Image"}
+                className="group block"
+              >
+                <img
+                  src={`/img/${image.id}/thumb`}
+                  alt={image.sourcePageTitle ?? ""}
+                  width={image.width}
+                  height={image.height}
+                  loading="lazy"
+                  className="bg-muted aspect-4/5 w-full rounded-lg object-cover transition group-hover:brightness-90"
+                />
+              </Link>
               {/* Attribution only where there is something to attribute — an
                   uploaded image has no source page. */}
               {image.sourcePageUrl && (
@@ -98,6 +118,18 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
           ))}
         </div>
       )}
+
+      {/* Same viewer the Owner gets, minus anything private: the images on this
+          page are already served publicly, so this adds no new exposure. */}
+      <Lightbox
+        images={images.map((image) => ({
+          id: image.id,
+          width: image.width,
+          height: image.height,
+          title: image.sourcePageTitle,
+          sourcePageUrl: image.sourcePageUrl,
+        }))}
+      />
 
       <footer className="text-muted-foreground mt-16 border-t pt-6 text-xs">
         Collected with <a href="https://github.com/FrancescoBia/substratum" className="underline">Substratum</a>

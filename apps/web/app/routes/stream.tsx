@@ -1,9 +1,14 @@
 import { useFetcher } from "react-router";
 import { EmptyState, ImageGrid, ViewHeader } from "~/components/image-grid";
+import { skipLightboxRevalidation } from "~/components/lightbox";
 import { UploadButton } from "~/components/upload-button";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listStream } from "~/lib/library.server";
 import type { Route } from "./+types/stream";
+
+// Opening or stepping the full-size viewer only moves `?view=`, which no loader
+// here reads. Without this, every arrow key would re-run these queries.
+export const shouldRevalidate = skipLightboxRevalidation;
 
 export function meta() {
   return [{ title: "Stream · Substratum" }];

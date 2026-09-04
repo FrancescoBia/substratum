@@ -37,6 +37,37 @@ test.describe("Stream and upload", () => {
     expect(loaded).toBe(true);
   });
 
+  test("switches between flat and mosaic layouts and remembers the choice", async ({
+    page,
+    request,
+  }) => {
+    await uploadImages(request, 3);
+    const boardId = await createBoard(request, "Layout test");
+    await page.goto("/");
+
+    const flatButton = page.getByRole("button", { name: "Flat grid" });
+    const mosaicButton = page.getByRole("button", { name: "Mosaic" });
+    await expect(flatButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('[data-layout="flat"]')).toBeVisible();
+
+    // File an image so the same preference can be checked in a Board view.
+    await page.locator("main a").first().click();
+    await page.getByRole("dialog").getByRole("checkbox").first().click();
+    await page.keyboard.press("Escape");
+
+    await mosaicButton.click();
+    await expect(mosaicButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
+    await expect(page.locator('[data-layout="mosaic"] img').first()).toHaveClass(/h-auto/);
+
+    await page.goto(`/boards/${boardId}`);
+    await expect(page.getByRole("button", { name: "Mosaic" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
+  });
+
   test("dropping files on the page uploads them", async ({ page }) => {
     await page.goto("/");
     const before = (await visibleImageIds(page)).length;

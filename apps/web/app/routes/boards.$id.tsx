@@ -108,7 +108,7 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
           Open an image from your Stream and tick this board in the panel.
         </EmptyState>
       ) : (
-        <ImageGrid images={images} />
+        <ImageGrid images={images} allowLayoutSwitch />
       )}
     </div>
   );

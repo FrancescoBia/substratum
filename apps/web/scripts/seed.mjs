@@ -5,6 +5,11 @@
  *   pnpm dev            # in one terminal
  *   pnpm seed           # in another
  *
+ * Defaults to http://localhost:3000. On any other port, say so — the seeder has
+ * no way to discover where the dev server bound:
+ *
+ *   pnpm seed --url http://localhost:4000
+ *
  * On a fresh instance it creates the Owner and prints the generated password.
  * On an existing one it needs credentials — it will never guess:
  *
@@ -15,7 +20,27 @@
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 
-const BASE = (process.env.SUBSTRATUM_URL ?? "http://localhost:3000").replace(/\/$/, "");
+/** `--url` beats the env var, which beats the local-development default. */
+function resolveBase() {
+  const raw = flagValue("--url") ?? process.env.SUBSTRATUM_URL ?? "http://localhost:3000";
+  try {
+    return new URL(raw).origin;
+  } catch {
+    throw new Error(`Not a URL: ${JSON.stringify(raw)}`);
+  }
+}
+
+function flagValue(name) {
+  const args = process.argv.slice(2);
+  const inline = args.find((arg) => arg.startsWith(`${name}=`));
+  if (inline) return inline.slice(name.length + 1);
+
+  const index = args.indexOf(name);
+  return index === -1 ? undefined : args[index + 1];
+}
+
+/** Assigned by the entry point below, so a malformed target reports cleanly. */
+let BASE;
 
 let cookie = "";
 
@@ -43,6 +68,50 @@ async function call(path, { form, multipart } = {}) {
   }
 
   return response;
+}
+
+/**
+ * Refuse to touch anything that hasn't identified itself as Substratum.
+ *
+ * Seeding creates an account and uploads files to whatever answers, so a wrong
+ * port is not a harmless mistake — it hands a generated password to a stranger's
+ * app. `/api/session` is the cheapest thing only this app serves, and it needs
+ * no session of its own, so this costs one request before anything is written.
+ */
+async function confirmSubstratum() {
+  const usage = "  pnpm seed --url http://localhost:<port>";
+
+  let response;
+  try {
+    response = await call("/api/session");
+  } catch (cause) {
+    throw new Error(
+      `Nothing answered at ${BASE}.\nStart the app first, or point the seeder at it:\n${usage}`,
+      { cause },
+    );
+  }
+
+  const body = await response.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    // Not JSON at all, which the check below reports along with everything else.
+  }
+
+  if (!response.ok || typeof parsed?.authenticated !== "boolean") {
+    throw new Error(
+      `${BASE} answered, but it is not a Substratum instance: ` +
+        `GET /api/session returned ${response.status} ${describeBody(body)}.\n` +
+        `Nothing was written. Point the seeder at the right address:\n${usage}`,
+    );
+  }
+}
+
+function describeBody(body) {
+  const snippet = body.replace(/\s+/g, " ").trim();
+  if (!snippet) return "with an empty body";
+  return `— "${snippet.slice(0, 80)}${snippet.length > 80 ? "…" : ""}"`;
 }
 
 async function authenticated() {
@@ -109,16 +178,30 @@ async function upload(index) {
   if (!response.ok) throw new Error(`upload ${index} failed: ${response.status}`);
 }
 
-await signIn();
-
-const COUNT = Number(process.env.SUBSTRATUM_SEED_COUNT ?? 12);
-for (let index = 0; index < COUNT; index++) await upload(index);
-console.log(`Uploaded ${COUNT} sample images.`);
-
-for (const name of ["Dark UI", "Typography", "Layout"]) {
-  const response = await call("/boards", { form: { intent: "create", name } });
-  const body = await response.json();
-  if (body.ok) console.log(`Created board "${name}".`);
+try {
+  BASE = resolveBase();
+  await main();
+} catch (error) {
+  // Every throw above is a configuration mistake — wrong port, wrong
+  // credentials, app not running. The message is the whole point of those, and
+  // a stack trace buries it.
+  console.error(`\n${error.message}\n`);
+  process.exitCode = 1;
 }
 
-console.log(`\nDone — open ${BASE}`);
+async function main() {
+  await confirmSubstratum();
+  await signIn();
+
+  const count = Number(process.env.SUBSTRATUM_SEED_COUNT ?? 12);
+  for (let index = 0; index < count; index++) await upload(index);
+  console.log(`Uploaded ${count} sample images.`);
+
+  for (const name of ["Dark UI", "Typography", "Layout"]) {
+    const response = await call("/boards", { form: { intent: "create", name } });
+    const body = await response.json();
+    if (body.ok) console.log(`Created board "${name}".`);
+  }
+
+  console.log(`\nDone — open ${BASE}`);
+}

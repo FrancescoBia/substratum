@@ -1,5 +1,10 @@
 # Publishes the container image to GHCR on a version tag.
 #
+# `:latest` is the upgrade channel — the quickstart's compose file pins it and
+# the docs say `docker compose pull` — so it must only ever move on a real
+# release. A manual run and a pre-release tag still publish, under their own
+# name, without dragging every self-hoster along with them.
+#
 # Multi-arch on purpose: a single-arch image built on an Apple Silicon machine
 # is arm64 only, and the quickstart's `docker compose up -d` would fail with
 # `exec format error` on the amd64 VPS most self-hosters are on.
@@ -31,14 +36,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Decides the tags rather than hardcoding them, because `github.ref_name`
+      # cannot tell a release from a branch: on a manual run it is the branch
+      # name, and tagging that `:latest` would publish unreleased code to
+      # everyone. `latest=auto` applies `:latest` only to a semver release tag,
+      # and never to a pre-release.
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/francescobia/substratum
+          # `{{raw}}` rather than `{{version}}`: it keeps the leading `v`, which
+          # is what v0.1.0 was already published as.
+          tags: |
+            type=semver,pattern={{raw}}
+            type=ref,event=branch
+          flavor: latest=auto
+
       - uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ghcr.io/francescobia/substratum:latest
-            ghcr.io/francescobia/substratum:${{ github.ref_name }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           # better-sqlite3 compiles from source, and under emulation that is
           # slow enough to be worth caching between runs.
           cache-from: type=gha

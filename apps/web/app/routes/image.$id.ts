@@ -1,15 +1,9 @@
-import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
-import { pruneOrphanTags } from "~/lib/library.server";
+import { normalizeTag, pruneOrphanTags, resolveTagId } from "~/lib/library.server";
 import { storage, storageKeys } from "~/lib/storage.server";
 import type { Route } from "./+types/image.$id";
-
-/** Tags are flat and lowercase; normalizing here keeps that true everywhere. */
-function normalizeTag(raw: string): string {
-  return raw.trim().toLowerCase().replace(/\s+/g, "-").slice(0, 40);
-}
 
 /**
  * Every edit to a single Image. One endpoint with an intent rather than six
@@ -52,17 +46,9 @@ export async function action({ request, params }: Route.ActionArgs) {
       if (!name) return { ok: false, error: "Empty tag." };
 
       // Tags are created the moment they're first used.
-      let [tag] = await db.select().from(schema.tags).where(eq(schema.tags.name, name));
-      if (!tag) {
-        tag = { id: randomUUID(), name };
-        await db.insert(schema.tags).values(tag).onConflictDoNothing();
-        [tag] = await db.select().from(schema.tags).where(eq(schema.tags.name, name));
-      }
+      const tagId = await resolveTagId(name);
 
-      await db
-        .insert(schema.imageTags)
-        .values({ imageId, tagId: tag.id })
-        .onConflictDoNothing();
+      await db.insert(schema.imageTags).values({ imageId, tagId }).onConflictDoNothing();
       return { ok: true };
     }
 

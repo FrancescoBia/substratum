@@ -199,6 +199,39 @@ test.describe("Boards", () => {
     await expect(page.getByRole("link", { name: /Moodboard/ })).toBeVisible();
   });
 
+  test("a board drop asks whether to add the imported images", async ({ page, request }) => {
+    const boardId = await createBoard(request, "Moodboard");
+    await page.goto(`/boards/${boardId}`);
+
+    const first = await png(500, 700, [120, 90, 200]);
+    await dropFiles(page, [{ name: "stream-only.png", base64: first.toString("base64") }]);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "Import 1 image?" })).toBeVisible();
+    await expect(dialog).toContainText("Moodboard");
+    await expect(page.locator("main img")).toHaveCount(0);
+
+    await dialog.getByRole("button", { name: "Import only" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator("main img")).toHaveCount(0);
+
+    const second = await png(700, 500, [20, 140, 80]);
+    const third = await png(600, 600, [210, 110, 40]);
+    await dropFiles(page, [
+      { name: "on-board-1.png", base64: second.toString("base64") },
+      { name: "on-board-2.png", base64: third.toString("base64") },
+    ]);
+    await expect(page.getByRole("heading", { name: "Import 2 images?" })).toBeVisible();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Import and add to board" })
+      .click();
+
+    await expect(page.locator("main img")).toHaveCount(2);
+    await page.goto("/");
+    await expect(page.locator("main img")).toHaveCount(3);
+  });
+
   test("deleting one keeps its images", async ({ page, request }) => {
     await uploadImages(request, 1);
     const boardId = await createBoard(request, "Temporary");
@@ -214,5 +247,48 @@ test.describe("Boards", () => {
     await expect(page.getByRole("heading", { name: "Stream" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Temporary/ })).toBeHidden();
     await expect(page.locator("main img")).toHaveCount(1);
+  });
+});
+
+test.describe("Tags", () => {
+  test("a tag drop asks whether to tag the imported images", async ({ page, request }) => {
+    // The tag has to exist before it can be a drop destination, and the panel is
+    // the only way in — Tags are created by first use, not up front.
+    await uploadImages(request, 1);
+    await page.goto("/");
+    await page.locator("main a").first().click();
+    const panel = page.getByRole("dialog");
+    await panel.getByPlaceholder("Add a tag…").fill("palette");
+    await panel.getByPlaceholder("Add a tag…").press("Enter");
+    await expect(panel.getByText("palette ×")).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.goto("/tag/palette");
+    await expect(page.locator("main img")).toHaveCount(1);
+
+    const first = await png(500, 700, [120, 90, 200]);
+    await dropFiles(page, [{ name: "stream-only.png", base64: first.toString("base64") }]);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "Import 1 image?" })).toBeVisible();
+    await expect(dialog).toContainText("#palette");
+
+    await dialog.getByRole("button", { name: "Import only" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator("main img")).toHaveCount(1);
+
+    const second = await png(700, 500, [20, 140, 80]);
+    const third = await png(600, 600, [210, 110, 40]);
+    await dropFiles(page, [
+      { name: "tagged-1.png", base64: second.toString("base64") },
+      { name: "tagged-2.png", base64: third.toString("base64") },
+    ]);
+    await expect(page.getByRole("heading", { name: "Import 2 images?" })).toBeVisible();
+    await page.getByRole("dialog").getByRole("button", { name: "Import and tag" }).click();
+
+    await expect(page.locator("main img")).toHaveCount(3);
+    await page.goto("/");
+    await expect(page.locator("main img")).toHaveCount(4);
+    await expect(page.getByRole("link", { name: /palette/ })).toContainText("3");
   });
 });

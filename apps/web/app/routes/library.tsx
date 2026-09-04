@@ -1,8 +1,8 @@
 import { isNotNull } from "drizzle-orm";
-import { Outlet, useFetcher } from "react-router";
+import { Outlet, useFetcher, useLocation } from "react-router";
 import { DetailPanel } from "~/components/detail-panel";
 import { Sidebar } from "~/components/sidebar";
-import { UploadDropzone } from "~/components/upload-dropzone";
+import { UploadDropzone, type UploadDestination } from "~/components/upload-dropzone";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { getImageDetail, listBoards, listStream, listTags } from "~/lib/library.server";
@@ -43,9 +43,21 @@ export async function loader({ request }: Route.LoaderArgs) {
 export default function Library({ loaderData }: Route.ComponentProps) {
   const { boards, tags, untriagedCount, trashCount, email, selected } = loaderData;
   const upload = useFetcher();
+  const location = useLocation();
+
+  // Which view the drop lands on, if it is one an Image can be filed into. The
+  // Stream, the Trash and triage have no destination, so a drop there just
+  // imports.
+  const board = boards.find((board) => location.pathname === `/boards/${board.id}`);
+  const tag = tags.find((tag) => location.pathname === `/tag/${encodeURIComponent(tag.name)}`);
+  const destination: UploadDestination | undefined = board
+    ? { kind: "board", id: board.id, name: board.name }
+    : tag
+      ? { kind: "tag", name: tag.name }
+      : undefined;
 
   return (
-    <UploadDropzone fetcher={upload}>
+    <UploadDropzone fetcher={upload} destination={destination}>
       <div className="flex h-screen">
         <Sidebar
           boards={boards}

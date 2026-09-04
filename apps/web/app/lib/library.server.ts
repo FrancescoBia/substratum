@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db, schema } from "~/db/index.server";
 // Imported for its side effect: loading this module starts the Trash purge
@@ -236,6 +237,24 @@ export async function isPubliclyVisible(imageId: string): Promise<boolean> {
     .limit(1);
 
   return row !== undefined;
+}
+
+/** Tags are flat and lowercase; normalizing here keeps that true everywhere. */
+export function normalizeTag(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, "-").slice(0, 40);
+}
+
+/**
+ * The id of a Tag by name, creating it if this is its first use — Tags have no
+ * lifecycle of their own beyond the Images that carry them.
+ */
+export async function resolveTagId(name: string): Promise<string> {
+  const [existing] = await db.select().from(schema.tags).where(eq(schema.tags.name, name));
+  if (existing) return existing.id;
+
+  await db.insert(schema.tags).values({ id: randomUUID(), name }).onConflictDoNothing();
+  const [tag] = await db.select().from(schema.tags).where(eq(schema.tags.name, name));
+  return tag.id;
 }
 
 /** Drops Tags nothing points at any more, so the sidebar doesn't accumulate cruft. */

@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
-import { instanceUrl } from "~/lib/config.server";
+import { instanceUrlFor } from "~/lib/config.server";
 import { listBoardImages } from "~/lib/library.server";
 import type { Route } from "./+types/boards.$id";
 
@@ -26,7 +26,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const [board] = await db.select().from(schema.boards).where(eq(schema.boards.id, params.id));
   if (!board) throw new Response("Board not found", { status: 404 });
 
-  return { board, images: await listBoardImages(board.id), instanceUrl };
+  return {
+    board,
+    images: await listBoardImages(board.id),
+    instanceUrl: instanceUrlFor(request),
+  };
 }
 
 export default function BoardView({ loaderData }: Route.ComponentProps) {

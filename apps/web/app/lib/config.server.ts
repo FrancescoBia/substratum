@@ -12,15 +12,54 @@ export const dbPath = join(dataDir, "library.db");
 export const imagesDir = join(dataDir, "images");
 
 /**
- * Public URL of this instance, used for published board links.
+ * Public origin of this instance: published board links, canonical URLs and OG
+ * tags are all built from it.
  *
- * The default covers local development, where the server binds the same port
- * you visit. Anything else — a published container port, a domain, a reverse
- * proxy — has to set SUBSTRATUM_URL, because the port this process binds tells us
- * nothing about the address people reach it on.
+ * SUBSTRATUM_URL pins it, and anything reachable from outside should set it. It
+ * is the only answer that survives a reverse proxy, and the only one a visitor
+ * cannot influence.
+ *
+ * Left unset, the origin is read off the request instead — see `instanceUrlFor`.
+ * The old fallback guessed `localhost:3000`, which was wrong for every dev
+ * server on another port and quietly handed out links to whatever else was
+ * listening there.
  */
-export const instanceUrl =
-  process.env.SUBSTRATUM_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+const configuredUrl = process.env.SUBSTRATUM_URL?.replace(/\/+$/, "") ?? null;
+
+/**
+ * The origin to build outward-facing links from, for one request.
+ *
+ * Without SUBSTRATUM_URL this is a considered guess, not a trusted value: the
+ * headers it reads are visitor-controlled when the app is exposed directly. That
+ * is tolerable because the result is only ever used to build links back to this
+ * instance, and it is exactly why the env var exists.
+ */
+export function instanceUrlFor(request: Request): string {
+  if (configuredUrl) return configuredUrl;
+
+  const url = new URL(request.url);
+
+  // A TLS-terminating proxy leaves the app speaking plain HTTP on an internal
+  // address, so where it says what it forwarded, that beats what we can see.
+  const protocol = firstHeaderValue(request, "X-Forwarded-Proto") ?? url.protocol.slice(0, -1);
+  const host = firstHeaderValue(request, "X-Forwarded-Host") ?? url.host;
+  if (protocol !== "http" && protocol !== "https") return url.origin;
+
+  try {
+    // Parsing before returning is the guard: `origin` normalises the pair and
+    // rejects anything that is not a plain scheme and authority.
+    return new URL(`${protocol}://${host}`).origin;
+  } catch {
+    return url.origin;
+  }
+}
+
+/** Forwarded headers accumulate a comma-separated list; the client's is first. */
+function firstHeaderValue(request: Request, name: string): string | null {
+  const raw = request.headers.get(name);
+  if (!raw) return null;
+  return raw.split(",")[0].trim() || null;
+}
 
 /**
  * Pin the published extension's ID here (via env) once it exists, so only that

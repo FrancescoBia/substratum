@@ -41,7 +41,11 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       SUBSTRATUM_DATA_DIR: ".playwright-data",
-      SUBSTRATUM_URL: BASE_URL,
+      // SUBSTRATUM_URL is deliberately absent: unset is the default a developer
+      // actually runs, and it is the path that used to hand out links to
+      // whatever else was listening on port 3000. Leaving it off puts every
+      // public-board spec on the origin derived from the request.
+
       // Sweep often so the purge test can observe a real one. Retention stays
       // at its 30-day default — the test backdates a row rather than shortening
       // the window, so it exercises the same arithmetic production uses.

@@ -288,6 +288,20 @@ test.describe("Boards", () => {
     await expect(page.locator("main img")).toHaveCount(3);
   });
 
+  test("publishing shows a link to the address the app is served on", async ({
+    page,
+    request,
+  }) => {
+    const boardId = await createBoard(request, "Shareable");
+    await page.goto(`/boards/${boardId}`);
+    await page.getByRole("button", { name: "Publish" }).click();
+
+    // The regression this guards: the link used to be built from a hardcoded
+    // port, so on any other one it pointed at whatever else was listening.
+    const origin = new URL(page.url()).origin;
+    await expect(page.getByText(`${origin}/board/shareable`)).toBeVisible();
+  });
+
   test("deleting one keeps its images", async ({ page, request }) => {
     await uploadImages(request, 1);
     const boardId = await createBoard(request, "Temporary");

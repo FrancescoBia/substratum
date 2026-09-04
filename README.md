@@ -50,7 +50,10 @@ Open <http://localhost:4677> and the first screen asks you to create your accoun
 
 `SUBSTRATUM_URL` must match the address you actually reach the instance on — a domain,
 or `http://localhost:<published port>`. The app can't see the host side of a port
-mapping, and published board links are built from it. Then install the Chrome extension, open its options, and point it at your instance URL.
+mapping, and published board links are built from it. Left unset, the app falls back
+to the origin each request arrives on (honouring `X-Forwarded-Proto` and
+`X-Forwarded-Host`), which is fine locally but a guess anywhere public — set it. Then
+install the Chrome extension, open its options, and point it at your instance URL.
 
 Everything — the SQLite database and your stored images — lives in the single `data` volume. Back that up and you've backed up your whole library.
 
@@ -99,7 +102,8 @@ pnpm install
 pnpm dev
 ```
 
-The web app runs on http://localhost:3000.
+The web app runs on http://localhost:3000. Any other port works too — `pnpm dev --port
+4000` — and published board links follow the port you're actually on.
 
 | Command | Does |
 |---|---|

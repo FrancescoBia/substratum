@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { Lightbox, LIGHTBOX_PARAM, skipLightboxRevalidation } from "~/components/lightbox";
-import { instanceUrl } from "~/lib/config.server";
+import { instanceUrlFor } from "~/lib/config.server";
 import { getPublishedBoard, listPublicBoardImages } from "~/lib/library.server";
 import type { Route } from "./+types/board.$slug";
 
@@ -40,7 +40,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
  * the rest of the library: only this board's images and where each was found.
  * Tags and notes stay private.
  */
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const board = await getPublishedBoard(params.slug);
 
   // Unpublished, never published, or no such board all look the same from
@@ -48,12 +48,13 @@ export async function loader({ params }: Route.LoaderArgs) {
   if (!board) throw new Response("Not found", { status: 404 });
 
   const images = await listPublicBoardImages(board.id);
+  const origin = instanceUrlFor(request);
 
   return {
     board,
     images,
-    canonical: `${instanceUrl}/board/${board.slug}`,
-    ogImage: images[0] ? `${instanceUrl}/img/${images[0].id}/medium` : null,
+    canonical: `${origin}/board/${board.slug}`,
+    ogImage: images[0] ? `${origin}/img/${images[0].id}/medium` : null,
   };
 }
 

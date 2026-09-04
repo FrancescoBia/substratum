@@ -89,6 +89,35 @@ test("a visitor can open an image at full size", async ({ browser, request }) =>
   });
 });
 
+test("the shareable URL follows the address the page was served on", async ({
+  browser,
+  request,
+}) => {
+  const { slug } = await publishBoard(request, "Dark UI", 1);
+
+  await asStranger(browser, async (page) => {
+    await page.goto(`/board/${slug}`);
+
+    // This instance sets no SUBSTRATUM_URL, so the origin is read off the
+    // request rather than guessed from the port the process happens to bind.
+    const origin = new URL(page.url()).origin;
+    const ogUrl = page.locator('meta[property="og:url"]');
+    await expect(ogUrl).toHaveAttribute("content", `${origin}/board/${slug}`);
+
+    // A TLS-terminating proxy is the case SUBSTRATUM_URL exists for, but what
+    // the proxy says it forwarded still beats the internal address.
+    await page.setExtraHTTPHeaders({
+      "X-Forwarded-Proto": "https",
+      "X-Forwarded-Host": "boards.example.com",
+    });
+    await page.reload();
+    await expect(ogUrl).toHaveAttribute(
+      "content",
+      `https://boards.example.com/board/${slug}`,
+    );
+  });
+});
+
 test("unpublishing takes the page down", async ({ browser, request }) => {
   const { slug, boardId } = await publishBoard(request, "Private Thoughts", 1);
   await request.post("/boards", { form: { intent: "unpublish", boardId } });

@@ -4,13 +4,15 @@ Collect visual inspiration while you browse. Right-click any image, and it lands
 
 Substratum is two pieces: a **web app** you host yourself, and a **Chrome extension** that saves images into it. One person per instance; boards you choose to publish become public pages.
 
-> **Status: v1 feature-complete, not yet released.** Every surface in the design
-> is built — capture, upload, boards, tags, triage, trash, export, published
-> boards. One piece is still open: images are stored on local disk only — the
-> S3-compatible backend isn't built yet. Beyond that what's missing is
-> distribution — no image is published to GHCR, so the quickstart needs
-> `docker compose up -d --build` against a clone, and the extension isn't on the
-> Chrome Web Store.
+> [!WARNING]
+> **Not production ready.** Substratum is in active development and not yet ready for production use.
+
+> **Status: v1 feature-complete.** Every surface in the design is built —
+> capture, upload, boards, tags, triage, trash, export, published boards. One
+> piece is still open: images are stored on local disk only, and the
+> S3-compatible backend isn't built yet. The container image is published to
+> GHCR, but the extension isn't on the Chrome Web Store, so it has to be loaded
+> unpacked.
 
 ## How it works
 

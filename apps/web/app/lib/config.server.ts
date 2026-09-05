@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { S3Config } from "./s3.server";
 
 /**
  * All configuration is environment variables with working defaults, so a
@@ -88,8 +89,64 @@ function numberFromEnv(name: string, fallback: number): number {
   return value;
 }
 
+/**
+ * S3-compatible object storage — R2, B2, MinIO. Off unless
+ * SUBSTRATUM_S3_BUCKET names a bucket, so an instance that configures nothing
+ * keeps its images on local disk in the data volume exactly as before.
+ *
+ * A half-configured bucket throws rather than falling back: quietly writing to
+ * local disk because one variable was misspelled is how an operator ends up
+ * with images split across two backends and nothing anywhere saying so.
+ */
+export const s3Config: S3Config | null = loadS3Config();
+
+function loadS3Config(): S3Config | null {
+  const bucket = process.env.SUBSTRATUM_S3_BUCKET?.trim();
+  if (!bucket) return null;
+
+  const endpoint = requiredEnv("SUBSTRATUM_S3_ENDPOINT").replace(/\/+$/, "");
+  try {
+    new URL(endpoint);
+  } catch {
+    throw new Error(`SUBSTRATUM_S3_ENDPOINT must be a URL, got ${JSON.stringify(endpoint)}`);
+  }
+
+  // A prefix is always a directory-ish thing, so it is normalised here rather
+  // than leaving every caller to guess whose job the slash is.
+  const prefix = process.env.SUBSTRATUM_S3_PREFIX?.replace(/^\/+|\/+$/g, "") ?? "";
+
+  return {
+    bucket,
+    endpoint,
+    // R2 wants "auto"; MinIO and most others are content with us-east-1.
+    region: process.env.SUBSTRATUM_S3_REGION?.trim() || "us-east-1",
+    accessKeyId: requiredEnv("SUBSTRATUM_S3_ACCESS_KEY_ID"),
+    secretAccessKey: requiredEnv("SUBSTRATUM_S3_SECRET_ACCESS_KEY"),
+    // Path-style addressing is what R2, B2 and MinIO all accept. AWS S3 proper
+    // dropped it for buckets created after 2020, which is what turning this off
+    // is for.
+    forcePathStyle: booleanFromEnv("SUBSTRATUM_S3_FORCE_PATH_STYLE", true),
+    prefix: prefix ? `${prefix}/` : "",
+  };
+}
+
+function requiredEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required when SUBSTRATUM_S3_BUCKET is set.`);
+  return value;
+}
+
+function booleanFromEnv(name: string, fallback: boolean): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (raw === undefined || raw === "") return fallback;
+  if (raw === "true" || raw === "1") return true;
+  if (raw === "false" || raw === "0") return false;
+  throw new Error(`${name} must be true or false, got ${JSON.stringify(raw)}`);
+}
+
 mkdirSync(dataDir, { recursive: true });
-mkdirSync(imagesDir, { recursive: true });
+// With a bucket configured there is no local images directory to create.
+if (!s3Config) mkdirSync(imagesDir, { recursive: true });
 
 /**
  * Cookie signing secret. Generated into the data directory on first run rather

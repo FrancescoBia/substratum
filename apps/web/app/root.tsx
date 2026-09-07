@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { ThemeProvider, ThemeScript } from "./components/theme-provider";
 
 // Fonts are bundled (@fontsource-variable/geist via app.css) rather than fetched
 // from a third party — a self-hosted instance shouldn't phone home to Google.
@@ -16,15 +17,20 @@ export const links: Route.LinksFunction = () => [];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // ThemeScript sets a class on <html> before hydration, which React would
+    // otherwise report as an unexpected attribute.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        <ThemeScript />
       </head>
       <body>
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

@@ -1,6 +1,7 @@
 import { Download, Globe, Hash, Inbox, Layers, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Form, NavLink, useFetcher } from "react-router";
+import { ModeToggle } from "~/components/mode-toggle";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -144,6 +145,8 @@ export function Sidebar({
             <Download className="size-4" /> Export all
           </a>
         </Button>
+
+        <ModeToggle />
 
         <Form method="post" action="/logout">
           <Button type="submit" variant="ghost" size="sm" className="w-full justify-start">

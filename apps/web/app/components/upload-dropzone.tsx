@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import type { useFetcher } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -9,32 +8,46 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
+import { UploadProgress } from "~/components/upload-progress";
+import { UploadProvider, useUpload, type UploadDestination } from "~/components/upload-queue";
 
-type Fetcher = ReturnType<typeof useFetcher>;
-
-/**
- * The Board or Tag the Owner is looking at while they drop. Both are views onto
- * the Stream rather than places an Image lives, so dropping on one offers to
- * file the new Images there — it never diverts them away from the Stream.
- */
-export type UploadDestination =
-  | { kind: "board"; id: string; name: string }
-  | { kind: "tag"; name: string };
+export type { UploadDestination };
 
 /**
- * Whole-page drop target. Dropping anywhere is the fastest way to add images by
- * hand, so the target is the window rather than a small box the Owner has to
- * aim at — the visible dropzone is only the confirmation overlay.
+ * Whole-page drop target, plus the queue every manual import runs through and
+ * the card that reports it. The provider wraps the page rather than a view so
+ * that the Upload button, a drop onto a Board, and the progress card all share
+ * one import — before this, the button and the dropzone each had their own, and
+ * a drop's errors had nowhere to appear.
  */
 export function UploadDropzone({
-  fetcher,
   destination,
   children,
 }: {
-  fetcher: Fetcher;
   destination?: UploadDestination;
   children: ReactNode;
 }) {
+  return (
+    <UploadProvider>
+      <DropTarget destination={destination}>{children}</DropTarget>
+      <UploadProgress />
+    </UploadProvider>
+  );
+}
+
+/**
+ * Dropping anywhere is the fastest way to add images by hand, so the target is
+ * the window rather than a small box the Owner has to aim at — the visible
+ * dropzone is only the confirmation overlay.
+ */
+function DropTarget({
+  destination,
+  children,
+}: {
+  destination?: UploadDestination;
+  children: ReactNode;
+}) {
+  const { start } = useUpload();
   const [dragging, setDragging] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   // Drag events fire per-element, so a plain boolean flickers as the pointer
@@ -43,19 +56,10 @@ export function UploadDropzone({
 
   const upload = useCallback(
     (files: File[], to?: UploadDestination) => {
-      const body = new FormData();
-      for (const file of files) body.append("files", file);
-      if (to?.kind === "board") body.append("boardId", to.id);
-      if (to?.kind === "tag") body.append("tag", to.name);
-
-      fetcher.submit(body, {
-        method: "post",
-        action: "/upload",
-        encType: "multipart/form-data",
-      });
+      start(files, to);
       setPendingFiles(null);
     },
-    [fetcher],
+    [start],
   );
 
   // Only whether there is a destination matters to the drop handler; keeping the

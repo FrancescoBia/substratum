@@ -78,6 +78,32 @@ test.describe("Stream and upload", () => {
 
     await expect(page.locator("main img")).toHaveCount(before + 1);
   });
+
+  // The drop path used to report nothing when a file was rejected: its errors
+  // went to a fetcher the Stream never read. They now surface on the progress
+  // card, which is the only place an import speaks from.
+  test("the progress card names the files that failed", async ({ page }) => {
+    await page.goto("/");
+
+    const good = await png(400, 300, [80, 160, 120]);
+    // The declared type gets it past the dropzone's image filter; ingest reads
+    // the actual bytes and rejects it.
+    const bad = Buffer.from("not an image at all");
+
+    await dropFiles(page, [
+      { name: "good.png", base64: good.toString("base64") },
+      { name: "broken.png", base64: bad.toString("base64") },
+    ]);
+
+    const card = page.getByTestId("upload-progress");
+    await expect(card).toContainText("1 uploaded, 1 failed");
+    await expect(card).toContainText("broken.png");
+
+    await expect(page.locator("main img")).toHaveCount(1);
+
+    await card.getByRole("button", { name: "Dismiss" }).click();
+    await expect(card).toBeHidden();
+  });
 });
 
 test.describe("Detail panel", () => {

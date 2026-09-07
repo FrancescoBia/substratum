@@ -1,5 +1,5 @@
 import { isNotNull } from "drizzle-orm";
-import { Outlet, useFetcher, useLocation } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { DetailPanel } from "~/components/detail-panel";
 import { skipLightboxRevalidation } from "~/components/lightbox";
 import { Sidebar } from "~/components/sidebar";
@@ -47,7 +47,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function Library({ loaderData }: Route.ComponentProps) {
   const { boards, tags, untriagedCount, trashCount, email, selected } = loaderData;
-  const upload = useFetcher();
   const location = useLocation();
 
   // Which view the drop lands on, if it is one an Image can be filed into. The
@@ -62,7 +61,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
       : undefined;
 
   return (
-    <UploadDropzone fetcher={upload} destination={destination}>
+    <UploadDropzone destination={destination}>
       <div className="flex h-screen">
         <Sidebar
           boards={boards}
@@ -73,7 +72,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
         />
 
         <main className="min-w-0 flex-1 overflow-y-auto">
-          <Outlet context={{ upload }} />
+          <Outlet />
         </main>
 
         <DetailPanel image={selected} boards={boards} allTags={tags} />

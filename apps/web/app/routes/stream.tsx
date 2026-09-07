@@ -1,4 +1,3 @@
-import { useFetcher } from "react-router";
 import { EmptyState, ImageGrid, ViewHeader } from "~/components/image-grid";
 import { skipLightboxRevalidation } from "~/components/lightbox";
 import { UploadButton } from "~/components/upload-button";
@@ -21,7 +20,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function Stream({ loaderData }: Route.ComponentProps) {
   const { images } = loaderData;
-  const upload = useFetcher();
 
   return (
     <div className="p-6">
@@ -33,16 +31,8 @@ export default function Stream({ loaderData }: Route.ComponentProps) {
             : `${images.length} image${images.length === 1 ? "" : "s"}`
         }
       >
-        <UploadButton fetcher={upload} />
+        <UploadButton />
       </ViewHeader>
-
-      {upload.data?.errors?.length ? (
-        <ul className="border-destructive/50 text-destructive mb-6 rounded-lg border p-4 text-sm">
-          {upload.data.errors.map((message: string) => (
-            <li key={message}>{message}</li>
-          ))}
-        </ul>
-      ) : null}
 
       {images.length === 0 ? (
         <EmptyState title="Your Stream is empty">

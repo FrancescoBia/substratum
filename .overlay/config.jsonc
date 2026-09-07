@@ -5,14 +5,12 @@
 // If not, add `.overlay` to your `.gitignore` file
 {
   "version": 1,
-  "cssFiles": [
-    "apps/web/app/app.css"
-  ],
+  "cssFiles": ["apps/web/app/app.css"],
   "fonts": [
     {
-      "family": "Geist Variable",
+      "family": "Geist",
       "cssVariable": "--font-sans",
-      "weights": [400, 500, 600]
-    }
-  ]
+      "weights": [400, 500, 600],
+    },
+  ],
 }

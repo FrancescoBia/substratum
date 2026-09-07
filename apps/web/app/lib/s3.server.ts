@@ -149,7 +149,66 @@ type S3Request = {
   headers?: Record<string, string>;
 };
 
+/**
+ * How hard to try before giving up. Three attempts covers the throttle or blip
+ * that a single retry often lands in the middle of, without making a genuinely
+ * unreachable bucket take most of a minute to say so.
+ */
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_MS = 150;
+
+/**
+ * Sends one signed request, retrying the answers an object store gives when it
+ * wants you to come back rather than when your request is wrong.
+ *
+ * Local disk never failed transiently, so nothing above this module is built to
+ * cope with it: a throttle or a dropped connection partway through an ingest
+ * would otherwise reach the Owner as a failed upload. Every operation here is
+ * idempotent — writing the same bytes to the same key, reading, listing,
+ * deleting keys already on their way out — so a retry can only repeat itself,
+ * never double-apply.
+ */
 async function send(config: S3Config, request: S3Request): Promise<Response> {
+  let lastError: unknown = new S3Error(0, "NotAttempted", "Request was never attempted.");
+
+  for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      // Exponential, with jitter: one ingest writes three derivatives at once,
+      // and they should not all come back in lockstep.
+      const backoff = RETRY_BASE_MS * 2 ** (attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, backoff + Math.random() * backoff));
+    }
+
+    let response: Response;
+    try {
+      // Signed inside the loop, not once outside it: a signature carries its
+      // own timestamp, and one held across a backoff drifts towards the edge of
+      // the window the bucket will accept.
+      response = await signedFetch(config, request);
+    } catch (error) {
+      // A refused or dropped connection is exactly what retrying is for.
+      lastError = error;
+      continue;
+    }
+
+    if (response.ok) return response;
+
+    const detail = await response.text().catch(() => "");
+    lastError = new S3Error(
+      response.status,
+      detail.match(/<Code>([\s\S]*?)<\/Code>/)?.[1] ?? String(response.status),
+      unescapeXml(detail.match(/<Message>([\s\S]*?)<\/Message>/)?.[1] ?? response.statusText),
+    );
+
+    // Throttling and the 5xx family mean "come back". Anything else is the
+    // request itself being wrong, and it will be just as wrong next time.
+    if (response.status !== 429 && response.status < 500) throw lastError;
+  }
+
+  throw lastError;
+}
+
+async function signedFetch(config: S3Config, request: S3Request): Promise<Response> {
   const endpoint = new URL(config.endpoint);
   let host = endpoint.host;
 
@@ -172,19 +231,21 @@ async function send(config: S3Config, request: S3Request): Promise<Response> {
   const dateStamp = amzDate.slice(0, 8);
   const payloadHash = sha256Hex(request.body ?? Buffer.alloc(0));
 
-  const headers: Record<string, string> = {
-    ...request.headers,
-    host,
-    "x-amz-content-sha256": payloadHash,
-    "x-amz-date": amzDate,
-  };
+  // Names are lowercased on the way in, because the canonical form signs the
+  // lowercase name. A caller writing "Content-Type" would otherwise have the
+  // string "undefined" signed in place of the value, and the bucket rejects
+  // that as a signature mismatch — an error that reads like a bad secret key
+  // and sends you looking in entirely the wrong place.
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(request.headers ?? {})) {
+    headers[name.toLowerCase()] = value;
+  }
+  headers.host = host;
+  headers["x-amz-content-sha256"] = payloadHash;
+  headers["x-amz-date"] = amzDate;
 
-  const signedNames = Object.keys(headers)
-    .map((name) => name.toLowerCase())
-    .sort();
-  const canonicalHeaders = signedNames
-    .map((name) => `${name}:${String(headers[name] ?? headers[name.toLowerCase()]).trim()}\n`)
-    .join("");
+  const signedNames = Object.keys(headers).sort();
+  const canonicalHeaders = signedNames.map((name) => `${name}:${headers[name].trim()}\n`).join("");
   const signedHeaders = signedNames.join(";");
 
   const canonicalRequest = [
@@ -207,7 +268,7 @@ async function send(config: S3Config, request: S3Request): Promise<Response> {
   // `host` is set by the runtime from the URL; sending it again is rejected.
   const { host: _host, ...sendHeaders } = headers;
 
-  const response = await fetch(`${endpoint.protocol}//${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`, {
+  return fetch(`${endpoint.protocol}//${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`, {
     method: request.method,
     headers: {
       ...sendHeaders,
@@ -224,17 +285,6 @@ async function send(config: S3Config, request: S3Request): Promise<Response> {
         )
       : undefined,
   });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new S3Error(
-      response.status,
-      detail.match(/<Code>([\s\S]*?)<\/Code>/)?.[1] ?? String(response.status),
-      unescapeXml(detail.match(/<Message>([\s\S]*?)<\/Message>/)?.[1] ?? response.statusText),
-    );
-  }
-
-  return response;
 }
 
 /** Adapter-relative key to the key as it exists in the bucket. */

@@ -19,6 +19,7 @@
     "typecheck": "pnpm --recursive typecheck",
     "db:generate": "pnpm --filter @repo/web db:generate",
     "reset-password": "pnpm --filter @repo/web reset-password",
+    "migrate:storage": "pnpm --filter @repo/web migrate:storage",
     "seed": "pnpm --filter @repo/web seed",
     "test:e2e": "pnpm --filter @repo/web test:e2e",
     "shots": "pnpm --filter @repo/web shots"

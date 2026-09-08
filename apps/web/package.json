@@ -9,6 +9,7 @@
     "typecheck": "react-router typegen && tsc",
     "db:generate": "drizzle-kit generate",
     "reset-password": "node ./scripts/reset-password.ts",
+    "migrate:storage": "node ./scripts/migrate-storage.mjs",
     "seed": "node ./scripts/seed.mjs",
     "test:e2e": "node ./scripts/reset-test-data.mjs && playwright test",
     "test:e2e:ui": "playwright test --ui",

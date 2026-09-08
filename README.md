@@ -86,10 +86,41 @@ Operators wanting CDN offload put a proxy in front.
 > [!IMPORTANT]
 > **A bucket splits your backups in two.** The `data` volume then holds only the
 > database, so snapshotting it no longer captures your images — the bucket is a
-> second thing to back up, with its own schedule and its own retention. Note
-> also that switching an existing instance over doesn't move the images already
-> on disk: they stay where they are, and the app will look for them in the
-> bucket.
+> second thing to back up, with its own schedule and its own retention.
+
+### Moving an existing library into a bucket
+
+Setting the variables doesn't move anything by itself — the app simply starts
+looking in the bucket, so every image saved before the switch shows as broken
+while sitting untouched on disk. Copy them across first and there's no such
+window:
+
+```bash
+pnpm migrate:storage
+```
+
+Or against a running container, passing the bucket settings to this one command
+so the app keeps serving from disk while the copy runs:
+
+```bash
+docker compose exec -e SUBSTRATUM_S3_BUCKET=… -e SUBSTRATUM_S3_ENDPOINT=… -e SUBSTRATUM_S3_ACCESS_KEY_ID=… -e SUBSTRATUM_S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
+```
+
+Then add those same variables to `docker-compose.yml`, restart, and check an old
+image still loads.
+
+It copies rather than moves: the source is left exactly as it was, so the images
+on disk stay as your fallback until you clear them by hand. Re-running is safe —
+the same bytes go to the same keys — so an interrupted copy is finished by
+running it again.
+
+`--to-disk` goes the other way, pulling everything out of the bucket and back
+into the data volume, which is what makes the switch reversible once the bucket
+holds images the disk has never seen:
+
+```bash
+pnpm migrate:storage --to-disk
+```
 
 ### Upgrading
 

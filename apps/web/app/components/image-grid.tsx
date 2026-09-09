@@ -1,7 +1,7 @@
 import { Info, LayoutDashboard, LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Lightbox, LIGHTBOX_PARAM } from "~/components/lightbox";
+import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox";
 import { Button } from "~/components/ui/button";
 import type { GridImage } from "~/lib/library.server";
 
@@ -70,6 +70,7 @@ export function ImageGrid({
 }) {
   const location = useLocation();
   const [layout, setLayout] = useState<GridLayout>("flat");
+  const tileMorphName = useTileMorphName();
 
   useEffect(() => {
     try {
@@ -165,9 +166,15 @@ export function ImageGrid({
             className={layout === "mosaic" ? "group relative pb-[6%]" : "group relative"}
             style={layout === "mosaic" ? { gridRowEnd: `span ${tileSpan(image)}` } : undefined}
           >
+            {/* `viewTransition` plus the nomination below expands this tile
+                into the viewer rather than cutting to it — see `morphFromTile`.
+                The click handler has to run before the navigation, which is why
+                it is here and not in an effect. */}
             <Link
               to={viewHref(image.id)}
               preventScrollReset
+              viewTransition
+              onClick={() => morphFromTile(image.id)}
               className={layout === "mosaic" ? "block h-full" : "block"}
               aria-label={image.title ?? "Uploaded image"}
             >
@@ -184,6 +191,10 @@ export function ImageGrid({
                 width={image.width}
                 height={image.height}
                 loading="lazy"
+                // The viewer looks this tile up by id on the way back, to check
+                // it is still somewhere the reader can see.
+                data-lightbox-tile={image.id}
+                style={{ viewTransitionName: tileMorphName(image.id) }}
                 // In the mosaic the tile's height already *is* the image's
                 // proportions, so `object-cover` crops nothing — except on a tile
                 // whose ratio was clamped, where the top is the informative end.

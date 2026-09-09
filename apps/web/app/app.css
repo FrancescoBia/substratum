@@ -141,6 +141,44 @@
 }
 
 /**
+ * The tile → viewer morph. A grid tile's image and the viewer's image take turns
+ * wearing `view-transition-name: lightbox-image` (see `lightbox.tsx`), and this
+ * is the half of that which says how the browser should animate between them.
+ *
+ * Sizing both frames is the whole trick. The default is `inline-size: 100%;
+ * block-size: auto`, which keeps each snapshot's own aspect ratio and lets it
+ * spill out of the box the group is animating — and the two ends here are
+ * different shapes by definition, a 4/5 crop at one end and the full image at
+ * the other. Filling the box and cropping with `object-fit` instead keeps both
+ * frames inside it for the whole flight, so the cross-fade between them reads
+ * as one image being re-cropped rather than as two images sliding past.
+ *
+ * Everything else is left to the browser: the pair still cross-fades, and the
+ * page underneath still cross-fades as `root`, which is what fades the scrim in
+ * and out. Both keep the UA's 250ms so the two stay in step — the only thing
+ * changed here is the easing, so the flight settles rather than coasts.
+ */
+::view-transition-group(lightbox-image) {
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+::view-transition-old(lightbox-image),
+::view-transition-new(lightbox-image) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+
+  /* The cross-fade is shorter than the flight it happens during. A tile in the
+     flat grid is a 4/5 crop of an image the viewer shows whole, so the two
+     frames are the same picture at two different zooms and there is no
+     duration at which they line up — but landing the blend early keeps the
+     double exposure small and brief, and leaves most of the movement to a
+     single sharp frame. The mosaic keeps a thumbnail's own proportions, so
+     there the two frames match and this is not doing anything. */
+  animation-duration: 90ms;
+}
+
+/**
  * A masonry grid that fills left to right. Tiles keep their proportions and
  * columns end ragged, but grid auto-placement runs row-major, so tile 2 lands
  * to the right of tile 1 rather than beneath it. This replaced CSS

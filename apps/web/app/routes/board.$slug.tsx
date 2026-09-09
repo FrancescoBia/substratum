@@ -1,6 +1,12 @@
 import { ExternalLink } from "lucide-react";
 import { Link, useLocation } from "react-router";
-import { Lightbox, LIGHTBOX_PARAM, skipLightboxRevalidation } from "~/components/lightbox";
+import {
+  Lightbox,
+  LIGHTBOX_PARAM,
+  morphFromTile,
+  skipLightboxRevalidation,
+  useTileMorphName,
+} from "~/components/lightbox";
 import { instanceUrlFor } from "~/lib/config.server";
 import { getPublishedBoard, listPublicBoardImages } from "~/lib/library.server";
 import type { Route } from "./+types/board.$slug";
@@ -61,6 +67,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 export default function PublicBoard({ loaderData }: Route.ComponentProps) {
   const { board, images } = loaderData;
   const location = useLocation();
+  const tileMorphName = useTileMorphName();
 
   function viewHref(id: string) {
     const params = new URLSearchParams(location.search);
@@ -85,9 +92,13 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {images.map((image) => (
             <figure key={image.id}>
+              {/* See `image-grid.tsx`: the tile expands into the viewer, and
+                  the nomination has to happen before the navigation. */}
               <Link
                 to={viewHref(image.id)}
                 preventScrollReset
+                viewTransition
+                onClick={() => morphFromTile(image.id)}
                 aria-label={image.sourcePageTitle ?? "Image"}
                 className="group block"
               >
@@ -99,6 +110,8 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
                   width={image.width}
                   height={image.height}
                   loading="lazy"
+                  data-lightbox-tile={image.id}
+                  style={{ viewTransitionName: tileMorphName(image.id) }}
                   className="bg-muted aspect-4/5 w-full rounded-lg object-cover transition group-hover:brightness-90"
                 />
               </Link>

@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, ExternalLink, Info, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Link,
   useLocation,
@@ -17,6 +17,90 @@ import { fullSizeSrcSet } from "~/lib/image-variants";
  * never fight over the same slot.
  */
 export const LIGHTBOX_PARAM = "view";
+
+/**
+ * The `view-transition-name` a grid tile and the viewer's image share so the
+ * browser animates one into the other, instead of cross-fading the whole page.
+ */
+const MORPH_NAME = "lightbox-image";
+
+/**
+ * Which Image is mid-morph, or `null` for none.
+ *
+ * A view transition name may only be on one element at a time — two elements
+ * wearing it makes the browser skip the transition entirely — so the tile and
+ * the viewer hand it back and forth rather than both holding it. The hand-off
+ * has to be decided *before* the browser captures the "before" frame, which
+ * means inside the click handler and not in an effect, and both ends of it are
+ * read by siblings with no state in common. A document can only run one view
+ * transition at a time, so one module-level value is the whole store.
+ */
+let morphTarget: string | null = null;
+const morphListeners = new Set<() => void>();
+
+function subscribeMorph(listener: () => void) {
+  morphListeners.add(listener);
+  return () => {
+    morphListeners.delete(listener);
+  };
+}
+
+function useMorphTarget() {
+  return useSyncExternalStore(
+    subscribeMorph,
+    () => morphTarget,
+    // Nothing is morphing on a server render, or on the client's first one.
+    () => null,
+  );
+}
+
+/**
+ * Nominates `id` as the next transition's morphing Image. Call it in the same
+ * handler that navigates: React flushes this before the router starts the
+ * transition, so the tile is already wearing the name when the frame is taken.
+ *
+ * A reader who asked for less motion gets no nomination and so no morph — the
+ * cross-fade the transition falls back to is still fine, an image flying across
+ * the page is not.
+ */
+export function morphFromTile(id: string | null) {
+  const next =
+    id !== null && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : id;
+  if (morphTarget === next) return;
+  morphTarget = next;
+  for (const listener of morphListeners) listener();
+}
+
+/**
+ * The name each tile's image should carry, if any. The viewer takes the name
+ * over for the Image it is showing, so a tile only wears it while its Image is
+ * *not* the open one — which is exactly the two frames the morph animates
+ * between, and never both at once.
+ */
+export function useTileMorphName(): (id: string) => string | undefined {
+  const morphId = useMorphTarget();
+  const [searchParams] = useSearchParams();
+  const openId = searchParams.get(LIGHTBOX_PARAM);
+
+  return useCallback(
+    (id: string) => (id === morphId && id !== openId ? MORPH_NAME : undefined),
+    [morphId, openId],
+  );
+}
+
+/**
+ * Whether the tile for `id` is somewhere the reader can see. After walking the
+ * gallery with ← and → the tile you came from can be pages up the page, and an
+ * image flying off to somewhere off-screen reads as a glitch rather than as a
+ * return — so that case collapses with a plain fade instead.
+ */
+function isTileOnScreen(id: string) {
+  const tile = document.querySelector(`[data-lightbox-tile="${CSS.escape(id)}"]`);
+  if (!tile) return false;
+
+  const rect = tile.getBoundingClientRect();
+  return rect.bottom > 0 && rect.top < window.innerHeight;
+}
 
 export type LightboxImage = {
   id: string;
@@ -87,11 +171,16 @@ export function Lightbox({
   const image = index === -1 ? null : images[index];
 
   const close = useCallback(() => {
+    morphFromTile(openId && isTileOnScreen(openId) ? openId : null);
+
     const params = new URLSearchParams(location.search);
     params.delete(LIGHTBOX_PARAM);
     const query = params.toString();
-    navigate(`${location.pathname}${query ? `?${query}` : ""}`, { preventScrollReset: true });
-  }, [location.pathname, location.search, navigate]);
+    navigate(`${location.pathname}${query ? `?${query}` : ""}`, {
+      preventScrollReset: true,
+      viewTransition: true,
+    });
+  }, [location.pathname, location.search, navigate, openId]);
 
   // Where the last step was *aimed*, which is not always where the URL has got
   // to yet: held or hammered arrow keys land several presses before the first
@@ -142,7 +231,11 @@ export function Lightbox({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/85 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed inset-0 z-50 flex flex-col outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0"
+          // No `zoom-in`: that is a transform on an ancestor of the morphing
+          // image, so the browser would capture the image's "after" frame at
+          // 95% and snap it to full size when the transition ends. The expand
+          // *is* this surface's entrance animation now.
+          className="fixed inset-0 z-50 flex flex-col outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         >
           <DialogPrimitive.Title className="sr-only">
             {image?.title || "Image"}
@@ -179,12 +272,30 @@ function LightboxBody({
   onStep: (delta: number) => void;
   onClose: () => void;
 }) {
+  // The tile hands the name over for exactly as long as its Image is the one on
+  // screen here, so the two are never both wearing it. See `morphFromTile`.
+  const morphId = useMorphTarget();
+
   // The `medium` derivative is capped at 1200px on its longest edge, which is
   // softer than "full size" on a large or retina display. Offering the original
   // as a second candidate lets the browser reach for the real bytes only when
   // the layout actually needs them, rather than pushing a multi-megabyte file at
   // a phone. It is the only way to the original now that nothing links to it.
-  const srcSet = fullSizeSrcSet(image);
+  //
+  // Held back for a frame, though. `original` is a different URL from the
+  // `medium` the tile already has in cache, so offering both from the start
+  // means this element has nothing to paint until the larger file lands — and
+  // that empty frame is exactly what the tile expands into. Starting at the
+  // cached `medium` and adding the candidates afterwards gets the same bytes in
+  // the end: an `<img>` keeps painting what it has until the replacement has
+  // decoded, so the upgrade is invisible whenever it happens.
+  const [upgraded, setUpgraded] = useState(false);
+  useEffect(() => {
+    setUpgraded(false);
+    const frame = requestAnimationFrame(() => setUpgraded(true));
+    return () => cancelAnimationFrame(frame);
+  }, [image.id]);
+  const srcSet = upgraded ? fullSizeSrcSet(image) : undefined;
 
   return (
     <>
@@ -217,6 +328,7 @@ function LightboxBody({
           sizes="100vw"
           alt={image.title ?? ""}
           onClick={(event) => event.stopPropagation()}
+          style={{ viewTransitionName: morphId === image.id ? MORPH_NAME : undefined }}
           className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
         />
       </div>

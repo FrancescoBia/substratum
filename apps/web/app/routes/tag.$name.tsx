@@ -29,7 +29,7 @@ export default function TagView({ loaderData }: Route.ComponentProps) {
       {images.length === 0 ? (
         <EmptyState title="Nothing tagged this yet" />
       ) : (
-        <ImageGrid images={images} />
+        <ImageGrid images={images} allowLayoutSwitch />
       )}
     </div>
   );

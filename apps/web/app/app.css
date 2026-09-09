@@ -139,3 +139,51 @@
     @apply font-sans;
   }
 }
+
+/**
+ * A masonry grid that fills left to right. Tiles keep their proportions and
+ * columns end ragged, but grid auto-placement runs row-major, so tile 2 lands
+ * to the right of tile 1 rather than beneath it. This replaced CSS
+ * multi-column, which filled a whole column before starting the next — that is
+ * what multi-column is specified to do, so it had to go rather than be coaxed.
+ *
+ * One row track is 1% of a column's width, which is the trick that makes the
+ * whole thing work without JavaScript: a tile's span is then a pure function of
+ * its aspect ratio — `round(100 * height / width) + 6` — and stays correct at
+ * every viewport width, so it can be computed from loader data and server-
+ * rendered. See `ImageGrid` for the other end of that arithmetic.
+ *
+ * `row-gap` has to be zero: a tile spans ~130 tracks, and a gap would be
+ * inserted between every one of them. The vertical gutter instead comes from
+ * each tile's own `padding-bottom: 6%` — a percentage padding resolves against
+ * the tile's width, i.e. the column width, so 6% is exactly the 6 extra tracks
+ * the span buys.
+ *
+ * `100cqw` resolves against the nearest *ancestor* query container, never the
+ * element itself, so `@container` sits on the section wrapping this grid.
+ */
+@utility mosaic {
+  display: grid;
+  grid-template-columns: repeat(var(--mosaic-cols), minmax(0, 1fr));
+  column-gap: var(--mosaic-gap);
+  row-gap: 0;
+
+  /* The column count lives here alone; the tile span deliberately does not
+     depend on it, so nothing has to be kept in sync across breakpoints. */
+  --mosaic-cols: 2;
+  --mosaic-gap: calc(var(--spacing) * 3);
+  --mosaic-column: calc(
+    (100cqw - (var(--mosaic-cols) - 1) * var(--mosaic-gap)) / var(--mosaic-cols)
+  );
+  grid-auto-rows: calc(var(--mosaic-column) / 100);
+
+  @variant sm {
+    --mosaic-cols: 3;
+  }
+  @variant lg {
+    --mosaic-cols: 4;
+  }
+  @variant xl {
+    --mosaic-cols: 5;
+  }
+}

@@ -42,7 +42,9 @@ test.describe("Stream and upload", () => {
     page,
     request,
   }) => {
-    await uploadImages(request, 3);
+    // More images than the widest breakpoint has columns (5), so that a
+    // column-first fill would demonstrably put tile 2 underneath tile 1.
+    await uploadImages(request, 6);
     const boardId = await createBoard(request, "Layout test");
     await page.goto("/");
 
@@ -59,7 +61,27 @@ test.describe("Stream and upload", () => {
     await mosaicButton.click();
     await expect(mosaicButton).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
-    await expect(page.locator('[data-layout="mosaic"] img').first()).toHaveClass(/h-auto/);
+
+    // The regression this guards: the mosaic used to be CSS multi-column, which
+    // fills a whole column before starting the next, so tile 2 rendered *below*
+    // tile 1. No class assertion can see that — only geometry can.
+    const tiles = page.locator('[data-layout="mosaic"] > div');
+    const firstTile = await tiles.nth(0).boundingBox();
+    const secondTile = await tiles.nth(1).boundingBox();
+    if (!firstTile || !secondTile) throw new Error("mosaic tiles have no layout box");
+    expect(secondTile.x).toBeGreaterThan(firstTile.x + firstTile.width / 2);
+    expect(Math.abs(secondTile.y - firstTile.y)).toBeLessThan(2);
+
+    // And the mosaic's actual promise: a tile is as tall as its own proportions
+    // rather than cropped to the flat grid's uniform 4/5.
+    const thumbnail = page.locator('[data-layout="mosaic"] img').first();
+    const declared = await thumbnail.evaluate((node) => {
+      const image = node as HTMLImageElement;
+      return Number(image.getAttribute("height")) / Number(image.getAttribute("width"));
+    });
+    const thumbnailBox = await thumbnail.boundingBox();
+    if (!thumbnailBox) throw new Error("mosaic thumbnail has no layout box");
+    expect(thumbnailBox.height / thumbnailBox.width).toBeCloseTo(declared, 1);
 
     await page.goto(`/boards/${boardId}`);
     await expect(page.getByRole("button", { name: "Mosaic" })).toHaveAttribute(

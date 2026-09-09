@@ -72,7 +72,10 @@ test("capture every view", async ({ page, request }) => {
   // Trash with one item in it.
   await page.goto("/");
   await openDetails(page, 1);
-  await page.getByRole("dialog").getByRole("button", { name: /Move to Trash/ }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Move to Trash/ })
+    .click();
   await page.goto("/trash");
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/06-trash.png` });

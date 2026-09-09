@@ -151,10 +151,7 @@ function DropTarget({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => pendingFiles && upload(pendingFiles)}
-              >
+              <Button variant="outline" onClick={() => pendingFiles && upload(pendingFiles)}>
                 Import only
               </Button>
               <Button onClick={() => pendingFiles && upload(pendingFiles, destination)}>

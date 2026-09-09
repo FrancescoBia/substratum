@@ -54,7 +54,10 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
                   variant="secondary"
                   className="h-7 flex-1"
                   onClick={() =>
-                    act.submit({ intent: "restore" }, { method: "post", action: `/image/${image.id}` })
+                    act.submit(
+                      { intent: "restore" },
+                      { method: "post", action: `/image/${image.id}` },
+                    )
                   }
                 >
                   <RotateCcw className="size-3" /> Restore

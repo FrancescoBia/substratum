@@ -23,11 +23,11 @@ downloads the image itself. That's the reason the permissions are as small as
 they are: no host permission for third-party sites, and so no "read your data on
 all websites" warning at install.
 
-| Permission | Why |
-|---|---|
-| `contextMenus` | The right-click item |
-| `notifications` | Reporting failures |
-| `storage` | Remembering your instance URL |
+| Permission                           | Why                                                      |
+| ------------------------------------ | -------------------------------------------------------- |
+| `contextMenus`                       | The right-click item                                     |
+| `notifications`                      | Reporting failures                                       |
+| `storage`                            | Remembering your instance URL                            |
 | `optional_host_permissions: *://*/*` | Requested at runtime for **your instance's origin only** |
 
 That last one looks alarming and isn't what it appears to be. One listed
@@ -45,8 +45,8 @@ the instance's own session cookie — you're authenticated because you're signed
 to Substratum in the same browser. There's no separate token, no second login.
 
 This rests on Chrome sending a `SameSite=Lax` cookie on an extension-originated
-request. **Verified 2026-09-04** in a real Chrome; the options page's *Check
-connection* button exists to confirm it against your own instance, and reports the
+request. **Verified 2026-09-04** in a real Chrome; the options page's _Check
+connection_ button exists to confirm it against your own instance, and reports the
 signed-in email when it works.
 
 Requests are deliberately kept "simple" — form-encoded body, no custom headers —
@@ -87,12 +87,12 @@ right-clicking again.
 
 From the repo root, after `pnpm install`:
 
-| Command | Does |
-|---|---|
-| `pnpm --dir apps/extension dev` | WXT dev mode — opens a Chrome profile with the extension loaded, with hot reload |
-| `pnpm --dir apps/extension build` | Production build into `.output/chrome-mv3` |
-| `pnpm --dir apps/extension zip` | Package for the Chrome Web Store |
-| `pnpm --dir apps/extension typecheck` | `tsc --noEmit` |
+| Command                               | Does                                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm --dir apps/extension dev`       | WXT dev mode — opens a Chrome profile with the extension loaded, with hot reload |
+| `pnpm --dir apps/extension build`     | Production build into `.output/chrome-mv3`                                       |
+| `pnpm --dir apps/extension zip`       | Package for the Chrome Web Store                                                 |
+| `pnpm --dir apps/extension typecheck` | `tsc --noEmit`                                                                   |
 
 You'll want a web app to point at — `pnpm dev` from the root runs one on
 http://localhost:3000.

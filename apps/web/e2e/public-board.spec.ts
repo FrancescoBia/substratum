@@ -55,10 +55,13 @@ test("a published board is readable with no session at all", async ({ browser, r
     await expect(page.locator("main img")).toHaveCount(3);
 
     // The images have to actually load — a 404 still renders an <img>.
-    const loaded = await page.locator("main img").first().evaluate((node) => {
-      const image = node as HTMLImageElement;
-      return image.complete && image.naturalWidth > 0;
-    });
+    const loaded = await page
+      .locator("main img")
+      .first()
+      .evaluate((node) => {
+        const image = node as HTMLImageElement;
+        return image.complete && image.naturalWidth > 0;
+      });
     expect(loaded).toBe(true);
   });
 });
@@ -111,10 +114,7 @@ test("the shareable URL follows the address the page was served on", async ({
       "X-Forwarded-Host": "boards.example.com",
     });
     await page.reload();
-    await expect(ogUrl).toHaveAttribute(
-      "content",
-      `https://boards.example.com/board/${slug}`,
-    );
+    await expect(ogUrl).toHaveAttribute("content", `https://boards.example.com/board/${slug}`);
   });
 });
 

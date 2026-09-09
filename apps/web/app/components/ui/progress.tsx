@@ -1,7 +1,7 @@
-import * as React from "react"
-import { Progress as ProgressPrimitive } from "radix-ui"
+import * as React from "react";
+import { Progress as ProgressPrimitive } from "radix-ui";
 
-import { cn } from "~/lib/utils"
+import { cn } from "~/lib/utils";
 
 /**
  * Pass `value={null}` for an indeterminate bar: Radix flips `data-state` to
@@ -16,10 +16,7 @@ function Progress({
     <ProgressPrimitive.Root
       data-slot="progress"
       value={value}
-      className={cn(
-        "relative h-1.5 w-full overflow-hidden rounded-full bg-primary/15",
-        className
-      )}
+      className={cn("relative h-1.5 w-full overflow-hidden rounded-full bg-primary/15", className)}
       {...props}
     >
       <ProgressPrimitive.Indicator
@@ -28,7 +25,7 @@ function Progress({
         style={value == null ? undefined : { transform: `translateX(-${100 - value}%)` }}
       />
     </ProgressPrimitive.Root>
-  )
+  );
 }
 
-export { Progress }
+export { Progress };

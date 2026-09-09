@@ -36,14 +36,20 @@ export function Options() {
   async function pair() {
     const origin = toOrigin(input);
     if (!origin) {
-      setStatus({ kind: "bad", message: "That doesn't look like a URL. Try http://localhost:3000" });
+      setStatus({
+        kind: "bad",
+        message: "That doesn't look like a URL. Try http://localhost:3000",
+      });
       return;
     }
 
     setStatus({ kind: "checking" });
 
     if (!(await hasPermission(origin)) && !(await requestPermission(origin))) {
-      setStatus({ kind: "bad", message: "Permission denied — the extension can't reach that instance." });
+      setStatus({
+        kind: "bad",
+        message: "Permission denied — the extension can't reach that instance.",
+      });
       return;
     }
 
@@ -79,8 +85,8 @@ export function Options() {
     <main>
       <h1>Substratum</h1>
       <p className="muted">
-        Point this extension at your own Substratum instance. Then right-click any image on the web and
-        choose <strong>Save to Substratum</strong>.
+        Point this extension at your own Substratum instance. Then right-click any image on the web
+        and choose <strong>Save to Substratum</strong>.
       </p>
 
       <label htmlFor="instance">Instance URL</label>

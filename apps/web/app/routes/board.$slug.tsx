@@ -133,7 +133,10 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
       />
 
       <footer className="text-muted-foreground mt-16 border-t pt-6 text-xs">
-        Collected with <a href="https://github.com/FrancescoBia/substratum" className="underline">Substratum</a>
+        Collected with{" "}
+        <a href="https://github.com/FrancescoBia/substratum" className="underline">
+          Substratum
+        </a>
       </footer>
     </main>
   );

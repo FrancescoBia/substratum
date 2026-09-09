@@ -126,7 +126,11 @@ export async function fetchSourceImage(
     return { ok: false, code: "invalid-request", message: "That image URL isn't valid." };
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return { ok: false, code: "invalid-request", message: "Only http and https images can be saved." };
+    return {
+      ok: false,
+      code: "invalid-request",
+      message: "Only http and https images can be saved.",
+    };
   }
 
   try {

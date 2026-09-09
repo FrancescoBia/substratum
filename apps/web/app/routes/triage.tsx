@@ -73,7 +73,10 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
     if (!imageTags.includes(normalized)) {
       setTagged((state) => ({ ...state, [currentId]: [...imageTags, normalized] }));
     }
-    edit.submit({ intent: "add-tag", tag: name }, { method: "post", action: `/image/${currentId}` });
+    edit.submit(
+      { intent: "add-tag", tag: name },
+      { method: "post", action: `/image/${currentId}` },
+    );
     setTagInput("");
   }
 

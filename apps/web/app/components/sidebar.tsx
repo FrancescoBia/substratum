@@ -117,7 +117,11 @@ export function Sidebar({
               Tags
             </div>
             {tags.map((tag) => (
-              <NavLink key={tag.id} to={`/tag/${encodeURIComponent(tag.name)}`} className={navClass}>
+              <NavLink
+                key={tag.id}
+                to={`/tag/${encodeURIComponent(tag.name)}`}
+                className={navClass}
+              >
                 <Hash className="size-3.5 shrink-0" />
                 <span className="truncate">{tag.name}</span>
                 <span className="text-muted-foreground ml-auto text-xs">{tag.count}</span>

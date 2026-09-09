@@ -1,8 +1,8 @@
 {
   "name": "@repo/extension",
-  "description": "Save images to your Substratum library",
-  "private": true,
   "version": "0.2.1",
+  "private": true,
+  "description": "Save images to your Substratum library",
   "type": "module",
   "scripts": {
     "dev": "wxt",

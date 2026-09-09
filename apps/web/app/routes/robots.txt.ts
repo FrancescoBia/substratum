@@ -4,13 +4,7 @@
  * and asset URLs to crawlers rather than about access control.
  */
 export function loader() {
-  const body = [
-    "User-agent: *",
-    "Allow: /board/",
-    "Allow: /img/",
-    "Disallow: /",
-    "",
-  ].join("\n");
+  const body = ["User-agent: *", "Allow: /board/", "Allow: /img/", "Disallow: /", ""].join("\n");
 
   return new Response(body, {
     headers: {

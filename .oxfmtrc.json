@@ -1,0 +1,13 @@
+{
+  // Defaults already match the house style (double quotes, semicolons, 2-space
+  // indent, 100 columns), so the only thing worth configuring is what to skip.
+  "ignorePatterns": [
+    // drizzle-kit owns these — it rewrites them on every `db:generate`, and a
+    // reformat would just be undone by the next migration.
+    "apps/web/drizzle/**",
+    "pnpm-lock.yaml",
+    // Local editor/agent scaffolding, not project source (see .gitignore).
+    ".claude/**",
+    ".overlay/**"
+  ]
+}

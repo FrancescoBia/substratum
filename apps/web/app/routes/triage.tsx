@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { requireOwnerSession } from "~/auth/session.server";
+import { fullSizeSrcSet } from "~/lib/image-variants";
 import { listBoards, listTags, listUntriaged } from "~/lib/library.server";
 import type { Route } from "./+types/triage";
 
@@ -149,6 +150,14 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
           <img
             key={currentId}
             src={`/img/${currentId}/medium`}
+            // Same reasoning as the lightbox: this pane fills most of a wide
+            // window, so `medium` alone is upscaled on a large retina display.
+            // `100vw` overstates the box — the image is `object-contain` between
+            // a header and a sidebar — which biases the browser toward the
+            // original. That is the right way to be wrong on a view whose whole
+            // job is judging one image.
+            srcSet={fullSizeSrcSet(current)}
+            sizes="100vw"
             alt=""
             className="max-h-full max-w-full rounded-lg object-contain shadow-lg"
           />

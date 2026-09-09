@@ -169,7 +169,7 @@ test("trashing an image removes it from the public page immediately", async ({
     await expect(page.locator("main img")).toHaveCount(1);
 
     // And its bytes stop being served, not merely its tile.
-    const image = await page.request.get(`/img/${ids[0]}/thumb`);
+    const image = await page.request.get(`/img/${ids[0]}/medium`);
     expect(image.status()).toBe(404);
   });
 });
@@ -183,7 +183,7 @@ test("images not on any published board are never served anonymously", async ({
   expect(id).toBeTruthy();
 
   await asStranger(browser, async (page) => {
-    const response = await page.request.get(`/img/${id}/thumb`);
+    const response = await page.request.get(`/img/${id}/medium`);
     expect(response.status()).toBe(404);
   });
 });

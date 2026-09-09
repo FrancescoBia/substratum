@@ -172,7 +172,14 @@ export function ImageGrid({
               aria-label={image.title ?? "Uploaded image"}
             >
               <img
-                src={`/img/${image.id}/thumb`}
+                // `medium`, not `thumb`: a tile is ~300 CSS px, so a retina
+                // display wants ~600 real pixels and the 400px `thumb` was being
+                // upscaled 2–3× — worst on landscape images, whose short edge is
+                // what `aspect-4/5` + `object-cover` has to stretch to fill.
+                // Deliberately a single candidate rather than a `srcSet`: `sizes`
+                // is a static list evaluated before layout, so it cannot follow a
+                // column width the Owner is free to change.
+                src={`/img/${image.id}/medium`}
                 alt={image.title ?? ""}
                 width={image.width}
                 height={image.height}

@@ -43,7 +43,9 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
           {images.map((image) => (
             <div key={image.id} className="group relative">
               <img
-                src={`/img/${image.id}/thumb`}
+                // See `image-grid.tsx`: the 400px `thumb` is too small for a
+                // ~300 CSS px tile on a retina display.
+                src={`/img/${image.id}/medium`}
                 alt={image.title ?? ""}
                 loading="lazy"
                 className="bg-muted aspect-4/5 w-full rounded-lg object-cover opacity-60"

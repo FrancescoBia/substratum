@@ -8,6 +8,7 @@ import {
   useSearchParams,
   type ShouldRevalidateFunctionArgs,
 } from "react-router";
+import { fullSizeSrcSet } from "~/lib/image-variants";
 
 /**
  * The search param that holds the Image being viewed full size. Like `?image=`
@@ -16,9 +17,6 @@ import {
  * never fight over the same slot.
  */
 export const LIGHTBOX_PARAM = "view";
-
-/** The longest edge `sharp` derives the `medium` variant at, in `ingest.server.ts`. */
-const MEDIUM_EDGE = 1200;
 
 export type LightboxImage = {
   id: string;
@@ -186,11 +184,7 @@ function LightboxBody({
   // as a second candidate lets the browser reach for the real bytes only when
   // the layout actually needs them, rather than pushing a multi-megabyte file at
   // a phone. It is the only way to the original now that nothing links to it.
-  const mediumWidth = mediumWidthOf(image.width, image.height);
-  const srcSet =
-    image.width > mediumWidth
-      ? `/img/${image.id}/medium ${mediumWidth}w, /img/${image.id}/original ${image.width}w`
-      : undefined;
+  const srcSet = fullSizeSrcSet(image);
 
   return (
     <>
@@ -263,12 +257,6 @@ function LightboxBody({
       </div>
     </>
   );
-}
-
-/** What `sharp`'s `fit: "inside"` resize leaves the `medium` variant's width at. */
-function mediumWidthOf(width: number, height: number): number {
-  const longest = Math.max(width, height);
-  return longest <= MEDIUM_EDGE ? width : Math.round((width * MEDIUM_EDGE) / longest);
 }
 
 function hostOf(url: string): string {

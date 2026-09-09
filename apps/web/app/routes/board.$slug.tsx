@@ -92,7 +92,9 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
                 className="group block"
               >
                 <img
-                  src={`/img/${image.id}/thumb`}
+                  // See `image-grid.tsx`: the 400px `thumb` is too small for a
+                  // ~300 CSS px tile on a retina display.
+                  src={`/img/${image.id}/medium`}
                   alt={image.sourcePageTitle ?? ""}
                   width={image.width}
                   height={image.height}

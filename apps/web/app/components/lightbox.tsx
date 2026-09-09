@@ -228,14 +228,20 @@ export function Lightbox({
   return (
     <DialogPrimitive.Root open={image !== null} onOpenChange={(open) => !open && close()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/85 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        {/* Less black than a scrim usually is, because the blur is doing half
+            the work of separating the Image from the page: at full opacity
+            there would be nothing behind it left to blur. The blur fades with
+            the element — an opacity below 1 blends the filtered backdrop back
+            towards the sharp one — so the page softens rather than snapping
+            out of focus, and no keyframe is needed to say so. */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           // No `zoom-in`: that is a transform on an ancestor of the morphing
           // image, so the browser would capture the image's "after" frame at
           // 95% and snap it to full size when the transition ends. The expand
           // *is* this surface's entrance animation now.
-          className="fixed inset-0 z-50 flex flex-col outline-none duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          className="fixed inset-0 z-50 flex flex-col outline-none duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         >
           <DialogPrimitive.Title className="sr-only">
             {image?.title || "Image"}

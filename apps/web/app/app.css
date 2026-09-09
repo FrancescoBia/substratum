@@ -141,6 +141,27 @@
 }
 
 /**
+ * One clock for opening and closing the viewer. The tile's flight, the page's
+ * cross-fade underneath it and the scrim's own fade are one gesture as far as
+ * the reader is concerned, so they run off one duration and one curve — the
+ * scrim reaches for them from `lightbox.tsx` as `duration-(--lightbox-duration)`
+ * and `ease-(--lightbox-ease)`. The curve decelerates hard, so the expand
+ * arrives and settles rather than coasting to a stop.
+ *
+ * The `*` is honest rather than lazy: opening and closing the viewer are the
+ * only view transitions this app runs.
+ */
+:root {
+  --lightbox-duration: 300ms;
+  --lightbox-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+::view-transition-group(*) {
+  animation-duration: var(--lightbox-duration);
+  animation-timing-function: var(--lightbox-ease);
+}
+
+/**
  * The tile → viewer morph. A grid tile's image and the viewer's image take turns
  * wearing `view-transition-name: lightbox-image` (see `lightbox.tsx`), and this
  * is the half of that which says how the browser should animate between them.
@@ -154,14 +175,9 @@
  * as one image being re-cropped rather than as two images sliding past.
  *
  * Everything else is left to the browser: the pair still cross-fades, and the
- * page underneath still cross-fades as `root`, which is what fades the scrim in
- * and out. Both keep the UA's 250ms so the two stay in step — the only thing
- * changed here is the easing, so the flight settles rather than coasts.
+ * page underneath still cross-fades as `root`, which is what carries the scrim
+ * and its blur in and out.
  */
-::view-transition-group(lightbox-image) {
-  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-
 ::view-transition-old(lightbox-image),
 ::view-transition-new(lightbox-image) {
   width: 100%;
@@ -175,7 +191,7 @@
      double exposure small and brief, and leaves most of the movement to a
      single sharp frame. The mosaic keeps a thumbnail's own proportions, so
      there the two frames match and this is not doing anything. */
-  animation-duration: 90ms;
+  animation-duration: calc(var(--lightbox-duration) / 3);
 }
 
 /**

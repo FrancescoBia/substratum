@@ -1,6 +1,6 @@
+import { Button } from "@repo/ui/components/button";
+import { Progress } from "@repo/ui/components/progress";
 import { XIcon } from "lucide-react";
-import { Button } from "~/components/ui/button";
-import { Progress } from "~/components/ui/progress";
 import { useUpload } from "~/components/upload-queue";
 
 /**

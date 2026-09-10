@@ -1,10 +1,10 @@
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Checkbox } from "@repo/ui/components/checkbox";
+import { Input } from "@repo/ui/components/input";
 import { ArrowRight, Check, ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useFetcher } from "react-router";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Checkbox } from "~/components/ui/checkbox";
-import { Input } from "~/components/ui/input";
 import { requireOwnerSession } from "~/auth/session.server";
 import { fullSizeSrcSet } from "~/lib/image-variants";
 import { listBoards, listTags, listUntriaged } from "~/lib/library.server";

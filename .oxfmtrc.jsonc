@@ -8,6 +8,6 @@
     "pnpm-lock.yaml",
     // Local editor/agent scaffolding, not project source (see .gitignore).
     ".claude/**",
-    ".overlay/**"
-  ]
+    ".overlay/**",
+  ],
 }

@@ -1,7 +1,7 @@
+import { Button } from "@repo/ui/components/button";
 import { RotateCcw, X } from "lucide-react";
 import { useFetcher } from "react-router";
 import { EmptyState, ViewHeader } from "~/components/image-grid";
-import { Button } from "~/components/ui/button";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listTrash } from "~/lib/library.server";
 import type { Route } from "./+types/trash";

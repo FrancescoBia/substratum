@@ -1,11 +1,11 @@
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { Download, Globe, Hash, Inbox, Layers, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Form, NavLink, useFetcher } from "react-router";
 import { ModeToggle } from "~/components/mode-toggle";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { ScrollArea } from "~/components/ui/scroll-area";
 
 type Board = { id: string; name: string; published: boolean; count: number };
 type Tag = { id: string; name: string; count: number };

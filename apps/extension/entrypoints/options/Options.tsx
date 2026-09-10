@@ -1,3 +1,7 @@
+import { Alert, AlertDescription } from "@repo/ui/components/alert";
+import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 import { useEffect, useState } from "react";
 import {
   getInstanceUrl,
@@ -81,49 +85,56 @@ export function Options() {
     }
   }
 
+  const busy = status.kind === "checking";
+
   return (
-    <main>
-      <h1>Substratum</h1>
-      <p className="muted">
-        Point this extension at your own Substratum instance. Then right-click any image on the web
-        and choose <strong>Save to Substratum</strong>.
-      </p>
+    <main className="flex min-h-screen justify-center p-10">
+      <div className="w-full max-w-md">
+        <h1 className="text-2xl font-semibold tracking-tight">Substratum</h1>
+        <p className="text-muted-foreground mt-2 text-sm">
+          Point this extension at your own Substratum instance. Then right-click any image on the
+          web and choose <strong className="text-foreground font-medium">Save to Substratum</strong>
+          .
+        </p>
 
-      <label htmlFor="instance">Instance URL</label>
-      <input
-        id="instance"
-        type="url"
-        placeholder="https://substratum.example.com"
-        value={input}
-        onChange={(event) => setInput(event.target.value)}
-        onKeyDown={(event) => event.key === "Enter" && pair()}
-      />
+        <div className="mt-8 flex flex-col gap-2">
+          <Label htmlFor="instance">Instance URL</Label>
+          <Input
+            id="instance"
+            type="url"
+            placeholder="https://substratum.example.com"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => event.key === "Enter" && pair()}
+          />
+        </div>
 
-      <div className="row">
-        <button className="primary" onClick={pair} disabled={status.kind === "checking"}>
-          <span>{paired === toOrigin(input) && paired ? "Re-pair" : "Pair instance"}</span>
-        </button>
+        <div className="mt-3 flex gap-2">
+          <Button onClick={pair} disabled={busy}>
+            {paired === toOrigin(input) && paired ? "Re-pair" : "Pair instance"}
+          </Button>
+          {paired && (
+            <Button variant="outline" onClick={() => checkSession(paired)} disabled={busy}>
+              Check connection
+            </Button>
+          )}
+        </div>
+
+        {status.kind !== "idle" && (
+          // The success case has no variant of its own — `destructive` is the
+          // only one the design system offers — so a passing check is a plain
+          // alert and only a failure is coloured.
+          <Alert className="mt-5" variant={status.kind === "bad" ? "destructive" : "default"}>
+            <AlertDescription>{busy ? "Checking…" : status.message}</AlertDescription>
+          </Alert>
+        )}
+
         {paired && (
-          <button onClick={() => checkSession(paired)} disabled={status.kind === "checking"}>
-            Check connection
-          </button>
+          <p className="text-muted-foreground mt-6 text-xs">
+            Paired with <code className="bg-muted rounded px-1 py-0.5">{paired}</code>
+          </p>
         )}
       </div>
-
-      {status.kind !== "idle" && (
-        <div
-          className={`status ${status.kind === "ok" ? "ok" : status.kind === "bad" ? "bad" : ""}`}
-          role="status"
-        >
-          {status.kind === "checking" ? "Checking…" : status.message}
-        </div>
-      )}
-
-      {paired && (
-        <p className="muted" style={{ marginTop: "1.5rem" }}>
-          Paired with <code>{paired}</code>
-        </p>
-      )}
     </main>
   );
 }

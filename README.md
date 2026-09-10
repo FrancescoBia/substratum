@@ -139,6 +139,7 @@ Layout:
 ```
 apps/web          the server: database, storage, ingest, public pages, UI
 apps/extension    the Chrome extension (MV3, built with WXT)
+packages/ui       the design system: theme, shadcn primitives, cn
 packages/shared   types shared by the capture API
 ```
 

@@ -1,8 +1,8 @@
+import { Button } from "@repo/ui/components/button";
 import { Info, LayoutDashboard, LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox";
-import { Button } from "~/components/ui/button";
 import type { GridImage } from "~/lib/library.server";
 
 type GridLayout = "flat" | "mosaic";

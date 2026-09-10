@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Button } from "~/components/ui/button";
+import { Button } from "@repo/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +6,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "~/components/ui/dialog";
+} from "@repo/ui/components/dialog";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { UploadProgress } from "~/components/upload-progress";
 import { UploadProvider, useUpload, type UploadDestination } from "~/components/upload-queue";
 

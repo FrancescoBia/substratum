@@ -1,10 +1,10 @@
+import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 import { randomUUID } from "node:crypto";
 import { Form, data, redirect, useNavigation } from "react-router";
 import { hashPassword, validatePassword } from "~/auth/password.server";
 import { createSession, getOwner } from "~/auth/session.server";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
 import { db, schema } from "~/db/index.server";
 import type { Route } from "./+types/setup";
 

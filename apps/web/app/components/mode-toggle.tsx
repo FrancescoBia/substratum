@@ -1,13 +1,13 @@
 import { Moon, Sun } from "lucide-react";
 
-import { Button } from "~/components/ui/button";
+import { Button } from "@repo/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { useTheme } from "~/components/theme-provider";
+} from "@repo/ui/components/dropdown-menu";
+import { useTheme } from "@repo/ui/components/theme-provider";
 
 /**
  * Styled to sit in the sidebar footer alongside Export all and Sign out, so the

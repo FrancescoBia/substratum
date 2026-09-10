@@ -1,3 +1,4 @@
+import { ThemeProvider, ThemeScript } from "@repo/ui/components/theme-provider";
 import {
   isRouteErrorResponse,
   Links,
@@ -9,7 +10,6 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
-import { ThemeProvider, ThemeScript } from "./components/theme-provider";
 
 // Fonts are bundled (@fontsource-variable/geist via app.css) rather than fetched
 // from a third party — a self-hosted instance shouldn't phone home to Google.

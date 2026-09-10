@@ -1,0 +1,96 @@
+# The gate every change has to clear: typecheck, build, the end-to-end suite,
+# and the container image.
+#
+# Also callable, and publish.yml calls it. A tag is not a branch — main's
+# protection rules say nothing about the commit a `v*` tag is pushed to — so
+# the release gate cannot be branch protection, it has to be a job the publish
+# workflow depends on.
+name: ci
+
+on:
+  pull_request:
+  # Direct pushes to main still get checked, so a green tick on main means
+  # something regardless of how the commit arrived.
+  push:
+    branches: [main]
+  workflow_call:
+
+# A new push to a PR makes the previous run's answer irrelevant. Runs on main
+# and on a tag are kept: those are the ones a release decision rests on.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # No version here: action-setup reads `packageManager` from package.json,
+      # so CI and the Dockerfile cannot drift onto different pnpm versions.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          # Matches the Dockerfile's node:24 base, so a build that passes here
+          # is a build that passes in the image.
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Formatting is a real gate — oxfmt exits non-zero on a mismatch, and the
+      # tree is currently clean.
+      - run: pnpm format:check
+      # Lint is informational for now: every rule the repo trips is a warning,
+      # and `oxlint` exits 0 on warnings. Making it block means either clearing
+      # the existing ones or pinning a ceiling with `oxlint --max-warnings=N`.
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Only chromium: playwright.config.ts defines no other browser project,
+      # and --with-deps pulls the system libraries the runner image lacks.
+      - run: pnpm --filter @repo/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+
+      # The CI reporter is `line`, so a failure leaves no HTML report — but
+      # `trace: retain-on-failure` leaves a trace under test-results, which is
+      # what actually lets a failure be replayed locally.
+      - if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-traces
+          path: apps/web/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+
+      # Build only, never push — this is here because the release publishes an
+      # image, and a Dockerfile that no PR ever exercises is a Dockerfile that
+      # breaks at tag time. amd64 only: the arm64 half runs under QEMU and is
+      # slow, and a Dockerfile error shows up on either arch.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          # Shares a cache scope with publish.yml, so the release build starts
+          # from layers this job already produced.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

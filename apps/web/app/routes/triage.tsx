@@ -1,5 +1,5 @@
 import { Badge } from "@repo/ui/components/badge";
-import { Button } from "@repo/ui/components/button";
+import { Button, buttonVariants } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import { Input } from "@repo/ui/components/input";
 import { ArrowRight, Check, ExternalLink, Trash2 } from "lucide-react";
@@ -120,9 +120,16 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
                 // skipped is still untriaged and waiting here next time.
                 `Worked through ${total} image${total === 1 ? "" : "s"}. Anything you skipped is still waiting.`}
           </p>
-          <Button asChild variant="outline" size="sm" className="mt-4">
-            <Link to="/">Back to Stream</Link>
-          </Button>
+          <Link
+            to="/"
+            className={buttonVariants({
+              variant: "outline",
+              size: "sm",
+              className: "mt-4",
+            })}
+          >
+            Back to Stream
+          </Link>
         </div>
       </div>
     );

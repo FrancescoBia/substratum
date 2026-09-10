@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ExternalLink, Info, X } from "lucide-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Link,
@@ -221,8 +221,14 @@ export function Lightbox({
         step(1);
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Capture, not bubble: `Dialog.Popup` stops propagation of the arrow keys
+    // so they cannot leak out of a popup into whatever is behind it. Here the
+    // dialog *is* what they steer, and this listener is on the window, so it
+    // only ever sees them on the way down. Moving it onto the popup would work
+    // too while focus stays trapped inside; capturing keeps it independent of
+    // where focus happens to be.
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [index, step]);
 
   return (
@@ -234,9 +240,8 @@ export function Lightbox({
             the element — an opacity below 1 blends the filtered backdrop back
             towards the sharp one — so the page softens rather than snapping
             out of focus, and no keyframe is needed to say so. */}
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
-        <DialogPrimitive.Content
-          aria-describedby={undefined}
+        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        <DialogPrimitive.Popup
           // No `zoom-in`: that is a transform on an ancestor of the morphing
           // image, so the browser would capture the image's "after" frame at
           // 95% and snap it to full size when the transition ends. The expand
@@ -257,7 +262,7 @@ export function Lightbox({
               onClose={close}
             />
           )}
-        </DialogPrimitive.Content>
+        </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );

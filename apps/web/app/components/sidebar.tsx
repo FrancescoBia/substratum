@@ -1,5 +1,5 @@
 import { Badge } from "@repo/ui/components/badge";
-import { Button } from "@repo/ui/components/button";
+import { Button, buttonVariants } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { Download, Globe, Hash, Inbox, Layers, Plus, Trash2 } from "lucide-react";
@@ -144,11 +144,17 @@ export function Sidebar({
       <div className="flex flex-col gap-0.5 border-t p-2">
         {/* A plain link, not a fetcher: the response is a file download, and the
             browser handles that better than any JavaScript would. */}
-        <Button asChild variant="ghost" size="sm" className="w-full justify-start">
-          <a href="/export" download>
-            <Download className="size-4" /> Export all
-          </a>
-        </Button>
+        <a
+          href="/export"
+          download
+          className={buttonVariants({
+            variant: "ghost",
+            size: "sm",
+            className: "w-full justify-start",
+          })}
+        >
+          <Download className="size-4" /> Export all
+        </a>
 
         <ModeToggle />
 

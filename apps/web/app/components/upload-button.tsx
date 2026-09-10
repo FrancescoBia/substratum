@@ -1,4 +1,4 @@
-import { Button } from "@repo/ui/components/button";
+import { buttonVariants } from "@repo/ui/components/button";
 import { useUpload } from "~/components/upload-queue";
 
 /**
@@ -23,9 +23,9 @@ export function UploadButton() {
           event.target.value = "";
         }}
       />
-      <Button asChild size="sm">
-        <span className="cursor-pointer">{state.running ? "Uploading…" : "Upload images"}</span>
-      </Button>
+      <span className={buttonVariants({ size: "sm", className: "cursor-pointer" })}>
+        {state.running ? "Uploading…" : "Upload images"}
+      </span>
     </label>
   );
 }

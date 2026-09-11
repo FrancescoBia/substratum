@@ -1,11 +1,11 @@
+import { Badge } from "@repo/ui/components/badge";
+import { Button, buttonVariants } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { Download, Globe, Hash, Inbox, Layers, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Form, NavLink, useFetcher } from "react-router";
 import { ModeToggle } from "~/components/mode-toggle";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { ScrollArea } from "~/components/ui/scroll-area";
 
 type Board = { id: string; name: string; published: boolean; count: number };
 type Tag = { id: string; name: string; count: number };
@@ -117,7 +117,11 @@ export function Sidebar({
               Tags
             </div>
             {tags.map((tag) => (
-              <NavLink key={tag.id} to={`/tag/${encodeURIComponent(tag.name)}`} className={navClass}>
+              <NavLink
+                key={tag.id}
+                to={`/tag/${encodeURIComponent(tag.name)}`}
+                className={navClass}
+              >
                 <Hash className="size-3.5 shrink-0" />
                 <span className="truncate">{tag.name}</span>
                 <span className="text-muted-foreground ml-auto text-xs">{tag.count}</span>
@@ -140,11 +144,17 @@ export function Sidebar({
       <div className="flex flex-col gap-0.5 border-t p-2">
         {/* A plain link, not a fetcher: the response is a file download, and the
             browser handles that better than any JavaScript would. */}
-        <Button asChild variant="ghost" size="sm" className="w-full justify-start">
-          <a href="/export" download>
-            <Download className="size-4" /> Export all
-          </a>
-        </Button>
+        <a
+          href="/export"
+          download
+          className={buttonVariants({
+            variant: "ghost",
+            size: "sm",
+            className: "w-full justify-start",
+          })}
+        >
+          <Download className="size-4" /> Export all
+        </a>
 
         <ModeToggle />
 

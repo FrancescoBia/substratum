@@ -55,10 +55,13 @@ test("a published board is readable with no session at all", async ({ browser, r
     await expect(page.locator("main img")).toHaveCount(3);
 
     // The images have to actually load — a 404 still renders an <img>.
-    const loaded = await page.locator("main img").first().evaluate((node) => {
-      const image = node as HTMLImageElement;
-      return image.complete && image.naturalWidth > 0;
-    });
+    const loaded = await page
+      .locator("main img")
+      .first()
+      .evaluate((node) => {
+        const image = node as HTMLImageElement;
+        return image.complete && image.naturalWidth > 0;
+      });
     expect(loaded).toBe(true);
   });
 });
@@ -111,10 +114,7 @@ test("the shareable URL follows the address the page was served on", async ({
       "X-Forwarded-Host": "boards.example.com",
     });
     await page.reload();
-    await expect(ogUrl).toHaveAttribute(
-      "content",
-      `https://boards.example.com/board/${slug}`,
-    );
+    await expect(ogUrl).toHaveAttribute("content", `https://boards.example.com/board/${slug}`);
   });
 });
 
@@ -169,7 +169,7 @@ test("trashing an image removes it from the public page immediately", async ({
     await expect(page.locator("main img")).toHaveCount(1);
 
     // And its bytes stop being served, not merely its tile.
-    const image = await page.request.get(`/img/${ids[0]}/thumb`);
+    const image = await page.request.get(`/img/${ids[0]}/medium`);
     expect(image.status()).toBe(404);
   });
 });
@@ -183,7 +183,7 @@ test("images not on any published board are never served anonymously", async ({
   expect(id).toBeTruthy();
 
   await asStranger(browser, async (page) => {
-    const response = await page.request.get(`/img/${id}/thumb`);
+    const response = await page.request.get(`/img/${id}/medium`);
     expect(response.status()).toBe(404);
   });
 });

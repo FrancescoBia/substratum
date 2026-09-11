@@ -15,8 +15,7 @@ import type { Route } from "./+types/api.capture";
 export async function action({ request }: Route.ActionArgs) {
   const headers = extensionCorsHeaders(request);
 
-  const respond = (body: CaptureResponse, status = 200) =>
-    Response.json(body, { status, headers });
+  const respond = (body: CaptureResponse, status = 200) => Response.json(body, { status, headers });
 
   const owner = await getOwnerFromSession(request);
   if (!owner) {

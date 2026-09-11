@@ -1,8 +1,14 @@
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
+  // WXT owns the Vite config, so Tailwind is added through this hook rather
+  // than a vite.config.ts of our own.
+  vite: () => ({
+    plugins: [tailwindcss()],
+  }),
   manifest: {
     name: "Substratum",
     description: "Right-click any image to save it to your Substratum library.",

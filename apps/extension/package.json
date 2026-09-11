@@ -1,8 +1,8 @@
 {
   "name": "@repo/extension",
-  "description": "Save images to your Substratum library",
+  "version": "0.2.2",
   "private": true,
-  "version": "0.2.0",
+  "description": "Save images to your Substratum library",
   "type": "module",
   "scripts": {
     "dev": "wxt",
@@ -13,13 +13,16 @@
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "@repo/ui": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.1.5",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "web-ext": "^10.5.0",
     "wxt": "^0.21.2"

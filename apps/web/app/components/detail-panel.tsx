@@ -1,13 +1,13 @@
+import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
+import { Checkbox } from "@repo/ui/components/checkbox";
+import { Input } from "@repo/ui/components/input";
+import { Separator } from "@repo/ui/components/separator";
+import { Sheet, SheetContent, SheetTitle } from "@repo/ui/components/sheet";
+import { Textarea } from "@repo/ui/components/textarea";
 import { ExternalLink, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFetcher, useLocation, useNavigate } from "react-router";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Checkbox } from "~/components/ui/checkbox";
-import { Input } from "~/components/ui/input";
-import { Separator } from "~/components/ui/separator";
-import { Sheet, SheetContent, SheetTitle } from "~/components/ui/sheet";
-import { Textarea } from "~/components/ui/textarea";
 import type { ImageDetail } from "~/lib/library.server";
 
 type Board = { id: string; name: string; published: boolean };

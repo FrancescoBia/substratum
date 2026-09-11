@@ -2,11 +2,8 @@ import { randomUUID } from "node:crypto";
 import { ACCEPTED_FORMATS, MAX_IMAGE_BYTES, type CaptureErrorCode } from "@repo/shared";
 import sharp, { type Metadata } from "sharp";
 import { db, schema } from "~/db/index.server";
+import { MEDIUM_EDGE, THUMB_EDGE } from "./image-variants";
 import { storage, storageKeys } from "./storage.server";
-
-/** Long edge of each derivative, in pixels. */
-const THUMB_EDGE = 400;
-const MEDIUM_EDGE = 1200;
 
 /**
  * Where an Image came from. Null for one the Owner uploaded by hand — there is
@@ -126,7 +123,11 @@ export async function fetchSourceImage(
     return { ok: false, code: "invalid-request", message: "That image URL isn't valid." };
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return { ok: false, code: "invalid-request", message: "Only http and https images can be saved." };
+    return {
+      ok: false,
+      code: "invalid-request",
+      message: "Only http and https images can be saved.",
+    };
   }
 
   try {

@@ -1,141 +1,109 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+/**
+ * Tailwind, the theme and the base layer all arrive with the design system —
+ * this file is only what the web app has that the extension never will. Add a
+ * token or restyle a primitive in `packages/ui/src/styles/globals.css` instead,
+ * so both consumers move together.
+ */
+@import "@repo/ui/globals.css";
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-  --animate-progress-sweep: progress-sweep 1.4s ease-in-out infinite;
-}
-
-/* An indeterminate progress bar has no width to fill, so it sweeps instead. */
-@keyframes progress-sweep {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(250%);
-  }
-}
-
+/**
+ * One clock for opening and closing the viewer. The tile's flight, the page's
+ * cross-fade underneath it and the scrim's own fade are one gesture as far as
+ * the reader is concerned, so they run off one duration and one curve — the
+ * scrim reaches for them from `lightbox.tsx` as `duration-(--lightbox-duration)`
+ * and `ease-(--lightbox-ease)`. The curve decelerates hard, so the expand
+ * arrives and settles rather than coasting to a stop.
+ *
+ * The `*` is honest rather than lazy: opening and closing the viewer are the
+ * only view transitions this app runs.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --lightbox-duration: 300ms;
+  --lightbox-ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+::view-transition-group(*) {
+  animation-duration: var(--lightbox-duration);
+  animation-timing-function: var(--lightbox-ease);
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+/**
+ * The tile → viewer morph. A grid tile's image and the viewer's image take turns
+ * wearing `view-transition-name: lightbox-image` (see `lightbox.tsx`), and this
+ * is the half of that which says how the browser should animate between them.
+ *
+ * Sizing both frames is the whole trick. The default is `inline-size: 100%;
+ * block-size: auto`, which keeps each snapshot's own aspect ratio and lets it
+ * spill out of the box the group is animating — and the two ends here are
+ * different shapes by definition, a 4/5 crop at one end and the full image at
+ * the other. Filling the box and cropping with `object-fit` instead keeps both
+ * frames inside it for the whole flight, so the cross-fade between them reads
+ * as one image being re-cropped rather than as two images sliding past.
+ *
+ * Everything else is left to the browser: the pair still cross-fades, and the
+ * page underneath still cross-fades as `root`, which is what carries the scrim
+ * and its blur in and out.
+ */
+::view-transition-old(lightbox-image),
+::view-transition-new(lightbox-image) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+
+  /* The cross-fade is shorter than the flight it happens during. A tile in the
+     flat grid is a 4/5 crop of an image the viewer shows whole, so the two
+     frames are the same picture at two different zooms and there is no
+     duration at which they line up — but landing the blend early keeps the
+     double exposure small and brief, and leaves most of the movement to a
+     single sharp frame. The mosaic keeps a thumbnail's own proportions, so
+     there the two frames match and this is not doing anything. */
+  animation-duration: calc(var(--lightbox-duration) / 3);
+}
+
+/**
+ * A masonry grid that fills left to right. Tiles keep their proportions and
+ * columns end ragged, but grid auto-placement runs row-major, so tile 2 lands
+ * to the right of tile 1 rather than beneath it. This replaced CSS
+ * multi-column, which filled a whole column before starting the next — that is
+ * what multi-column is specified to do, so it had to go rather than be coaxed.
+ *
+ * One row track is 1% of a column's width, which is the trick that makes the
+ * whole thing work without JavaScript: a tile's span is then a pure function of
+ * its aspect ratio — `round(100 * height / width) + 6` — and stays correct at
+ * every viewport width, so it can be computed from loader data and server-
+ * rendered. See `ImageGrid` for the other end of that arithmetic.
+ *
+ * `row-gap` has to be zero: a tile spans ~130 tracks, and a gap would be
+ * inserted between every one of them. The vertical gutter instead comes from
+ * each tile's own `padding-bottom: 6%` — a percentage padding resolves against
+ * the tile's width, i.e. the column width, so 6% is exactly the 6 extra tracks
+ * the span buys.
+ *
+ * `100cqw` resolves against the nearest *ancestor* query container, never the
+ * element itself, so `@container` sits on the section wrapping this grid.
+ */
+@utility mosaic {
+  display: grid;
+  grid-template-columns: repeat(var(--mosaic-cols), minmax(0, 1fr));
+  column-gap: var(--mosaic-gap);
+  row-gap: 0;
+
+  /* The column count lives here alone; the tile span deliberately does not
+     depend on it, so nothing has to be kept in sync across breakpoints. */
+  --mosaic-cols: 2;
+  --mosaic-gap: calc(var(--spacing) * 3);
+  --mosaic-column: calc(
+    (100cqw - (var(--mosaic-cols) - 1) * var(--mosaic-gap)) / var(--mosaic-cols)
+  );
+  grid-auto-rows: calc(var(--mosaic-column) / 100);
+
+  @variant sm {
+    --mosaic-cols: 3;
   }
-  body {
-    @apply bg-background text-foreground;
+  @variant lg {
+    --mosaic-cols: 4;
   }
-  html {
-    @apply font-sans;
+  @variant xl {
+    --mosaic-cols: 5;
   }
 }

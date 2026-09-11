@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "import", "jsx-a11y", "promise"],
+  "categories": {
+    "correctness": "error"
+  },
+  // Web app, extension popup and Node scripts all live in here, so both sets of
+  // globals are in scope.
+  "env": {
+    "builtin": true,
+    "browser": true,
+    "node": true
+  },
+  "rules": {
+    // Off: both misread the design system. `role="group"` on a div is the correct
+    // ARIA for a Base UI field group and for the mosaic grid, and the label rule
+    // fires on the `Label` primitive itself, which has no control in scope — the
+    // consumer supplies one.
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/label-has-associated-control": "off",
+
+    // Warnings, not errors: these fire on real code we have not triaged yet —
+    // the lightbox's click-the-surround-to-close backdrop, autofocused inputs,
+    // and two setState-in-effect spots. Visible on every run, blocking nothing.
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/no-autofocus": "warn",
+    "react/set-state-in-effect": "warn"
+  },
+  "ignorePatterns": ["apps/web/drizzle/**"]
+}

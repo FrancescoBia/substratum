@@ -49,9 +49,7 @@ export async function action({ request }: Route.ActionArgs): Promise<UploadResul
   const errors = results
     .map((result) => result.error)
     .filter((message): message is string => message !== null);
-  const imageIds = results
-    .map((result) => result.id)
-    .filter((id): id is string => id !== null);
+  const imageIds = results.map((result) => result.id).filter((id): id is string => id !== null);
 
   if (boardId && imageIds.length > 0) {
     const addedAt = Date.now();

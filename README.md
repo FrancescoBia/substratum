@@ -173,15 +173,17 @@ pnpm dev
 The web app runs on http://localhost:3000. Any other port works too — `pnpm dev --port
 4000` — and published board links follow the port you're actually on.
 
-| Command | Does |
-|---|---|
-| `pnpm dev` | Run the web app in dev mode |
-| `pnpm seed` | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 3000) |
-| `pnpm test:e2e` | Run every Playwright spec against a throwaway instance |
-| `pnpm shots` | Regenerate just the screenshots in `apps/web/screenshots/` |
-| `pnpm build` | Build every workspace package |
-| `pnpm typecheck` | Typecheck every workspace package |
-| `pnpm db:generate` | Generate a Drizzle migration from schema changes |
+| Command            | Does                                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`         | Run the web app in dev mode                                                                                 |
+| `pnpm seed`        | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 3000) |
+| `pnpm test:e2e`    | Run every Playwright spec against a throwaway instance                                                      |
+| `pnpm shots`       | Regenerate just the screenshots in `apps/web/screenshots/`                                                  |
+| `pnpm build`       | Build every workspace package                                                                               |
+| `pnpm typecheck`   | Typecheck every workspace package                                                                           |
+| `pnpm lint`        | Lint every workspace with oxlint                                                                            |
+| `pnpm format`      | Format the repo with oxfmt (`format:check` to only report)                                                  |
+| `pnpm db:generate` | Generate a Drizzle migration from schema changes                                                            |
 
 ### Seeing the app without clicking through setup
 
@@ -203,6 +205,7 @@ Layout:
 ```
 apps/web          the server: database, storage, ingest, public pages, UI
 apps/extension    the Chrome extension (MV3, built with WXT)
+packages/ui       the design system: theme, shadcn primitives, cn
 packages/shared   types shared by the capture API
 ```
 

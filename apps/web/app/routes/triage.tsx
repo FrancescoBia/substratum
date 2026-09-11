@@ -1,11 +1,12 @@
+import { Badge } from "@repo/ui/components/badge";
+import { Button, buttonVariants } from "@repo/ui/components/button";
+import { Checkbox } from "@repo/ui/components/checkbox";
+import { Input } from "@repo/ui/components/input";
 import { ArrowRight, Check, ExternalLink, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useFetcher } from "react-router";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import { Checkbox } from "~/components/ui/checkbox";
-import { Input } from "~/components/ui/input";
 import { requireOwnerSession } from "~/auth/session.server";
+import { fullSizeSrcSet } from "~/lib/image-variants";
 import { listBoards, listTags, listUntriaged } from "~/lib/library.server";
 import type { Route } from "./+types/triage";
 
@@ -73,7 +74,10 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
     if (!imageTags.includes(normalized)) {
       setTagged((state) => ({ ...state, [currentId]: [...imageTags, normalized] }));
     }
-    edit.submit({ intent: "add-tag", tag: name }, { method: "post", action: `/image/${currentId}` });
+    edit.submit(
+      { intent: "add-tag", tag: name },
+      { method: "post", action: `/image/${currentId}` },
+    );
     setTagInput("");
   }
 
@@ -116,9 +120,16 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
                 // skipped is still untriaged and waiting here next time.
                 `Worked through ${total} image${total === 1 ? "" : "s"}. Anything you skipped is still waiting.`}
           </p>
-          <Button asChild variant="outline" size="sm" className="mt-4">
-            <Link to="/">Back to Stream</Link>
-          </Button>
+          <Link
+            to="/"
+            className={buttonVariants({
+              variant: "outline",
+              size: "sm",
+              className: "mt-4",
+            })}
+          >
+            Back to Stream
+          </Link>
         </div>
       </div>
     );
@@ -146,6 +157,14 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
           <img
             key={currentId}
             src={`/img/${currentId}/medium`}
+            // Same reasoning as the lightbox: this pane fills most of a wide
+            // window, so `medium` alone is upscaled on a large retina display.
+            // `100vw` overstates the box — the image is `object-contain` between
+            // a header and a sidebar — which biases the browser toward the
+            // original. That is the right way to be wrong on a view whose whole
+            // job is judging one image.
+            srcSet={fullSizeSrcSet(current)}
+            sizes="100vw"
             alt=""
             className="max-h-full max-w-full rounded-lg object-contain shadow-lg"
           />

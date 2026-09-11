@@ -20,9 +20,7 @@ async function fetchExport(request: APIRequestContext) {
   expect(response.headers()["content-type"]).toBe("application/zip");
 
   const files = unzipSync(new Uint8Array(await response.body()));
-  const manifest = JSON.parse(
-    new TextDecoder().decode(files["manifest.json"]),
-  ) as Manifest;
+  const manifest = JSON.parse(new TextDecoder().decode(files["manifest.json"])) as Manifest;
 
   return { files, manifest, headers: response.headers() };
 }

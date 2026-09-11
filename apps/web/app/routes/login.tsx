@@ -1,10 +1,10 @@
+import { Button } from "@repo/ui/components/button";
+import { Input } from "@repo/ui/components/input";
+import { Label } from "@repo/ui/components/label";
 import { eq } from "drizzle-orm";
 import { Form, data, redirect, useNavigation } from "react-router";
 import { verifyPassword } from "~/auth/password.server";
 import { createSession, getOwner, getOwnerFromSession } from "~/auth/session.server";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
 import { db, schema } from "~/db/index.server";
 import type { Route } from "./+types/login";
 

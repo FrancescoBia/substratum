@@ -1,7 +1,7 @@
+import { Button } from "@repo/ui/components/button";
 import { RotateCcw, X } from "lucide-react";
 import { useFetcher } from "react-router";
 import { EmptyState, ViewHeader } from "~/components/image-grid";
-import { Button } from "~/components/ui/button";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listTrash } from "~/lib/library.server";
 import type { Route } from "./+types/trash";
@@ -43,7 +43,9 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
           {images.map((image) => (
             <div key={image.id} className="group relative">
               <img
-                src={`/img/${image.id}/thumb`}
+                // See `image-grid.tsx`: the 400px `thumb` is too small for a
+                // ~300 CSS px tile on a retina display.
+                src={`/img/${image.id}/medium`}
                 alt={image.title ?? ""}
                 loading="lazy"
                 className="bg-muted aspect-4/5 w-full rounded-lg object-cover opacity-60"
@@ -54,7 +56,10 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
                   variant="secondary"
                   className="h-7 flex-1"
                   onClick={() =>
-                    act.submit({ intent: "restore" }, { method: "post", action: `/image/${image.id}` })
+                    act.submit(
+                      { intent: "restore" },
+                      { method: "post", action: `/image/${image.id}` },
+                    )
                   }
                 >
                   <RotateCcw className="size-3" /> Restore

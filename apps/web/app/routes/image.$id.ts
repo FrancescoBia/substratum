@@ -83,10 +83,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     case "restore": {
-      await db
-        .update(schema.images)
-        .set({ deletedAt: null })
-        .where(eq(schema.images.id, imageId));
+      await db.update(schema.images).set({ deletedAt: null }).where(eq(schema.images.id, imageId));
       return { ok: true };
     }
 

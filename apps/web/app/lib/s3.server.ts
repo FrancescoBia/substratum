@@ -268,23 +268,26 @@ async function signedFetch(config: S3Config, request: S3Request): Promise<Respon
   // `host` is set by the runtime from the URL; sending it again is rejected.
   const { host: _host, ...sendHeaders } = headers;
 
-  return fetch(`${endpoint.protocol}//${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`, {
-    method: request.method,
-    headers: {
-      ...sendHeaders,
-      Authorization: `${ALGORITHM} Credential=${config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+  return fetch(
+    `${endpoint.protocol}//${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`,
+    {
+      method: request.method,
+      headers: {
+        ...sendHeaders,
+        Authorization: `${ALGORITHM} Credential=${config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+      },
+      // A view rather than a copy: originals run to 50 MB and are already in
+      // memory. The cast is because Node types the backing store as possibly
+      // shared, which `fetch` will not take.
+      body: request.body
+        ? new Uint8Array(
+            request.body.buffer as ArrayBuffer,
+            request.body.byteOffset,
+            request.body.byteLength,
+          )
+        : undefined,
     },
-    // A view rather than a copy: originals run to 50 MB and are already in
-    // memory. The cast is because Node types the backing store as possibly
-    // shared, which `fetch` will not take.
-    body: request.body
-      ? new Uint8Array(
-          request.body.buffer as ArrayBuffer,
-          request.body.byteOffset,
-          request.body.byteLength,
-        )
-      : undefined,
-  });
+  );
 }
 
 /** Adapter-relative key to the key as it exists in the bucket. */

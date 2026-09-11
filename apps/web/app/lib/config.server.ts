@@ -4,6 +4,20 @@ import { join, resolve } from "node:path";
 import type { S3Config } from "./s3.server";
 
 /**
+ * A `.env` in the working directory, for local development only.
+ *
+ * Vite reads .env files, but only into `import.meta.env` for client code —
+ * nothing here ever sees them, and everything here reads `process.env`. So
+ * without this a .env is a file that looks like configuration and does nothing.
+ * `--env-file` would do the same job but cannot be passed through NODE_OPTIONS,
+ * which is all the dev server leaves us.
+ *
+ * A real environment variable always wins over the file, so this cannot
+ * override what docker-compose sets. In the container there is no .env at all.
+ */
+if (existsSync(".env")) process.loadEnvFile();
+
+/**
  * All configuration is environment variables with working defaults, so a
  * self-hoster needs no config file. In Docker, SUBSTRATUM_DATA_DIR is
  * /data — the single volume holding the database and the images.

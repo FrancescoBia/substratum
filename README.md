@@ -173,6 +173,18 @@ pnpm dev
 The web app runs on http://localhost:3000. Any other port works too — `pnpm dev --port
 4000` — and published board links follow the port you're actually on.
 
+Nothing needs configuring to run it. To try something that does — a bucket, say —
+copy the sample and fill in what you need:
+
+```bash
+cp apps/web/.env.example apps/web/.env
+```
+
+`.env` is gitignored and is a development convenience only; a real environment
+variable always wins over it, and self-hosting sets these in `docker-compose.yml`
+instead. The Playwright suite pins itself to local disk, so a `.env` pointing at a
+bucket can't drag `pnpm test:e2e` into it.
+
 | Command            | Does                                                                                                        |
 | ------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`         | Run the web app in dev mode                                                                                 |

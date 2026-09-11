@@ -2,7 +2,7 @@ import { Readable } from "node:stream";
 import { ZipArchive } from "archiver";
 import { asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "~/db/index.server";
-import { storage } from "./storage.server";
+import { storage, StorageNotFound } from "./storage.server";
 
 /** Bumped if the manifest's shape ever changes, so importers can tell. */
 const MANIFEST_VERSION = 1;
@@ -123,26 +123,48 @@ export function createExportArchive(manifest: Manifest): Readable {
     zlib: { level: 0 },
   });
 
+  // The caller turns this into a response body and handles the error there. This
+  // listener only guarantees there is always one: an `error` with no listener at
+  // all takes the process down, and the loop below can destroy the stream before
+  // the caller has had a chance to attach.
+  archive.on("error", () => {});
+
   archive.append(JSON.stringify(manifest, null, 2), { name: "manifest.json" });
 
   void (async () => {
-    for (const image of manifest.images) {
-      try {
+    try {
+      for (const image of manifest.images) {
         const [row] = await db
           .select({ storageKey: schema.images.storageKey })
           .from(schema.images)
           .where(eq(schema.images.id, image.id));
         if (!row) continue;
 
-        archive.append(await storage.get(row.storageKey), { name: image.file });
-      } catch (error) {
-        // A missing file shouldn't abort the whole export — the manifest still
-        // records that the image existed.
-        console.error(`[export] skipped ${image.id}:`, error);
+        try {
+          archive.append(await storage.get(row.storageKey), { name: image.file });
+        } catch (error) {
+          // A file that is genuinely gone shouldn't abort the whole export —
+          // the manifest still records that the image existed.
+          if (!(error instanceof StorageNotFound)) throw error;
+          console.error(`[export] skipped missing ${image.id}:`, error);
+        }
       }
-    }
 
-    await archive.finalize();
+      await archive.finalize();
+    } catch (error) {
+      // The backend stopped answering partway through. Finalising here would
+      // hand the Owner a zip whose manifest lists images the archive does not
+      // contain, and the only sign of it would be a line in the container log.
+      //
+      // `destroy` rather than `abort`: abort shuts the queue down and ends the
+      // stream cleanly, which is the same silently-short download by another
+      // route. Destroying with an error fails the transfer instead — and since
+      // a zip's central directory is only written at finalize, what arrived is
+      // not a readable archive either. Both say the same thing, which is: run it
+      // again.
+      console.error("[export] aborted:", error);
+      archive.destroy(error instanceof Error ? error : new Error(String(error)));
+    }
   })();
 
   return archive as unknown as Readable;

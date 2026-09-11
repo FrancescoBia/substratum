@@ -68,11 +68,16 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
 
     const [thumb, medium] = await Promise.all([derive(THUMB_EDGE), derive(MEDIUM_EDGE)]);
 
-    await storage.put(storageKeys.original(id, format), bytes);
-    await storage.put(storageKeys.thumb(id), thumb);
-    await storage.put(storageKeys.medium(id), medium);
+    // Together, not one after another: against a bucket these are three
+    // independent network round trips on the request the extension is waiting
+    // on, and nothing orders them.
+    await Promise.all([
+      storage.put(storageKeys.original(id, format), bytes),
+      storage.put(storageKeys.thumb(id), thumb),
+      storage.put(storageKeys.medium(id), medium),
+    ]);
   } catch (error) {
-    await storage.deletePrefix(storageKeys.prefix(id)).catch(() => {});
+    await discardStoredBytes(id);
     return {
       ok: false,
       code: "server-error",
@@ -94,7 +99,7 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
       savedAt: Date.now(),
     });
   } catch (error) {
-    await storage.deletePrefix(storageKeys.prefix(id)).catch(() => {});
+    await discardStoredBytes(id);
     return {
       ok: false,
       code: "server-error",
@@ -103,6 +108,24 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
   }
 
   return { ok: true, id };
+}
+
+/**
+ * Rolls back whatever made it into storage before the failure.
+ *
+ * Best-effort by necessity — the ingest has already failed and there is nothing
+ * better to report — but not silent. Against a bucket this is a list plus a
+ * batch delete over the network, so it can fail on its own, and what it leaves
+ * behind is objects with no row pointing at them. `purgeExpiredTrash` walks
+ * database rows, so nothing will ever find them again; a log line is the only
+ * thread back to them.
+ */
+async function discardStoredBytes(id: string): Promise<void> {
+  try {
+    await storage.deletePrefix(storageKeys.prefix(id));
+  } catch (error) {
+    console.error(`[ingest] could not clean up ${id}; its stored bytes are orphaned:`, error);
+  }
 }
 
 /** Fetch timeout for server-side capture. */

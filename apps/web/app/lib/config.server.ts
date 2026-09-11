@@ -1,6 +1,21 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { S3Config } from "./s3.server";
+
+/**
+ * A `.env` in the working directory, for local development only.
+ *
+ * Vite reads .env files, but only into `import.meta.env` for client code —
+ * nothing here ever sees them, and everything here reads `process.env`. So
+ * without this a .env is a file that looks like configuration and does nothing.
+ * `--env-file` would do the same job but cannot be passed through NODE_OPTIONS,
+ * which is all the dev server leaves us.
+ *
+ * A real environment variable always wins over the file, so this cannot
+ * override what docker-compose sets. In the container there is no .env at all.
+ */
+if (existsSync(".env")) process.loadEnvFile();
 
 /**
  * All configuration is environment variables with working defaults, so a
@@ -88,8 +103,78 @@ function numberFromEnv(name: string, fallback: number): number {
   return value;
 }
 
+/**
+ * S3-compatible object storage — R2, B2, MinIO. Off unless
+ * SUBSTRATUM_S3_BUCKET names a bucket, so an instance that configures nothing
+ * keeps its images on local disk in the data volume exactly as before.
+ *
+ * A half-configured bucket throws rather than falling back: quietly writing to
+ * local disk because one variable was misspelled is how an operator ends up
+ * with images split across two backends and nothing anywhere saying so.
+ */
+export const s3Config: S3Config | null = loadS3Config();
+
+function loadS3Config(): S3Config | null {
+  const bucket = process.env.SUBSTRATUM_S3_BUCKET?.trim();
+  if (!bucket) return null;
+
+  const endpoint = requiredEnv("SUBSTRATUM_S3_ENDPOINT").replace(/\/+$/, "");
+  let parsed: URL;
+  try {
+    parsed = new URL(endpoint);
+  } catch {
+    throw new Error(
+      `SUBSTRATUM_S3_ENDPOINT must be a URL including the scheme, got ${JSON.stringify(endpoint)}`,
+    );
+  }
+  // Parsing alone is not the check: anything with a colon in it parses, so
+  // `localhost:9000` — the shape a MinIO operator reaches for first — comes back
+  // as a URL whose scheme is "localhost:" and whose host is empty. Left
+  // unchecked it boots happily and fails at the first upload with `fetch
+  // failed`, which is exactly the quiet misconfiguration this guard exists to
+  // prevent. Same test `instanceUrlFor` applies above.
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(
+      `SUBSTRATUM_S3_ENDPOINT must be an http(s) URL, got ${JSON.stringify(endpoint)} — did you mean "https://${endpoint}"?`,
+    );
+  }
+
+  // A prefix is always a directory-ish thing, so it is normalised here rather
+  // than leaving every caller to guess whose job the slash is. Trimmed like
+  // every other variable here: a stray space would otherwise become a literal
+  // part of every key in the bucket.
+  const prefix = process.env.SUBSTRATUM_S3_PREFIX?.trim().replace(/^\/+|\/+$/g, "") ?? "";
+
+  return {
+    bucket,
+    endpoint,
+    // R2 wants "auto"; MinIO and most others are content with us-east-1.
+    region: process.env.SUBSTRATUM_S3_REGION?.trim() || "us-east-1",
+    accessKeyId: requiredEnv("SUBSTRATUM_S3_ACCESS_KEY_ID"),
+    secretAccessKey: requiredEnv("SUBSTRATUM_S3_SECRET_ACCESS_KEY"),
+    // Path-style addressing is what R2, B2 and MinIO all accept. AWS S3 proper
+    // dropped it for buckets created after 2020, which is what turning this off
+    // is for.
+    forcePathStyle: booleanFromEnv("SUBSTRATUM_S3_FORCE_PATH_STYLE", true),
+    prefix: prefix ? `${prefix}/` : "",
+  };
+}
+
+function requiredEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required when SUBSTRATUM_S3_BUCKET is set.`);
+  return value;
+}
+
+function booleanFromEnv(name: string, fallback: boolean): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (raw === undefined || raw === "") return fallback;
+  if (raw === "true" || raw === "1") return true;
+  if (raw === "false" || raw === "0") return false;
+  throw new Error(`${name} must be true or false, got ${JSON.stringify(raw)}`);
+}
+
 mkdirSync(dataDir, { recursive: true });
-mkdirSync(imagesDir, { recursive: true });
 
 /**
  * Cookie signing secret. Generated into the data directory on first run rather

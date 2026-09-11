@@ -105,15 +105,31 @@ function loadS3Config(): S3Config | null {
   if (!bucket) return null;
 
   const endpoint = requiredEnv("SUBSTRATUM_S3_ENDPOINT").replace(/\/+$/, "");
+  let parsed: URL;
   try {
-    new URL(endpoint);
+    parsed = new URL(endpoint);
   } catch {
-    throw new Error(`SUBSTRATUM_S3_ENDPOINT must be a URL, got ${JSON.stringify(endpoint)}`);
+    throw new Error(
+      `SUBSTRATUM_S3_ENDPOINT must be a URL including the scheme, got ${JSON.stringify(endpoint)}`,
+    );
+  }
+  // Parsing alone is not the check: anything with a colon in it parses, so
+  // `localhost:9000` — the shape a MinIO operator reaches for first — comes back
+  // as a URL whose scheme is "localhost:" and whose host is empty. Left
+  // unchecked it boots happily and fails at the first upload with `fetch
+  // failed`, which is exactly the quiet misconfiguration this guard exists to
+  // prevent. Same test `instanceUrlFor` applies above.
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(
+      `SUBSTRATUM_S3_ENDPOINT must be an http(s) URL, got ${JSON.stringify(endpoint)} — did you mean "https://${endpoint}"?`,
+    );
   }
 
   // A prefix is always a directory-ish thing, so it is normalised here rather
-  // than leaving every caller to guess whose job the slash is.
-  const prefix = process.env.SUBSTRATUM_S3_PREFIX?.replace(/^\/+|\/+$/g, "") ?? "";
+  // than leaving every caller to guess whose job the slash is. Trimmed like
+  // every other variable here: a stray space would otherwise become a literal
+  // part of every key in the bucket.
+  const prefix = process.env.SUBSTRATUM_S3_PREFIX?.trim().replace(/^\/+|\/+$/g, "") ?? "";
 
   return {
     bucket,
@@ -145,8 +161,6 @@ function booleanFromEnv(name: string, fallback: boolean): boolean {
 }
 
 mkdirSync(dataDir, { recursive: true });
-// With a bucket configured there is no local images directory to create.
-if (!s3Config) mkdirSync(imagesDir, { recursive: true });
 
 /**
  * Cookie signing secret. Generated into the data directory on first run rather

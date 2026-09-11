@@ -177,6 +177,7 @@ The web app runs on http://localhost:3000. Any other port works too — `pnpm de
 | ------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`         | Run the web app in dev mode                                                                                 |
 | `pnpm seed`        | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 3000) |
+| `pnpm test:unit`   | Run the unit suite (the S3 client's request signing, against a stub bucket)                                 |
 | `pnpm test:e2e`    | Run every Playwright spec against a throwaway instance                                                      |
 | `pnpm shots`       | Regenerate just the screenshots in `apps/web/screenshots/`                                                  |
 | `pnpm build`       | Build every workspace package                                                                               |

@@ -15,6 +15,7 @@
     "reset-password": "pnpm --filter @repo/web reset-password",
     "migrate:storage": "pnpm --filter @repo/web migrate:storage",
     "seed": "pnpm --filter @repo/web seed",
+    "test:unit": "pnpm --filter @repo/web test:unit",
     "test:e2e": "pnpm --filter @repo/web test:e2e",
     "shots": "pnpm --filter @repo/web shots"
   },

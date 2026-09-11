@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { contentTypeForExtension } from "@repo/shared";
 
 /**
  * A minimal S3 client: request signing, plus the four calls the storage adapter
@@ -28,6 +29,12 @@ export type S3Config = {
   forcePathStyle: boolean;
   /** Optional key prefix, normalised to `""` or something ending in `/`. */
   prefix: string;
+  /**
+   * Per-attempt timeout, defaulting to {@link REQUEST_TIMEOUT_MS}. A seam for
+   * the tests, which would otherwise have to wait a minute to watch one expire;
+   * nothing in the app sets it.
+   */
+  timeoutMs?: number;
 };
 
 /** A non-2xx answer from the bucket, carrying S3's own error code where it sent one. */
@@ -47,28 +54,19 @@ const ALGORITHM = "AWS4-HMAC-SHA256";
 const SERVICE = "s3";
 
 /** Objects are labelled by extension so a bucket fronted by a CDN serves them correctly. */
-const CONTENT_TYPES: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  gif: "image/gif",
-  webp: "image/webp",
-  avif: "image/avif",
-};
-
 export async function putObject(config: S3Config, key: string, body: Buffer): Promise<void> {
-  const extension = key.slice(key.lastIndexOf(".") + 1).toLowerCase();
+  const extension = key.slice(key.lastIndexOf(".") + 1);
   await send(config, {
     method: "PUT",
     key,
     body,
-    headers: { "content-type": CONTENT_TYPES[extension] ?? "application/octet-stream" },
+    headers: { "content-type": contentTypeForExtension(extension) },
   });
 }
 
 export async function getObject(config: S3Config, key: string): Promise<Buffer> {
-  const response = await send(config, { method: "GET", key });
-  return Buffer.from(await response.arrayBuffer());
+  const { body } = await send(config, { method: "GET", key });
+  return body;
 }
 
 /**
@@ -88,8 +86,7 @@ export async function listObjectKeys(config: S3Config, prefix: string): Promise<
     };
     if (continuationToken) query["continuation-token"] = continuationToken;
 
-    const response = await send(config, { method: "GET", query });
-    const xml = await response.text();
+    const xml = (await send(config, { method: "GET", query })).body.toString("utf8");
 
     for (const match of xml.matchAll(/<Key>([\s\S]*?)<\/Key>/g)) {
       keys.push(adapterKey(config, unescapeXml(match[1])));
@@ -129,17 +126,32 @@ export async function deleteObjects(config: S3Config, keys: string[]): Promise<v
     });
 
     // Quiet mode reports only failures, so anything at all here is a problem.
-    const xml = await response.text();
+    // A partial failure comes back under a 200, so the status is no use as the
+    // error's own — 502 says what it is: the bucket refused part of the work.
+    const xml = response.body.toString("utf8");
     const failure = xml.match(/<Error>[\s\S]*?<\/Error>/)?.[0];
     if (failure) {
+      const { code, message } = parseErrorXml(failure);
       throw new S3Error(
-        response.status,
-        failure.match(/<Code>([\s\S]*?)<\/Code>/)?.[1] ?? "DeleteFailed",
-        `Batch delete failed: ${unescapeXml(failure.match(/<Message>([\s\S]*?)<\/Message>/)?.[1] ?? failure)}`,
+        502,
+        code ?? "DeleteFailed",
+        `Batch delete failed: ${message ?? unescapeXml(failure)}`,
       );
     }
   }
 }
+
+/**
+ * A bucket answer, read to completion.
+ *
+ * `send` buffers the body rather than handing back a live `Response`: every
+ * object here is whole-in-memory anyway, an unread body holds its connection out
+ * of the pool until the `Response` is collected, and a caller that never reads
+ * leaks one per call. Buffering also means the per-attempt timeout can cover the
+ * whole exchange and then be cleared, rather than either expiring mid-download
+ * or not existing at all.
+ */
+type S3Response = { status: number; body: Buffer };
 
 type S3Request = {
   method: "GET" | "PUT" | "POST" | "DELETE";
@@ -158,6 +170,21 @@ const RETRY_ATTEMPTS = 3;
 const RETRY_BASE_MS = 150;
 
 /**
+ * How long one attempt gets, from opening the connection to holding the whole
+ * body, before it is abandoned and retried.
+ *
+ * A bucket that refuses a connection fails fast; one that accepts it and then
+ * says nothing does not. Without a bound, Node's own timeouts are the only
+ * floor — five minutes an attempt, so a single `/img/:id/:variant` could hold a
+ * server connection for a quarter of an hour before answering. Sixty seconds
+ * carries a 50 MB original, the largest object this stores, over anything from
+ * about 7 Mbit/s up, while still failing a dead endpoint inside three minutes.
+ * Same intent as `FETCH_TIMEOUT_MS` in `ingest.server.ts`: outbound fetches get
+ * a bound.
+ */
+const REQUEST_TIMEOUT_MS = 60_000;
+
+/**
  * Sends one signed request, retrying the answers an object store gives when it
  * wants you to come back rather than when your request is wrong.
  *
@@ -168,8 +195,10 @@ const RETRY_BASE_MS = 150;
  * deleting keys already on their way out — so a retry can only repeat itself,
  * never double-apply.
  */
-async function send(config: S3Config, request: S3Request): Promise<Response> {
-  let lastError: unknown = new S3Error(0, "NotAttempted", "Request was never attempted.");
+async function send(config: S3Config, request: S3Request): Promise<S3Response> {
+  // No sentinel: the loop always runs at least once and always assigns before
+  // it can throw, so an initial value would only be a state that cannot happen.
+  let lastError: unknown;
 
   for (let attempt = 0; attempt < RETRY_ATTEMPTS; attempt++) {
     if (attempt > 0) {
@@ -179,25 +208,26 @@ async function send(config: S3Config, request: S3Request): Promise<Response> {
       await new Promise((resolve) => setTimeout(resolve, backoff + Math.random() * backoff));
     }
 
-    let response: Response;
+    let response: S3Response;
     try {
       // Signed inside the loop, not once outside it: a signature carries its
       // own timestamp, and one held across a backoff drifts towards the edge of
       // the window the bucket will accept.
       response = await signedFetch(config, request);
     } catch (error) {
-      // A refused or dropped connection is exactly what retrying is for.
+      // A refused connection, a dropped one, or one that went quiet past the
+      // timeout: all three are exactly what retrying is for.
       lastError = error;
       continue;
     }
 
-    if (response.ok) return response;
+    if (response.status >= 200 && response.status < 300) return response;
 
-    const detail = await response.text().catch(() => "");
+    const { code, message } = parseErrorXml(response.body.toString("utf8"));
     lastError = new S3Error(
       response.status,
-      detail.match(/<Code>([\s\S]*?)<\/Code>/)?.[1] ?? String(response.status),
-      unescapeXml(detail.match(/<Message>([\s\S]*?)<\/Message>/)?.[1] ?? response.statusText),
+      code ?? String(response.status),
+      message ?? `Bucket answered ${response.status}.`,
     );
 
     // Throttling and the 5xx family mean "come back". Anything else is the
@@ -208,7 +238,7 @@ async function send(config: S3Config, request: S3Request): Promise<Response> {
   throw lastError;
 }
 
-async function signedFetch(config: S3Config, request: S3Request): Promise<Response> {
+async function signedFetch(config: S3Config, request: S3Request): Promise<S3Response> {
   const endpoint = new URL(config.endpoint);
   let host = endpoint.host;
 
@@ -268,26 +298,56 @@ async function signedFetch(config: S3Config, request: S3Request): Promise<Respon
   // `host` is set by the runtime from the URL; sending it again is rejected.
   const { host: _host, ...sendHeaders } = headers;
 
-  return fetch(
-    `${endpoint.protocol}//${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`,
-    {
-      method: request.method,
-      headers: {
-        ...sendHeaders,
-        Authorization: `${ALGORITHM} Credential=${config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-      },
-      // A view rather than a copy: originals run to 50 MB and are already in
-      // memory. The cast is because Node types the backing store as possibly
-      // shared, which `fetch` will not take.
-      body: request.body
-        ? new Uint8Array(
-            request.body.buffer as ArrayBuffer,
-            request.body.byteOffset,
-            request.body.byteLength,
-          )
-        : undefined,
-    },
+  // Per attempt, not per operation: a retry that follows a timeout gets its own
+  // full budget, which is the point of retrying at all. Cleared as soon as the
+  // body is in hand, so a fast answer leaves no timer behind.
+  const budget = config.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(new Error(`Bucket did not answer within ${budget}ms.`)),
+    budget,
   );
+
+  try {
+    const response = await fetch(
+      `${endpoint.protocol}//${host}${path}${canonicalQuery ? `?${canonicalQuery}` : ""}`,
+      {
+        method: request.method,
+        headers: {
+          ...sendHeaders,
+          Authorization: `${ALGORITHM} Credential=${config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+        },
+        // A view rather than a copy: originals run to 50 MB and are already in
+        // memory. The cast is because Node types the backing store as possibly
+        // shared, which `fetch` will not take.
+        body: request.body
+          ? new Uint8Array(
+              request.body.buffer as ArrayBuffer,
+              request.body.byteOffset,
+              request.body.byteLength,
+            )
+          : undefined,
+        signal: controller.signal,
+      },
+    );
+
+    return { status: response.status, body: Buffer.from(await response.arrayBuffer()) };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * S3 reports what went wrong in the same `<Code>`/`<Message>` envelope whether
+ * it arrives as the whole body of a non-2xx answer or as one entry inside a
+ * batch-delete result, so both readers share this.
+ */
+function parseErrorXml(xml: string): { code: string | null; message: string | null } {
+  const message = xml.match(/<Message>([\s\S]*?)<\/Message>/)?.[1];
+  return {
+    code: xml.match(/<Code>([\s\S]*?)<\/Code>/)?.[1] ?? null,
+    message: message === undefined ? null : unescapeXml(message),
+  };
 }
 
 /** Adapter-relative key to the key as it exists in the bucket. */

@@ -1,7 +1,15 @@
+import { mkdirSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { imagesDir, s3Config } from "./config.server";
-import { deleteObjects, getObject, listObjectKeys, putObject, type S3Config } from "./s3.server";
+import {
+  deleteObjects,
+  getObject,
+  listObjectKeys,
+  putObject,
+  S3Error,
+  type S3Config,
+} from "./s3.server";
 
 /**
  * Everything that touches stored bytes goes through this interface, so the
@@ -11,20 +19,52 @@ import { deleteObjects, getObject, listObjectKeys, putObject, type S3Config } fr
  */
 export interface Storage {
   put(key: string, data: Buffer): Promise<void>;
+  /** Throws {@link StorageNotFound} when the key holds nothing. */
   get(key: string): Promise<Buffer>;
   /** Removes the whole prefix — an Image's original and all its derivatives. */
   deletePrefix(prefix: string): Promise<void>;
 }
 
+/**
+ * The key holds nothing — as distinct from the backend being unable to say.
+ *
+ * On local disk those two were effectively one: the only way a read failed was
+ * ENOENT, so callers could treat any failure as "gone" and be right. A bucket
+ * breaks that. Bad credentials, a throttle that outlives the retries, DNS that
+ * stopped resolving — all of them are a backend that cannot answer *right now*,
+ * and reporting them as a missing image tells the Owner their library was
+ * deleted. Every caller that distinguishes the two branches on this.
+ */
+export class StorageNotFound extends Error {
+  constructor(key: string, options?: { cause?: unknown }) {
+    super(`No stored object for ${key}`, options);
+    this.name = "StorageNotFound";
+  }
+}
+
 class LocalStorage implements Storage {
+  constructor() {
+    // The directory is this backend's own precondition, so this backend makes
+    // it. Leaving it to config.server meant that module had to know which
+    // implementation was in play before it could decide whether to bother.
+    mkdirSync(imagesDir, { recursive: true });
+  }
+
   async put(key: string, data: Buffer): Promise<void> {
     const path = join(imagesDir, key);
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, data);
   }
 
-  get(key: string): Promise<Buffer> {
-    return readFile(join(imagesDir, key));
+  async get(key: string): Promise<Buffer> {
+    try {
+      return await readFile(join(imagesDir, key));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new StorageNotFound(key, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async deletePrefix(prefix: string): Promise<void> {
@@ -49,8 +89,16 @@ class S3Storage implements Storage {
     return putObject(this.config, key, data);
   }
 
-  get(key: string): Promise<Buffer> {
-    return getObject(this.config, key);
+  async get(key: string): Promise<Buffer> {
+    try {
+      return await getObject(this.config, key);
+    } catch (error) {
+      // 404 is the bucket answering clearly; anything else is it failing to.
+      if (error instanceof S3Error && error.status === 404) {
+        throw new StorageNotFound(key, { cause: error });
+      }
+      throw error;
+    }
   }
 
   /**

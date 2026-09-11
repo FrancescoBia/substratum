@@ -17,6 +17,31 @@ services:
       SUBSTRATUM_URL: http://localhost:4677
       # How long a trashed image stays recoverable before it is purged.
       SUBSTRATUM_TRASH_RETENTION_DAYS: 30
+      # Optional: keep images in an S3-compatible bucket instead of the volume.
+      # Setting the bucket is what switches storage over; leave these out and
+      # images stay on local disk, which needs no configuration at all. The
+      # first four go together — set the bucket and omit one of the others and
+      # the app stops at startup naming what's missing, rather than quietly
+      # splitting your library across two backends.
+      #
+      # Copy your existing images across *before* turning these on, or every
+      # image saved until now shows as broken:
+      #   pnpm migrate:storage
+      #
+      # Note that a bucket makes the data volume no longer a complete backup —
+      # the bucket becomes a second thing to back up. See the README.
+      #
+      # SUBSTRATUM_S3_BUCKET: substratum
+      # SUBSTRATUM_S3_ENDPOINT: https://<account>.r2.cloudflarestorage.com
+      # SUBSTRATUM_S3_ACCESS_KEY_ID: ...
+      # SUBSTRATUM_S3_SECRET_ACCESS_KEY: ...
+      # R2 wants "auto"; MinIO and most others are content with the default.
+      # SUBSTRATUM_S3_REGION: us-east-1
+      # Path-style addressing, which R2, B2 and MinIO all accept. Set it false
+      # for an AWS S3 bucket created after 2020.
+      # SUBSTRATUM_S3_FORCE_PATH_STYLE: "true"
+      # Key prefix, so one bucket can hold more than one instance.
+      # SUBSTRATUM_S3_PREFIX: ""
     restart: unless-stopped
 
 volumes:

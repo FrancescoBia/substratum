@@ -11,6 +11,7 @@
     "reset-password": "node ./scripts/reset-password.ts",
     "migrate:storage": "node ./scripts/migrate-storage.mjs",
     "seed": "node ./scripts/seed.mjs",
+    "test:unit": "node --test \"test/*.test.ts\"",
     "test:e2e": "node ./scripts/reset-test-data.mjs && playwright test",
     "test:e2e:ui": "playwright test --ui",
     "shots": "node ./scripts/reset-test-data.mjs && playwright test --project=chromium --grep 'capture every view'"

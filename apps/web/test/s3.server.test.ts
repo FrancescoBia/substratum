@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { dirname, relative, resolve } from "node:path";
 import { after, describe, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { ACCEPTED_FORMATS, FORMAT_CONTENT_TYPES } from "@repo/shared";
 import {
   deleteObjects,
   getObject,
@@ -269,6 +273,55 @@ describe("request signing", () => {
     await putObject(config, "id/mystery.xyz", Buffer.from("d"));
 
     assert.deepEqual(seen, ["image/jpeg", "image/webp", "image/avif", "application/octet-stream"]);
+  });
+
+  test("labels every accepted format the way the app serves it", async () => {
+    const seen: string[] = [];
+    const { config } = await bucket((request) => {
+      seen.push(request.headers["content-type"] ?? "");
+      return { status: 200 };
+    });
+
+    for (const format of ACCEPTED_FORMATS) {
+      await putObject(config, `id/original.${format}`, Buffer.from(format));
+    }
+
+    assert.deepEqual(
+      seen,
+      ACCEPTED_FORMATS.map((format) => FORMAT_CONTENT_TYPES[format]),
+    );
+  });
+});
+
+describe("migration script", () => {
+  /**
+   * `scripts/migrate-storage.mjs` loads these modules with plain Node inside the
+   * container, where a workspace package is TypeScript under node_modules and
+   * Node refuses to strip its types. The script then dies before it starts —
+   * and only there, because in a checkout the same import resolves outside
+   * node_modules and works. So: builtins and relative files only.
+   */
+  test("imports nothing plain Node cannot load in the container", async () => {
+    const script = fileURLToPath(new URL("../scripts/migrate-storage.mjs", import.meta.url));
+    const pending = [script];
+    const seen = new Set<string>();
+    const offending: string[] = [];
+
+    while (pending.length > 0) {
+      const file = pending.pop()!;
+      if (seen.has(file)) continue;
+      seen.add(file);
+
+      const source = await readFile(file, "utf8");
+      // `import type` is erased before Node resolves anything, so it can't fail.
+      for (const [, specifier] of source.matchAll(/^import\s+(?!type\s)[^;]*?from\s+"([^"]+)"/gm)) {
+        if (specifier.startsWith("node:")) continue;
+        if (specifier.startsWith(".")) pending.push(resolve(dirname(file), specifier));
+        else offending.push(`${relative(process.cwd(), file)} imports ${specifier}`);
+      }
+    }
+
+    assert.deepEqual(offending, []);
   });
 });
 

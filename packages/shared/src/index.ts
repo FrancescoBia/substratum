@@ -36,9 +36,11 @@ export const ACCEPTED_FORMATS = ["jpeg", "png", "gif", "webp", "avif"] as const;
 export type AcceptedFormat = (typeof ACCEPTED_FORMATS)[number];
 
 /**
- * How each accepted format is labelled on the wire — used both when storing an
- * object and when serving one back. One map rather than a copy per call site,
- * so adding a format is a single edit.
+ * How each accepted format is labelled on the wire when an Image is served.
+ *
+ * The S3 client in apps/web keeps its own copy for labelling stored objects,
+ * because it has to load under plain Node where this package cannot; a test
+ * there fails if the two drift apart.
  */
 export const FORMAT_CONTENT_TYPES: Record<AcceptedFormat, string> = {
   jpeg: "image/jpeg",
@@ -47,16 +49,6 @@ export const FORMAT_CONTENT_TYPES: Record<AcceptedFormat, string> = {
   webp: "image/webp",
   avif: "image/avif",
 };
-
-/**
- * The content type for a file extension, for the places where a storage key is
- * all we have. `jpg` is the only extension that isn't already a format name.
- */
-export function contentTypeForExtension(extension: string): string {
-  const normalised = extension.toLowerCase();
-  const format = normalised === "jpg" ? "jpeg" : normalised;
-  return FORMAT_CONTENT_TYPES[format as AcceptedFormat] ?? "application/octet-stream";
-}
 
 /** The content type for a stored Image's recorded format. */
 export function contentTypeForFormat(format: string): string {

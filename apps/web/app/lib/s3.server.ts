@@ -1,5 +1,4 @@
 import { createHash, createHmac } from "node:crypto";
-import { contentTypeForExtension } from "@repo/shared";
 
 /**
  * A minimal S3 client: request signing, plus the four calls the storage adapter
@@ -53,14 +52,32 @@ export class S3Error extends Error {
 const ALGORITHM = "AWS4-HMAC-SHA256";
 const SERVICE = "s3";
 
+/**
+ * How a stored object is labelled, by its key's extension.
+ *
+ * A copy of `FORMAT_CONTENT_TYPES` from @repo/shared, deliberately: this module
+ * is also loaded by `scripts/migrate-storage.mjs`, which runs under plain Node
+ * inside the container. There @repo/shared is TypeScript under node_modules,
+ * which Node will not strip types from, so importing it stops the migration
+ * before it starts. A test holds the two maps together.
+ */
+const CONTENT_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+};
+
 /** Objects are labelled by extension so a bucket fronted by a CDN serves them correctly. */
 export async function putObject(config: S3Config, key: string, body: Buffer): Promise<void> {
-  const extension = key.slice(key.lastIndexOf(".") + 1);
+  const extension = key.slice(key.lastIndexOf(".") + 1).toLowerCase();
   await send(config, {
     method: "PUT",
     key,
     body,
-    headers: { "content-type": contentTypeForExtension(extension) },
+    headers: { "content-type": CONTENT_TYPES[extension] ?? "application/octet-stream" },
   });
 }
 

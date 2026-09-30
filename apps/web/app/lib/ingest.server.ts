@@ -71,11 +71,13 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
     // Together, not one after another: against a bucket these are three
     // independent network round trips on the request the extension is waiting
     // on, and nothing orders them.
-    await Promise.all([
+    const writes = await Promise.allSettled([
       storage.put(storageKeys.original(id, format), bytes),
       storage.put(storageKeys.thumb(id), thumb),
       storage.put(storageKeys.medium(id), medium),
     ]);
+    const failed = writes.find((write) => write.status === "rejected");
+    if (failed) throw failed.reason;
   } catch (error) {
     await discardStoredBytes(id);
     return {

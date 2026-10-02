@@ -9,22 +9,31 @@
  * looking somewhere else, and every image saved before the switch 404s while
  * sitting untouched where it was. This closes that gap.
  *
- * Run it *before* flipping the environment variables, while the app is still
- * reading from the source, and there is no window in which anything is missing.
+ * Two passes, so nothing saved during the copy is left behind:
+ *
+ *   1. Run it while the app is still up and serving from the source. This is
+ *      the long one, and nothing is down while it runs.
+ *   2. Stop the app, run it again, then flip the environment variables and
+ *      start the app. Anything saved during the first pass is copied now.
+ *
+ * The second pass is quick because only keys missing at the target are
+ * copied. Stored bytes never change for a given key — every key is under a
+ * fresh Image id — so a key already at the target already holds the right
+ * bytes. That is only true if a write is all-or-nothing: a bucket PUT is, and
+ * a file on disk is made so by writing it elsewhere and renaming it into place.
  *
  * Nothing at the source is deleted or altered, so the old copies stay as a
- * safety net until the operator clears them by hand. Re-running is safe —
- * every object is written with the same key and the same bytes — so an
- * interrupted run is finished by running it again.
+ * safety net until the operator clears them by hand, and an interrupted run is
+ * finished by running it again.
  *
  * Keys are taken from the source rather than rebuilt from the database, so
  * whatever is actually stored is what gets copied, and the layout can change
  * without this script needing to know.
  */
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { imagesDir, s3Config } from "../app/lib/config.server.ts";
+import { dataDir, imagesDir, s3Config } from "../app/lib/config.server.ts";
 import { getObject, listObjectKeys, putObject } from "../app/lib/s3.server.ts";
 
 /** How many objects to move at once — enough to hide latency, few enough that
@@ -123,26 +132,57 @@ const bucket = s3Config.prefix
   ? `${s3Config.bucket}/${s3Config.prefix.replace(/\/$/, "")}`
   : s3Config.bucket;
 
-const keys = toDisk ? await listObjectKeys(s3Config, "") : await localKeys(imagesDir);
+/**
+ * Where files bound for disk are written before being renamed into place.
+ * Beside the images directory rather than inside it, so a run interrupted
+ * mid-write leaves nothing a later disk-to-bucket copy would mistake for an
+ * image; in the same volume, so the rename is atomic.
+ */
+const partialDir = join(dataDir, ".migrate-partial");
+
+const [sourceKeys, targetKeys] = await Promise.all(
+  toDisk
+    ? [listObjectKeys(s3Config, ""), localKeys(imagesDir)]
+    : [localKeys(imagesDir), listObjectKeys(s3Config, "")],
+);
+const alreadyThere = new Set(targetKeys);
+const keys = sourceKeys.filter((key) => !alreadyThere.has(key));
+const skipped = sourceKeys.length - keys.length;
+
 const source = toDisk ? `bucket ${bucket}` : imagesDir;
 const target = toDisk ? imagesDir : `bucket ${bucket}`;
 
+let partials = 0;
 const copy = toDisk
   ? async (key) => {
       const path = localPathFor(key);
+      const partial = join(partialDir, String(partials++));
+      await writeFile(partial, await getObject(s3Config, key));
       await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, await getObject(s3Config, key));
+      await rename(partial, path);
     }
   : async (key) => putObject(s3Config, key, await readFile(join(imagesDir, key)));
 
-if (keys.length === 0) {
+if (sourceKeys.length === 0) {
   console.log(`Nothing to copy — ${source} holds no stored images.`);
+  process.exit(0);
+}
+
+/** The last step, once the target holds everything. */
+const switchOver = toDisk
+  ? "unset the SUBSTRATUM_S3_* variables and start the app to serve from disk."
+  : "set the SUBSTRATUM_S3_* variables and start the app to serve from the bucket.";
+
+if (keys.length === 0) {
+  console.log(`Nothing to copy — all ${sourceKeys.length} file(s) are already in ${target}.`);
+  console.log(`\nIf the app is stopped, ${switchOver}`);
   process.exit(0);
 }
 
 console.log(`Copying ${keys.length} file(s)`);
 console.log(`  from  ${source}`);
 console.log(`  to    ${target}`);
+if (skipped > 0) console.log(`Skipping ${skipped} already there.`);
 console.log("Nothing at the source is deleted or changed.\n");
 
 if (!assumeYes && !(await confirm("Continue?"))) {
@@ -152,7 +192,15 @@ if (!assumeYes && !(await confirm("Continue?"))) {
   process.exit(0);
 }
 
+if (toDisk) {
+  // Anything here is left over from an interrupted run and was never renamed
+  // into place, so it is safe to clear.
+  await rm(partialDir, { recursive: true, force: true });
+  await mkdir(partialDir, { recursive: true });
+}
+
 const failures = await copyAll(keys, copy);
+if (toDisk) await rm(partialDir, { recursive: true, force: true });
 
 if (failures.length > 0) {
   console.error(`\n${failures.length} of ${keys.length} could not be copied:`);
@@ -160,13 +208,14 @@ if (failures.length > 0) {
     console.error(`  ${item}: ${error.message}`);
   }
   if (failures.length > 10) console.error(`  … and ${failures.length - 10} more`);
-  console.error("\nRe-run to retry: copying the same file twice is harmless.");
+  console.error("\nRe-run to retry: only what is still missing is copied.");
   process.exit(1);
 }
 
 console.log(`\nCopied ${keys.length} file(s). ${source} is untouched.`);
+// The script cannot tell whether the app is still running, so it says both.
 console.log(
-  toDisk
-    ? "Unset the SUBSTRATUM_S3_* variables and restart to serve them from disk."
-    : "Set the SUBSTRATUM_S3_* variables and restart to serve them from the bucket.",
+  "\nIf the app was running during this copy, anything saved meanwhile is not in it yet: " +
+    "stop the app and run this again — it copies only what is missing.\n" +
+    `If the app was stopped, ${switchOver}`,
 );

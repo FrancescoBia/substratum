@@ -92,31 +92,43 @@ Operators wanting CDN offload put a proxy in front.
 
 Setting the variables doesn't move anything by itself — the app simply starts
 looking in the bucket, so every image saved before the switch shows as broken
-while sitting untouched on disk. Copy them across first and there's no such
-window:
+while sitting untouched on disk. Copy them across first, in two passes, so
+nothing saved during the copy is left behind either.
 
-```bash
-pnpm migrate:storage
-```
-
-Or against a running container, passing the bucket settings to this one command
-so the app keeps serving from disk while the copy runs:
+**1. Copy while the app keeps running.** This is the long pass, and nothing is
+down while it runs. Pass the bucket settings to this one command only, so the
+app keeps serving from disk:
 
 ```bash
 docker compose exec -e SUBSTRATUM_S3_BUCKET=… -e SUBSTRATUM_S3_ENDPOINT=… -e SUBSTRATUM_S3_ACCESS_KEY_ID=… -e SUBSTRATUM_S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
 ```
 
-Then add those same variables to `docker-compose.yml`, restart, and check an old
-image still loads.
+**2. Stop the app and copy again.** Only what is missing from the bucket is
+copied, so this pass takes about as long as whatever was saved during the
+first. `run` starts a one-off container on the same volume while the app is
+stopped:
+
+```bash
+docker compose stop app
+docker compose run --rm -e SUBSTRATUM_S3_BUCKET=… -e SUBSTRATUM_S3_ENDPOINT=… -e SUBSTRATUM_S3_ACCESS_KEY_ID=… -e SUBSTRATUM_S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
+```
+
+**3. Switch over.** Add those same variables to `docker-compose.yml`, run
+`docker compose up -d`, and check an old image still loads.
+
+Outside Docker it's the same: `pnpm migrate:storage` with the variables set for
+that command, stop the app, run it again, then set them for the app too.
 
 It copies rather than moves: the source is left exactly as it was, so the images
-on disk stay as your fallback until you clear them by hand. Re-running is safe —
-the same bytes go to the same keys — so an interrupted copy is finished by
-running it again.
+on disk stay as your fallback until you clear them by hand. An interrupted copy
+is finished by running it again. Anything already at the target is skipped
+rather than compared — safe because stored images never change once saved —
+and anything you purge between the two passes stays in the bucket until you
+clear it by hand.
 
 `--to-disk` goes the other way, pulling everything out of the bucket and back
 into the data volume, which is what makes the switch reversible once the bucket
-holds images the disk has never seen:
+holds images the disk has never seen. The same two passes apply:
 
 ```bash
 pnpm migrate:storage --to-disk

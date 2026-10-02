@@ -41,6 +41,14 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       SUBSTRATUM_DATA_DIR: ".playwright-data",
+      // The suite runs on the defaults it was written for, not on whatever a
+      // developer has in their own .env — see config.server.ts.
+      SUBSTRATUM_SKIP_ENV_FILE: "1",
+      // Pinned empty so a bucket exported in the developer's shell (direnv,
+      // say) can never point the suite at it: it would write test images into
+      // a real bucket, and the purge spec asserts on files on disk. Empty reads
+      // as "no bucket", so local disk.
+      SUBSTRATUM_S3_BUCKET: "",
       // SUBSTRATUM_URL is deliberately absent: unset is the default a developer
       // actually runs, and it is the path that used to hand out links to
       // whatever else was listening on port 3000. Leaving it off puts every

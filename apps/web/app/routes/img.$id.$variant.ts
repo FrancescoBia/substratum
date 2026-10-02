@@ -1,17 +1,10 @@
+import { contentTypeForFormat } from "@repo/shared";
 import { eq } from "drizzle-orm";
 import { getOwnerFromSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { isPubliclyVisible } from "~/lib/library.server";
-import { storage, storageKeys, type Variant } from "~/lib/storage.server";
+import { storage, storageKeys, StorageNotFound, type Variant } from "~/lib/storage.server";
 import type { Route } from "./+types/img.$id.$variant";
-
-const CONTENT_TYPES: Record<string, string> = {
-  jpeg: "image/jpeg",
-  png: "image/png",
-  gif: "image/gif",
-  webp: "image/webp",
-  avif: "image/avif",
-};
 
 /**
  * Serves stored image bytes.
@@ -51,16 +44,23 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   let bytes: Buffer;
   try {
     bytes = await storage.get(key);
-  } catch {
-    throw new Response("Not found", { status: 404 });
+  } catch (error) {
+    if (error instanceof StorageNotFound) throw new Response("Not found", { status: 404 });
+
+    // The backend could not answer: wrong credentials, a bucket that stayed
+    // down past the retries, a network that went away. Saying "not found" here
+    // would tell the Owner their library had been deleted, and leave no trace
+    // of the real cause anywhere. 503 says come back, and does not get cached.
+    console.error(`[img] could not read ${key}:`, error);
+    throw new Response("Image temporarily unavailable", {
+      status: 503,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   return new Response(new Uint8Array(bytes), {
     headers: {
-      "Content-Type":
-        variant === "original"
-          ? (CONTENT_TYPES[image.format] ?? "application/octet-stream")
-          : "image/webp",
+      "Content-Type": variant === "original" ? contentTypeForFormat(image.format) : "image/webp",
       "Content-Length": String(bytes.byteLength),
       // Stored bytes never change for a given id, so this caches hard. Public
       // responses may sit in shared caches; the Owner's must not, since the same

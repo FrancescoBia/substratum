@@ -1,5 +1,6 @@
 import { Alert, AlertDescription } from "@repo/ui/components/alert";
 import { Button } from "@repo/ui/components/button";
+import { Checkbox } from "@repo/ui/components/checkbox";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { useEffect, useState } from "react";
@@ -10,6 +11,7 @@ import {
   setInstanceUrl,
   toOrigin,
 } from "@/lib/instance";
+import { disableSite, enableSite, isSiteEnabled, SITES, type Site } from "@/lib/sites";
 
 type Status =
   | { kind: "idle" }
@@ -134,7 +136,60 @@ export function Options() {
             Paired with <code className="bg-muted rounded px-1 py-0.5">{paired}</code>
           </p>
         )}
+
+        <SiteFixes />
       </div>
     </main>
   );
+}
+
+/**
+ * Opt-in fixes for sites that cover their images so right-click can't reach
+ * them. Each one asks for that site's permission, and nothing more.
+ */
+function SiteFixes() {
+  const [enabled, setEnabled] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    readEnabled().then(setEnabled);
+  }, []);
+
+  async function toggle(site: Site, on: boolean) {
+    // The permission prompt needs the click's user gesture, so it's requested
+    // before anything else is awaited.
+    await (on ? enableSite(site) : disableSite(site));
+    setEnabled(await readEnabled());
+  }
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-sm font-semibold">Hidden images</h2>
+      <p className="text-muted-foreground mt-1 text-sm">
+        Some sites lay an invisible layer over their images, so right-click never reaches them.
+        Switching a site on lets Substratum see through that layer when you right-click — and needs
+        permission to run on that site.
+      </p>
+      <div className="mt-4 flex flex-col gap-3">
+        {SITES.map((site) => (
+          <label key={site.id} className="flex cursor-pointer items-center gap-2 text-sm">
+            <Checkbox
+              checked={enabled[site.id] ?? false}
+              onCheckedChange={(checked) => toggle(site, checked)}
+            />
+            <span>{site.name}</span>
+          </label>
+        ))}
+      </div>
+      <p className="text-muted-foreground mt-3 text-xs">
+        Reload any tabs you already have open on that site.
+      </p>
+    </section>
+  );
+}
+
+async function readEnabled(): Promise<Record<string, boolean>> {
+  const entries = await Promise.all(
+    SITES.map(async (site) => [site.id, await isSiteEnabled(site)] as const),
+  );
+  return Object.fromEntries(entries);
 }

@@ -1,5 +1,6 @@
 import { CAPTURE_ENDPOINT, type CaptureErrorCode, type CaptureResponse } from "@repo/shared";
 import { getInstanceUrl, hasPermission } from "@/lib/instance";
+import { syncSiteScripts } from "@/lib/sites";
 
 const MENU_ID = "save-image";
 
@@ -11,7 +12,13 @@ export default defineBackground(() => {
       title: "Save to Substratum",
       contexts: ["image"],
     });
+    syncSiteScripts();
   });
+
+  // Site fixes follow their host permissions, whether granted from the options
+  // page or revoked from chrome://extensions.
+  browser.permissions.onAdded.addListener(() => syncSiteScripts());
+  browser.permissions.onRemoved.addListener(() => syncSiteScripts());
 
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId !== MENU_ID || !info.srcUrl) return;

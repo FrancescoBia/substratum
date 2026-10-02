@@ -6,16 +6,20 @@ import type { S3Config } from "./s3.server";
 /**
  * A `.env` in the working directory, for local development only.
  *
- * Vite reads .env files, but only into `import.meta.env` for client code —
- * nothing here ever sees them, and everything here reads `process.env`. So
- * without this a .env is a file that looks like configuration and does nothing.
- * `--env-file` would do the same job but cannot be passed through NODE_OPTIONS,
- * which is all the dev server leaves us.
+ * Under `pnpm dev` this changes nothing: React Router's dev server has already
+ * loaded .env into process.env before any of this runs. It is here for what
+ * runs under plain Node instead — `pnpm start`, and scripts such as
+ * `migrate:storage` — which would otherwise ignore the file the dev server
+ * reads.
  *
  * A real environment variable always wins over the file, so this cannot
  * override what docker-compose sets. In the container there is no .env at all.
+ *
+ * SUBSTRATUM_SKIP_ENV_FILE turns it off, as `envDir` in vite.config.ts does for
+ * the dev server. The e2e server sets it, so the suite runs on the defaults it
+ * was written for rather than on a developer's own .env.
  */
-if (existsSync(".env")) process.loadEnvFile();
+if (!process.env.SUBSTRATUM_SKIP_ENV_FILE && existsSync(".env")) process.loadEnvFile();
 
 /**
  * All configuration is environment variables with working defaults, so a

@@ -26,10 +26,18 @@ test("capture every view", async ({ page, request }) => {
   await openDetails(page);
   const panel = page.getByRole("dialog");
   await panel.waitFor();
+  await panel.getByPlaceholder("Untitled").fill("Stairwell, Barbican");
+  await panel.getByPlaceholder("Untitled").blur();
+  await panel.getByPlaceholder("https://…").fill("https://example.com/barbican");
+  await panel.getByPlaceholder("https://…").blur();
   await panel.getByPlaceholder("Add a tag…").fill("editorial");
   await panel.getByPlaceholder("Add a tag…").press("Enter");
   await panel.getByRole("checkbox").first().click();
   await page.waitForLoadState("networkidle");
+  // The sheet slides and the scrim fades — the same settle the full-size shot
+  // needs, or this catches a half-drawn panel.
+  await expect(panel.getByText("editorial ×")).toBeVisible();
+  await page.waitForTimeout(200);
   await page.screenshot({ path: `${SHOTS}/02-detail-panel.png` });
 
   await page.keyboard.press("Escape");

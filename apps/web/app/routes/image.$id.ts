@@ -64,6 +64,34 @@ export async function action({ request, params }: Route.ActionArgs) {
       return { ok: true };
     }
 
+    // The Owner's own name, kept apart from the captured page title so a rename
+    // never rewrites provenance. Blank clears it and the page title stands in
+    // again.
+    case "set-title": {
+      const title = String(form.get("title") ?? "")
+        .trim()
+        .slice(0, 200);
+      await db
+        .update(schema.images)
+        .set({ title: title || null })
+        .where(eq(schema.images.id, imageId));
+      return { ok: true };
+    }
+
+    // Editable because a captured URL can be wrong and an uploaded Image has
+    // none at all. Blank clears it, which drops the Image back to "no source".
+    case "set-source-page-url": {
+      const raw = String(form.get("sourcePageUrl") ?? "").trim();
+      if (raw && !isHttpUrl(raw)) {
+        return { ok: false, error: "Enter an http or https URL." };
+      }
+      await db
+        .update(schema.images)
+        .set({ sourcePageUrl: raw || null })
+        .where(eq(schema.images.id, imageId));
+      return { ok: true };
+    }
+
     case "set-note": {
       await db
         .update(schema.images)
@@ -101,5 +129,15 @@ export async function action({ request, params }: Route.ActionArgs) {
 
     default:
       return { ok: false, error: `Unknown intent: ${intent}` };
+  }
+}
+
+/** Same gate as ingestion uses: only http and https ever get stored. */
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
   }
 }

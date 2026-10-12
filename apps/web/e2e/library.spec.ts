@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  captureImage,
   createBoard,
   dropFiles,
   openDetails,
@@ -146,6 +147,85 @@ test.describe("Detail panel", () => {
     // The grid stays put behind it — the reason this shape won the prototype.
     await expect(page.locator("main img").first()).toBeVisible();
     await expect(page).toHaveURL(/\?image=/);
+  });
+
+  test("naming an image shows the name everywhere it is rendered", async ({ page, request }) => {
+    await uploadImages(request, 1);
+    await page.goto("/");
+    await openDetails(page);
+
+    const panel = page.getByRole("dialog");
+    // An uploaded Image has no source page title to fall back to.
+    await expect(panel.getByPlaceholder("Untitled")).toHaveValue("");
+    await panel.getByPlaceholder("Untitled").fill("Brutalist stairwell");
+    await panel.getByPlaceholder("Untitled").blur();
+
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("link", { name: "Brutalist stairwell", exact: true }),
+    ).toBeVisible();
+
+    // And it survives a reload, so it was written rather than only held in state.
+    await page.reload();
+    await openDetails(page);
+    await expect(page.getByRole("dialog").getByPlaceholder("Untitled")).toHaveValue(
+      "Brutalist stairwell",
+    );
+  });
+
+  test("clearing the name falls back to the source page title", async ({
+    page,
+    request,
+    baseURL,
+  }) => {
+    await captureImage(request, baseURL!, {
+      sourcePageTitle: "Concrete Monthly",
+      sourcePageUrl: "https://example.invalid/concrete",
+    });
+
+    await page.goto("/");
+    await openDetails(page);
+
+    const panel = page.getByRole("dialog");
+    const name = panel.getByPlaceholder("Concrete Monthly");
+    await name.fill("My own name");
+    await name.blur();
+    await expect(panel.getByText("Falling back to the source page title.")).toBeHidden();
+
+    await name.fill("");
+    await name.blur();
+    // The captured title stands in again, and was never overwritten.
+    await expect(panel.getByText("Falling back to the source page title.")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("link", { name: "Concrete Monthly", exact: true })).toBeVisible();
+  });
+
+  test("a source page url can be added to an upload and is validated", async ({
+    page,
+    request,
+  }) => {
+    await uploadImages(request, 1);
+    await page.goto("/");
+    await openDetails(page);
+
+    const panel = page.getByRole("dialog");
+    const url = panel.getByPlaceholder("https://…");
+
+    // Rejected without a scheme, and the field says so rather than silently
+    // dropping the edit.
+    await url.fill("example.invalid/not-a-url");
+    await url.blur();
+    await expect(panel.getByText("Enter an http or https URL.")).toBeVisible();
+    // The invalid value was not stored: no link to open appeared.
+    await expect(panel.getByRole("link", { name: "Open source page" })).toBeHidden();
+
+    await url.fill("https://example.invalid/found-here");
+    await url.blur();
+    await expect(panel.getByText("Uploaded — no source page")).toBeHidden();
+    await expect(panel.getByRole("link", { name: "Open source page" })).toHaveAttribute(
+      "href",
+      "https://example.invalid/found-here",
+    );
   });
 
   test("tagging from the panel updates the sidebar", async ({ page, request }) => {

@@ -33,7 +33,7 @@ test("the export is a zip named for today, with a manifest", async ({ request })
   expect(headers["content-disposition"]).toMatch(
     /attachment; filename="substratum-export-\d{4}-\d{2}-\d{2}\.zip"/,
   );
-  expect(manifest.manifestVersion).toBe(1);
+  expect(manifest.manifestVersion).toBe(2);
   expect(manifest.counts.images).toBe(2);
   expect(manifest.images).toHaveLength(2);
 });

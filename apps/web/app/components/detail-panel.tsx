@@ -1,12 +1,12 @@
 import { Badge } from "@repo/ui/components/badge";
-import { Button } from "@repo/ui/components/button";
+import { Button, buttonVariants } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import { Input } from "@repo/ui/components/input";
 import { Separator } from "@repo/ui/components/separator";
 import { Sheet, SheetContent, SheetTitle } from "@repo/ui/components/sheet";
 import { Textarea } from "@repo/ui/components/textarea";
 import { ExternalLink, RotateCcw, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useFetcher, useLocation, useNavigate } from "react-router";
 import type { ImageDetail } from "~/lib/library.server";
 
@@ -39,7 +39,19 @@ export function DetailPanel({
   return (
     <Sheet open={image !== null} onOpenChange={(open) => !open && close()}>
       <SheetContent className="w-full gap-0 overflow-y-auto p-6 sm:max-w-105">
-        {image && <DetailBody image={image} boards={boards} allTags={allTags} onClose={close} />}
+        {/* Keyed by id so selecting a different Image remounts the body with
+            fresh field state — the panel stays mounted across selections, and
+            an effect that reset state instead also fired on every edit's
+            revalidation, wiping half-typed input. */}
+        {image && (
+          <DetailBody
+            key={image.id}
+            image={image}
+            boards={boards}
+            allTags={allTags}
+            onClose={close}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -59,13 +71,11 @@ function DetailBody({
   const edit = useFetcher();
   const [tagInput, setTagInput] = useState("");
   const [note, setNote] = useState(image.note);
-
-  // The panel stays mounted while the selection changes, so local state has to
-  // follow the Image rather than only initialising once.
-  useEffect(() => {
-    setNote(image.note);
-    setTagInput("");
-  }, [image.id, image.note]);
+  const [title, setTitle] = useState(image.title ?? "");
+  const [sourcePageUrl, setSourcePageUrl] = useState(image.sourcePageUrl ?? "");
+  // Checked here as well as in the action, so a typo is reported next to the
+  // field instead of silently doing nothing.
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   function send(fields: Record<string, string>) {
     edit.submit(fields, { method: "post", action: `/image/${image.id}` });
@@ -78,34 +88,88 @@ function DetailBody({
 
   return (
     <div className="flex flex-col gap-5 text-sm">
-      <SheetTitle className="sr-only">{image.sourcePageTitle ?? "Image"}</SheetTitle>
+      <SheetTitle className="sr-only">{image.displayTitle ?? "Image"}</SheetTitle>
 
       <a href={`/img/${image.id}/original`} target="_blank" rel="noreferrer">
         <img
           src={`/img/${image.id}/medium`}
-          alt={image.sourcePageTitle ?? ""}
+          alt={image.displayTitle ?? ""}
           className="bg-muted w-full rounded-lg"
         />
       </a>
 
-      {/* Provenance only when there is any: an uploaded Image has no source. */}
-      <div>
-        {image.sourcePageUrl ? (
-          <>
-            <div className="font-medium">{image.sourcePageTitle || "Untitled page"}</div>
-            <a
-              href={image.sourcePageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-muted-foreground inline-flex items-center gap-1 hover:underline"
-            >
-              {hostOf(image.sourcePageUrl)}
-              <ExternalLink className="size-3" />
-            </a>
-          </>
-        ) : (
-          <div className="text-muted-foreground">Uploaded — no source page</div>
-        )}
+      {/* Both fields are editable and both can start empty: a captured title is
+          often unhelpful, and an uploaded Image arrives with no source at all. */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            Name
+          </div>
+          <Input
+            placeholder={image.sourcePageTitle || "Untitled"}
+            value={title}
+            maxLength={200}
+            onChange={(event) => setTitle(event.target.value)}
+            onBlur={() => {
+              if (title.trim() !== (image.title ?? "")) send({ intent: "set-title", title });
+            }}
+          />
+          {/* Says why the field looks empty but the Image still has a name. */}
+          {!image.title && image.sourcePageTitle && (
+            <p className="text-muted-foreground text-xs">Falling back to the source page title.</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            Source page
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Input
+              type="url"
+              inputMode="url"
+              placeholder="https://…"
+              value={sourcePageUrl}
+              aria-invalid={urlError !== null}
+              onChange={(event) => {
+                setSourcePageUrl(event.target.value);
+                setUrlError(null);
+              }}
+              onBlur={() => {
+                const next = sourcePageUrl.trim();
+                if (next === (image.sourcePageUrl ?? "")) return;
+                if (next && !isHttpUrl(next)) {
+                  setUrlError("Enter an http or https URL.");
+                  return;
+                }
+                setUrlError(null);
+                send({ intent: "set-source-page-url", sourcePageUrl: next });
+              }}
+            />
+            {/* A plain anchor, not `Button`: Base UI forces role="button" onto a
+                rendered link. */}
+            {image.sourcePageUrl && (
+              <a
+                href={image.sourcePageUrl}
+                target="_blank"
+                rel="noreferrer"
+                title={`Open ${hostOf(image.sourcePageUrl)}`}
+                className={buttonVariants({ variant: "ghost", size: "icon" })}
+              >
+                <ExternalLink className="size-4" />
+                <span className="sr-only">Open source page</span>
+              </a>
+            )}
+          </div>
+          {urlError ? (
+            <p className="text-destructive text-xs">{urlError}</p>
+          ) : (
+            !image.sourcePageUrl && (
+              <p className="text-muted-foreground text-xs">Uploaded — no source page</p>
+            )
+          )}
+        </div>
+
         <div className="text-muted-foreground text-xs">
           {image.width}×{image.height} · {image.format.toUpperCase()} ·{" "}
           {formatBytes(image.byteSize)} · saved{" "}
@@ -234,6 +298,16 @@ function DetailBody({
       )}
     </div>
   );
+}
+
+/** Mirrors the action's gate: only http and https are ever stored. */
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function hostOf(url: string): string {

@@ -34,6 +34,13 @@ export const images = sqliteTable(
     height: integer("height").notNull(),
     format: text("format").notNull(),
     byteSize: integer("byte_size").notNull(),
+    /**
+     * The Owner's own name for the Image. Null means nobody has named it, and
+     * the captured page title stands in — see `displayTitle`. Kept apart from
+     * source_page_title so renaming never rewrites what the source page was
+     * actually called.
+     */
+    title: text("title"),
     sourceImageUrl: text("source_image_url"),
     sourcePageUrl: text("source_page_url"),
     sourcePageTitle: text("source_page_title"),

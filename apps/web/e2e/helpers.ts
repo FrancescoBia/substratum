@@ -18,6 +18,12 @@ export function png(width: number, height: number, rgb: [number, number, number]
     .toBuffer();
 }
 
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+function idsIn(html: string, pattern: string): string[] {
+  return [...new Set([...html.matchAll(new RegExp(pattern, "g"))].map((match) => match[1]))];
+}
+
 const PALETTE: Array<[number, number, number]> = [
   [214, 69, 65],
   [48, 110, 180],
@@ -49,17 +55,48 @@ export async function uploadImages(request: APIRequestContext, count: number) {
   }
 }
 
+/**
+ * Creates an Image with full provenance, the way the extension does.
+ *
+ * `/api/capture` takes URLs and fetches the bytes itself, so it needs a real
+ * http source. The trick is to point it at an image this same instance already
+ * serves: a throwaway upload is published on a throwaway Board just long enough
+ * to be publicly fetchable, then both are removed. Nothing test-only is added to
+ * the app for this.
+ */
+export async function captureImage(
+  request: APIRequestContext,
+  baseUrl: string,
+  source: { sourcePageUrl: string; sourcePageTitle: string },
+) {
+  await uploadImages(request, 1);
+  const html = await (await request.get("/")).text();
+  const seedId = idsIn(html, `/img/(${UUID})/`)[0];
+  if (!seedId) throw new Error("could not find the seed image");
+
+  const boardId = await createBoard(request, "capture-source");
+  await request.post(`/image/${seedId}`, { form: { intent: "toggle-board", boardId } });
+  await request.post("/boards", { form: { intent: "publish", boardId }, maxRedirects: 0 });
+
+  const response = await request.post("/api/capture", {
+    form: {
+      sourceImageUrl: `${baseUrl}/img/${seedId}/original`,
+      sourcePageUrl: source.sourcePageUrl,
+      sourcePageTitle: source.sourcePageTitle,
+    },
+  });
+  const body = (await response.json()) as { ok: boolean; message?: string };
+  if (!body.ok) throw new Error(`capture failed: ${body.message}`);
+
+  await request.post(`/image/${seedId}`, { form: { intent: "purge" } });
+  await request.post("/boards", { form: { intent: "delete", boardId }, maxRedirects: 0 });
+}
+
 export async function createBoard(request: APIRequestContext, name: string) {
   const response = await request.post("/boards", { form: { intent: "create", name } });
   const body = (await response.json()) as { ok: boolean; id?: string };
   if (!body.ok || !body.id) throw new Error(`could not create board ${name}`);
   return body.id;
-}
-
-const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-
-function idsIn(html: string, pattern: string): string[] {
-  return [...new Set([...html.matchAll(new RegExp(pattern, "g"))].map((match) => match[1]))];
 }
 
 /**

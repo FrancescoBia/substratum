@@ -5,7 +5,7 @@ import { db, schema } from "~/db/index.server";
 import { storage, StorageNotFound } from "./storage.server";
 
 /** Bumped if the manifest's shape ever changes, so importers can tell. */
-const MANIFEST_VERSION = 1;
+const MANIFEST_VERSION = 2;
 
 const EXTENSIONS: Record<string, string> = {
   jpeg: "jpg",
@@ -22,6 +22,8 @@ type ManifestImage = {
   height: number;
   format: string;
   byteSize: number;
+  /** The Owner's own name for the Image, or null if they never gave it one. */
+  title: string | null;
   savedAt: string;
   /** Null for an Image the Owner uploaded by hand — it has no source page. */
   source: { imageUrl: string; pageUrl: string; pageTitle: string } | null;
@@ -94,6 +96,7 @@ export async function buildManifest(exportedAt = new Date()): Promise<Manifest> 
       height: image.height,
       format: image.format,
       byteSize: image.byteSize,
+      title: image.title,
       savedAt: new Date(image.savedAt).toISOString(),
       source: image.sourcePageUrl
         ? {

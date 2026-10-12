@@ -27,11 +27,21 @@ async function organizedImageIds(): Promise<Set<string>> {
   return new Set([...onBoards, ...tagged].map((row) => row.id));
 }
 
+/**
+ * What to call an Image: the Owner's own name if they gave it one, otherwise
+ * the title of the page it was captured from. Every view renders this rather
+ * than either column on its own.
+ */
+export function displayTitle(row: { title: string | null; sourcePageTitle: string | null }) {
+  return row.title?.trim() || row.sourcePageTitle;
+}
+
 function toGridImages(
   rows: Array<{
     id: string;
     width: number;
     height: number;
+    title: string | null;
     sourcePageTitle: string | null;
     sourcePageUrl: string | null;
   }>,
@@ -41,7 +51,7 @@ function toGridImages(
     id: row.id,
     width: row.width,
     height: row.height,
-    title: row.sourcePageTitle,
+    title: displayTitle(row),
     sourcePageUrl: row.sourcePageUrl,
     untriaged: !organized.has(row.id),
   }));
@@ -51,6 +61,7 @@ const gridColumns = {
   id: schema.images.id,
   width: schema.images.width,
   height: schema.images.height,
+  title: schema.images.title,
   sourcePageTitle: schema.images.sourcePageTitle,
   sourcePageUrl: schema.images.sourcePageUrl,
 };
@@ -174,6 +185,8 @@ export async function getImageDetail(id: string) {
     height: image.height,
     format: image.format,
     byteSize: image.byteSize,
+    title: image.title,
+    displayTitle: displayTitle(image),
     note: image.note,
     savedAt: image.savedAt,
     deletedAt: image.deletedAt,
@@ -202,18 +215,26 @@ export async function getPublishedBoard(slug: string) {
  * from. No tags, no notes — those are the Owner's private annotations.
  */
 export async function listPublicBoardImages(boardId: string) {
-  return db
+  const rows = await db
     .select({
       id: schema.images.id,
       width: schema.images.width,
       height: schema.images.height,
       sourcePageUrl: schema.images.sourcePageUrl,
+      title: schema.images.title,
       sourcePageTitle: schema.images.sourcePageTitle,
     })
     .from(schema.images)
     .innerJoin(schema.boardImages, eq(schema.boardImages.imageId, schema.images.id))
     .where(and(eq(schema.boardImages.boardId, boardId), isNull(schema.images.deletedAt)))
     .orderBy(desc(schema.boardImages.addedAt));
+
+  // Resolved here rather than in the route: the fallback rule lives on the
+  // server, and the public page only ever needs the resolved name.
+  return rows.map(({ sourcePageTitle, ...row }) => ({
+    ...row,
+    title: displayTitle({ title: row.title, sourcePageTitle }),
+  }));
 }
 
 /**

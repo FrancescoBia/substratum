@@ -99,14 +99,14 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
                 preventScrollReset
                 viewTransition
                 onClick={() => morphFromTile(image.id)}
-                aria-label={image.sourcePageTitle ?? "Image"}
+                aria-label={image.title ?? "Image"}
                 className="group block"
               >
                 <img
                   // See `image-grid.tsx`: the 400px `thumb` is too small for a
                   // ~300 CSS px tile on a retina display.
                   src={`/img/${image.id}/medium`}
-                  alt={image.sourcePageTitle ?? ""}
+                  alt={image.title ?? ""}
                   width={image.width}
                   height={image.height}
                   loading="lazy"
@@ -142,7 +142,7 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
           id: image.id,
           width: image.width,
           height: image.height,
-          title: image.sourcePageTitle,
+          title: image.title,
           sourcePageUrl: image.sourcePageUrl,
         }))}
       />

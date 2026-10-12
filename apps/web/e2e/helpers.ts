@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import sharp from "sharp";
 
 /** Credentials for the throwaway test instance only. */
@@ -124,13 +124,29 @@ export async function resetLibrary(request: APIRequestContext) {
 }
 
 /**
- * Opens an Image's detail panel. The tile itself now opens the full-size viewer,
- * so the panel is reached through the corner control that appears on hover.
+ * Opens an Image's detail panel, which now lives inside the full-size viewer:
+ * the tile opens the viewer, and its Details control turns the panel on beside
+ * the Image. There is no way to the panel from the grid any more.
  */
 export async function openDetails(page: Page, nth = 0) {
-  const link = page.getByRole("link", { name: /^Details for/ }).nth(nth);
-  await link.hover();
-  await link.click();
+  await openViewer(page, nth);
+  await page.getByRole("link", { name: "Details" }).click();
+  await expect(detailsPanel(page)).toBeVisible();
+}
+
+/**
+ * The details column itself. The viewer's own title is an `h2` too, so anything
+ * addressing the panel's heading has to be scoped to this rather than to the
+ * whole dialog.
+ */
+export function detailsPanel(page: Page) {
+  return page.getByRole("complementary", { name: "Image details" });
+}
+
+/** Opens the full-size viewer on the nth tile, with no details panel. */
+export async function openViewer(page: Page, nth = 0) {
+  await page.locator("main a[href*='view=']").nth(nth).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
 }
 
 /** Ids of live Images, newest first — read from the page the app renders. */

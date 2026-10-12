@@ -2,8 +2,10 @@ import { expect, test } from "@playwright/test";
 import {
   captureImage,
   createBoard,
+  detailsPanel,
   dropFiles,
   openDetails,
+  openViewer,
   png,
   resetLibrary,
   uploadImages,
@@ -133,7 +135,7 @@ test.describe("Stream and upload", () => {
 });
 
 test.describe("Detail panel", () => {
-  test("opens over the grid and shows an uploaded image has no source", async ({
+  test("opens beside the image and shows an uploaded image has no source", async ({
     page,
     request,
   }) => {
@@ -144,9 +146,51 @@ test.describe("Detail panel", () => {
     const panel = page.getByRole("dialog");
     await expect(panel).toBeVisible();
     await expect(panel.getByText("Uploaded — no source page")).toBeVisible();
-    // The grid stays put behind it — the reason this shape won the prototype.
-    await expect(page.locator("main img").first()).toBeVisible();
-    await expect(page).toHaveURL(/\?image=/);
+    // Both params, because the panel is a column inside the viewer rather than
+    // a surface that replaces it.
+    await expect(page).toHaveURL(/\?.*view=/);
+    await expect(page).toHaveURL(/\?.*image=/);
+    // No preview of its own at this width — the viewer is already showing it.
+    await expect(panel.locator("a[href$='/original'] img")).toBeHidden();
+  });
+
+  test("is never opened by the viewer on its own, and its control toggles", async ({
+    page,
+    request,
+  }) => {
+    await uploadImages(request, 1);
+    await page.goto("/");
+    await openViewer(page);
+
+    // Looking is not editing: opening the viewer brings no panel with it.
+    await expect(page).not.toHaveURL(/image=/);
+    const details = page.getByRole("link", { name: "Details" });
+    await expect(details).toHaveAttribute("aria-pressed", "false");
+
+    await details.click();
+    await expect(page).toHaveURL(/image=/);
+    await expect(details).toHaveAttribute("aria-pressed", "true");
+
+    // The same control closes it again, leaving the viewer up.
+    await details.click();
+    await expect(page).not.toHaveURL(/image=/);
+    await expect(page).toHaveURL(/view=/);
+    await expect(page.getByRole("dialog")).toBeVisible();
+  });
+
+  test("follows the viewer when it steps to another image", async ({ page, request }) => {
+    await uploadImages(request, 2);
+    await page.goto("/");
+    const ids = await visibleImageIds(page);
+    await openDetails(page);
+
+    await expect(page).toHaveURL(new RegExp(`image=${ids[0]}`));
+    await page.keyboard.press("ArrowRight");
+
+    // Both params move together — a panel left on the image you stepped away
+    // from would be editing something off screen.
+    await expect(page).toHaveURL(new RegExp(`view=${ids[1]}`));
+    await expect(page).toHaveURL(new RegExp(`image=${ids[1]}`));
   });
 
   test("naming an image shows the name everywhere it is rendered", async ({ page, request }) => {
@@ -159,6 +203,11 @@ test.describe("Detail panel", () => {
     await expect(panel.getByPlaceholder("Untitled")).toHaveValue("");
     await panel.getByPlaceholder("Untitled").fill("Brutalist stairwell");
     await panel.getByPlaceholder("Untitled").blur();
+
+    // The panel's own heading is the save landing. Waiting on it before moving
+    // on matters: the edit saves on blur, so pressing Escape first races the
+    // submission against the navigation that closes the viewer.
+    await expect(detailsPanel(page).getByRole("heading")).toHaveText("Brutalist stairwell");
 
     await page.keyboard.press("Escape");
     await expect(
@@ -253,7 +302,11 @@ test.describe("Detail panel", () => {
 
     await openDetails(page);
     const panel = page.getByRole("dialog");
-    await panel.getByRole("checkbox").first().click();
+    const darkUi = panel.getByRole("checkbox").first();
+    await darkUi.click();
+    // Same reason as the rename above: wait for the toggle to come back saved
+    // rather than racing it against the navigation Escape starts.
+    await expect(darkUi).toBeChecked();
     await page.keyboard.press("Escape");
 
     const boardLink = page.getByRole("link", { name: /Dark UI/ });
@@ -301,7 +354,7 @@ test.describe("Full-size view", () => {
     const viewer = page.getByRole("dialog");
     await expect(viewer.locator("img")).toHaveAttribute("src", `/img/${ids[0]}/medium`);
     await expect(viewer.getByText("1 / 3")).toBeVisible();
-    // The grid is still there underneath, as it is behind the detail panel.
+    // The grid is still there underneath, ready for the tile to morph back to.
     await expect(page.locator("main img")).toHaveCount(3);
 
     // Stepping moves `?view=`, which no loader reads. If a route ever forgets
@@ -329,18 +382,17 @@ test.describe("Full-size view", () => {
     await expect(page).not.toHaveURL(/view=/);
   });
 
-  test("leads through to the detail panel", async ({ page, request }) => {
+  test("closing it takes the details panel with it", async ({ page, request }) => {
     await uploadImages(request, 1);
     await page.goto("/");
-    await page.locator("main a").first().click();
+    await openDetails(page);
 
-    await page.getByRole("dialog").getByRole("link", { name: "Details" }).click();
-
-    // Handing over rather than stacking: the viewer's param goes as the panel's
-    // arrives, so only one of the two is ever open.
-    await expect(page).toHaveURL(/\?image=/);
+    // The panel is inside this dialog, so it cannot outlive it — a stray
+    // `?image=` would leave the layout loading a selection nothing renders.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
     await expect(page).not.toHaveURL(/view=/);
-    await expect(page.getByText("Uploaded — no source page")).toBeVisible();
+    await expect(page).not.toHaveURL(/image=/);
   });
 });
 
@@ -361,6 +413,9 @@ test.describe("Triage", () => {
 
     await expect(page.getByText("1 of 2")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Triage" })).toBeVisible();
+    // The heading is in the server HTML. The shortcut is not — it is attached
+    // in an effect, and a "1" sent before that is ignored.
+    await expect(page.locator("html")).toHaveAttribute("data-triage-keys", "true");
 
     // "1" toggles the first board without touching the mouse.
     await page.keyboard.press("1");

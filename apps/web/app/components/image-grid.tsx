@@ -1,9 +1,11 @@
 import { Button } from "@repo/ui/components/button";
-import { Info, LayoutDashboard, LayoutGrid } from "lucide-react";
+import { LayoutDashboard, LayoutGrid } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate, useRouteLoaderData } from "react-router";
+import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
 import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox";
 import type { GridImage } from "~/lib/library.server";
+import type { loader as libraryLoader } from "~/routes/library";
 
 type GridLayout = "flat" | "mosaic";
 
@@ -69,6 +71,8 @@ export function ImageGrid({
   allowLayoutSwitch?: boolean;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
   const [layout, setLayout] = useState<GridLayout>("flat");
   const tileMorphName = useTileMorphName();
 
@@ -92,21 +96,47 @@ export function ImageGrid({
     }
   }
 
-  // The two surfaces are mutually exclusive, so each link clears the other's
-  // param rather than leaving a stale one behind in a shared URL.
+  // A tile opens the viewer with nothing else on: the details column is
+  // something the Owner turns on from in there, not a thing every look brings.
   function viewHref(id: string) {
     const params = new URLSearchParams(location.search);
-    params.delete("image");
+    params.delete(DETAIL_PARAM);
     params.set(LIGHTBOX_PARAM, id);
     return `${location.pathname}?${params}`;
   }
 
+  /** The viewer's Details control — a toggle, so this both opens and closes. */
   function detailsHref(id: string) {
     const params = new URLSearchParams(location.search);
-    params.delete(LIGHTBOX_PARAM);
-    params.set("image", id);
-    return `${location.pathname}?${params}`;
+    if (params.get(DETAIL_PARAM) === id) params.delete(DETAIL_PARAM);
+    else params.set(DETAIL_PARAM, id);
+    const query = params.toString();
+    return `${location.pathname}${query ? `?${query}` : ""}`;
   }
+
+  function closeDetails() {
+    const params = new URLSearchParams(location.search);
+    params.delete(DETAIL_PARAM);
+    const query = params.toString();
+    navigate(`${location.pathname}${query ? `?${query}` : ""}`, { preventScrollReset: true });
+  }
+
+  // The selection is loaded by the library layout, not per view, so the panel
+  // works identically from the Stream, a Board and a Tag. Read from there rather
+  // than threaded through three routes that have no other use for it.
+  //
+  // Keyed by id: the panel's fields hold local state, and remounting is what
+  // resets them when the viewer steps to another Image.
+  const panel =
+    library && library.selected ? (
+      <DetailPanelBody
+        key={library.selected.id}
+        image={library.selected}
+        boards={library.boards}
+        allTags={library.tags}
+        onClose={closeDetails}
+      />
+    ) : null;
 
   // The query container the mosaic's row tracks are a percentage of. It has to be
   // an ancestor of the grid — container query units never resolve against the
@@ -206,19 +236,6 @@ export function ImageGrid({
               />
             </Link>
 
-            {/* A sibling of the tile link rather than a child: nesting one link
-                inside another is invalid, and the panel is a different place to
-                go than the full-size view. */}
-            <Link
-              to={detailsHref(image.id)}
-              preventScrollReset
-              title="Details"
-              className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-lg bg-black/50 text-white/80 opacity-0 transition group-hover:opacity-100 hover:bg-black/70 hover:text-white focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none"
-            >
-              <Info className="size-4" />
-              <span className="sr-only">Details for {image.title ?? "this image"}</span>
-            </Link>
-
             {image.untriaged && (
               <span
                 className="bg-primary ring-background pointer-events-none absolute top-2 left-2 size-2 rounded-full ring-2"
@@ -229,7 +246,7 @@ export function ImageGrid({
         ))}
       </div>
 
-      <Lightbox images={images} detailsHref={detailsHref} />
+      <Lightbox images={images} detailsHref={detailsHref} panel={panel} />
     </section>
   );
 }

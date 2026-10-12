@@ -1,6 +1,6 @@
 import { isNotNull } from "drizzle-orm";
 import { Outlet, useLocation } from "react-router";
-import { DetailPanel } from "~/components/detail-panel";
+import { DETAIL_PARAM } from "~/components/detail-panel";
 import { skipLightboxRevalidation } from "~/components/lightbox";
 import { Sidebar } from "~/components/sidebar";
 import { UploadDropzone, type UploadDestination } from "~/components/upload-dropzone";
@@ -14,15 +14,16 @@ import type { Route } from "./+types/library";
 export const shouldRevalidate = skipLightboxRevalidation;
 
 /**
- * The shell every library view renders inside: sidebar, the selected Image's
- * detail panel, and the page-wide upload dropzone. Loading the selection here
- * rather than per-view means the panel works identically from the Stream, a
- * Board, a Tag, or the Trash.
+ * The shell every library view renders inside: sidebar and the page-wide upload
+ * dropzone. The selected Image is loaded here rather than per-view, so the
+ * details panel works identically from the Stream, a Board or a Tag — but it is
+ * rendered inside the full-size viewer (see `ImageGrid`), which reads this
+ * route's data back with `useRouteLoaderData`.
  */
 export async function loader({ request }: Route.LoaderArgs) {
   const owner = await requireOwnerSession(request);
 
-  const selectedId = new URL(request.url).searchParams.get("image");
+  const selectedId = new URL(request.url).searchParams.get(DETAIL_PARAM);
 
   const [boards, tags, stream, trashRows, selected] = await Promise.all([
     listBoards(),
@@ -46,7 +47,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function Library({ loaderData }: Route.ComponentProps) {
-  const { boards, tags, untriagedCount, trashCount, email, selected } = loaderData;
+  const { boards, tags, untriagedCount, trashCount, email } = loaderData;
   const location = useLocation();
 
   // Which view the drop lands on, if it is one an Image can be filed into. The
@@ -74,8 +75,6 @@ export default function Library({ loaderData }: Route.ComponentProps) {
         <main className="min-w-0 flex-1 overflow-y-auto">
           <Outlet />
         </main>
-
-        <DetailPanel image={selected} boards={boards} allTags={tags} />
       </div>
     </UploadDropzone>
   );

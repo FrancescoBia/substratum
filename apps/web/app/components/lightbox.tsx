@@ -8,6 +8,7 @@ import {
   useSearchParams,
   type ShouldRevalidateFunctionArgs,
 } from "react-router";
+import { DETAIL_PARAM } from "~/components/detail-panel";
 import { fullSizeSrcSet } from "~/lib/image-variants";
 
 /**
@@ -157,10 +158,17 @@ const CONTROL =
 export function Lightbox({
   images,
   detailsHref,
+  panel,
 }: {
   images: LightboxImage[];
-  /** When set, a "Details" control appears — the Owner's way back to the panel. */
+  /** When set, a "Details" control appears — the Owner's way to the panel. */
   detailsHref?: (id: string) => string;
+  /**
+   * The details column, when the Owner has asked for it. Rendered inside this
+   * dialog rather than as a sheet of its own, so there is one backdrop, one
+   * focus trap, and the Image stays visible next to what edits it.
+   */
+  panel?: React.ReactNode;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -175,6 +183,10 @@ export function Lightbox({
 
     const params = new URLSearchParams(location.search);
     params.delete(LIGHTBOX_PARAM);
+    // The panel lives inside this dialog, so it cannot outlive it — a stray
+    // `?image=` would otherwise keep the layout loading a selection nothing
+    // renders.
+    params.delete(DETAIL_PARAM);
     const query = params.toString();
     navigate(`${location.pathname}${query ? `?${query}` : ""}`, {
       preventScrollReset: true,
@@ -202,7 +214,14 @@ export function Lightbox({
 
       const next = images[(from + delta + images.length) % images.length];
       intendedId.current = next.id;
-      navigate(lightboxHref(location.search, location.pathname, next.id), {
+
+      // The panel follows the viewer: if it is open, it has to be open on the
+      // Image now on screen, not the one stepped away from.
+      const params = new URLSearchParams(location.search);
+      params.set(LIGHTBOX_PARAM, next.id);
+      if (params.has(DETAIL_PARAM)) params.set(DETAIL_PARAM, next.id);
+
+      navigate(`${location.pathname}?${params}`, {
         replace: true,
         preventScrollReset: true,
       });
@@ -246,21 +265,37 @@ export function Lightbox({
           // image, so the browser would capture the image's "after" frame at
           // 95% and snap it to full size when the transition ends. The expand
           // *is* this surface's entrance animation now.
-          className="fixed inset-0 z-50 flex flex-col outline-none duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          className="fixed inset-0 z-50 flex outline-none duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         >
           <DialogPrimitive.Title className="sr-only">
             {image?.title || "Image"}
           </DialogPrimitive.Title>
 
           {image && (
-            <LightboxBody
-              image={image}
-              index={index}
-              total={images.length}
-              detailsHref={detailsHref}
-              onStep={step}
-              onClose={close}
-            />
+            <div className="relative flex min-h-0 flex-1">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <LightboxBody
+                  image={image}
+                  index={index}
+                  total={images.length}
+                  detailsHref={detailsHref}
+                  detailsOpen={panel !== undefined && panel !== null}
+                  onStep={step}
+                  onClose={close}
+                />
+              </div>
+
+              {/* Beside the Image from `sm` up, over it below that — a phone has
+                  no room for both, so there the panel shows its own preview. */}
+              {panel && (
+                <aside
+                  aria-label="Image details"
+                  className="bg-popover text-popover-foreground absolute inset-0 z-10 overflow-y-auto sm:relative sm:inset-auto sm:z-auto sm:w-105 sm:shrink-0 sm:border-l"
+                >
+                  {panel}
+                </aside>
+              )}
+            </div>
           )}
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
@@ -273,6 +308,7 @@ function LightboxBody({
   index,
   total,
   detailsHref,
+  detailsOpen,
   onStep,
   onClose,
 }: {
@@ -280,6 +316,7 @@ function LightboxBody({
   index: number;
   total: number;
   detailsHref?: (id: string) => string;
+  detailsOpen: boolean;
   onStep: (delta: number) => void;
   onClose: () => void;
 }) {
@@ -311,11 +348,16 @@ function LightboxBody({
   return (
     <>
       <div className="flex items-center justify-end gap-1 p-3">
+        {/* A toggle, not a way out: the panel opens beside the Image and this
+            closes it again. Never open on its own — the viewer is for looking,
+            and the Owner asks for the editing surface when they want it. */}
         {detailsHref && (
           <Link
             to={detailsHref(image.id)}
             preventScrollReset
-            className={`${CONTROL} h-9 px-3 text-sm`}
+            replace
+            aria-pressed={detailsOpen}
+            className={`${CONTROL} h-9 px-3 text-sm ${detailsOpen ? "bg-white/15 text-white" : ""}`}
           >
             <Info className="size-4" /> Details
           </Link>

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createBoard, openDetails, uploadImages } from "./helpers";
+import { createBoard, detailsPanel, openDetails, uploadImages } from "./helpers";
 
 const SHOTS = "screenshots";
 
@@ -22,9 +22,10 @@ test("capture every view", async ({ page, request }) => {
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/01-stream-untriaged.png` });
 
-  // Detail panel open over the grid.
+  // The details column open beside the Image in the full-size viewer.
   await openDetails(page);
-  const panel = page.getByRole("dialog");
+  const viewer = page.getByRole("dialog");
+  const panel = detailsPanel(page);
   await panel.waitFor();
   await panel.getByPlaceholder("Untitled").fill("Stairwell, Barbican");
   await panel.getByPlaceholder("Untitled").blur();
@@ -41,7 +42,7 @@ test("capture every view", async ({ page, request }) => {
   await page.screenshot({ path: `${SHOTS}/02-detail-panel.png` });
 
   await page.keyboard.press("Escape");
-  await expect(panel).toBeHidden(); // the overlay animates out — don't shoot through it
+  await expect(viewer).toBeHidden(); // the overlay animates out — don't shoot through it
   await page.waitForLoadState("networkidle");
   await page.screenshot({ path: `${SHOTS}/03-stream-with-sidebar.png` });
 
@@ -49,7 +50,6 @@ test("capture every view", async ({ page, request }) => {
   // open and the scrim fades in, so wait for both rather than shooting through
   // a half-drawn overlay.
   await page.locator("main a").first().click();
-  const viewer = page.getByRole("dialog");
   await viewer.waitFor();
   await viewer.locator("img").evaluate((node) => (node as HTMLImageElement).decode());
   await page.waitForLoadState("networkidle");
@@ -57,6 +57,18 @@ test("capture every view", async ({ page, request }) => {
   await page.screenshot({ path: `${SHOTS}/09-full-size.png` });
   await page.keyboard.press("Escape");
   await expect(viewer).toBeHidden();
+
+  // The same details column on a phone, where there is no room beside the Image
+  // so the panel covers it and brings its own preview.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openDetails(page);
+  await expect(panel.locator("img")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${SHOTS}/10-detail-panel-mobile.png` });
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   // Triage mode mid-queue.
   await page.goto("/triage");

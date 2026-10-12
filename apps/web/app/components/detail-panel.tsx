@@ -3,61 +3,32 @@ import { Button, buttonVariants } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import { Input } from "@repo/ui/components/input";
 import { Separator } from "@repo/ui/components/separator";
-import { Sheet, SheetContent, SheetTitle } from "@repo/ui/components/sheet";
 import { Textarea } from "@repo/ui/components/textarea";
-import { ExternalLink, RotateCcw, Trash2 } from "lucide-react";
+import { ExternalLink, RotateCcw, Trash2, X } from "lucide-react";
 import { useState } from "react";
-import { useFetcher, useLocation, useNavigate } from "react-router";
+import { useFetcher } from "react-router";
 import type { ImageDetail } from "~/lib/library.server";
+
+/**
+ * The search param holding the Image whose details are open. Paired with
+ * `LIGHTBOX_PARAM`: the panel now only ever opens beside the full-size viewer,
+ * so this is never set without that one.
+ */
+export const DETAIL_PARAM = "image";
 
 type Board = { id: string; name: string; published: boolean };
 type Tag = { name: string };
 
 /**
- * A slide-in panel rather than a dialog, so the grid never disappears behind it
- * — the reason this variant won the prototype.
+ * The editing surface for one Image, rendered as a column inside the full-size
+ * viewer rather than as a sheet of its own — see `Lightbox`. Two overlapping
+ * modal dialogs would fight over the backdrop and the focus trap, and the
+ * viewer is already showing the Image this is about.
+ *
+ * Mount it keyed by `image.id`: the fields hold local state, and a remount is
+ * what resets them when the viewer steps to another Image.
  */
-export function DetailPanel({
-  image,
-  boards,
-  allTags,
-}: {
-  image: ImageDetail | null;
-  boards: Board[];
-  allTags: Tag[];
-}) {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  function close() {
-    const params = new URLSearchParams(location.search);
-    params.delete("image");
-    const query = params.toString();
-    navigate(`${location.pathname}${query ? `?${query}` : ""}`, { preventScrollReset: true });
-  }
-
-  return (
-    <Sheet open={image !== null} onOpenChange={(open) => !open && close()}>
-      <SheetContent className="w-full gap-0 overflow-y-auto p-6 sm:max-w-105">
-        {/* Keyed by id so selecting a different Image remounts the body with
-            fresh field state — the panel stays mounted across selections, and
-            an effect that reset state instead also fired on every edit's
-            revalidation, wiping half-typed input. */}
-        {image && (
-          <DetailBody
-            key={image.id}
-            image={image}
-            boards={boards}
-            allTags={allTags}
-            onClose={close}
-          />
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function DetailBody({
+export function DetailPanelBody({
   image,
   boards,
   allTags,
@@ -87,14 +58,22 @@ function DetailBody({
     .slice(0, 6);
 
   return (
-    <div className="flex flex-col gap-5 text-sm">
-      <SheetTitle className="sr-only">{image.displayTitle ?? "Image"}</SheetTitle>
+    <div className="flex flex-col gap-5 p-6 text-sm">
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="truncate font-medium">{image.displayTitle || "Untitled"}</h2>
+        <Button variant="ghost" size="icon-sm" className="-mt-1 -mr-1" onClick={onClose}>
+          <X className="size-4" />
+          <span className="sr-only">Close details</span>
+        </Button>
+      </div>
 
-      <a href={`/img/${image.id}/original`} target="_blank" rel="noreferrer">
+      {/* Only where the viewer is not already showing the Image beside this
+          column: below `sm` the panel covers it, so it brings its own preview. */}
+      <a href={`/img/${image.id}/original`} target="_blank" rel="noreferrer" className="sm:hidden">
         <img
           src={`/img/${image.id}/medium`}
           alt={image.displayTitle ?? ""}
-          className="bg-muted w-full rounded-lg"
+          className="bg-muted max-h-48 w-full rounded-lg object-contain"
         />
       </a>
 

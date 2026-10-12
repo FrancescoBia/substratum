@@ -102,7 +102,14 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
     }
 
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // The server HTML already shows the queue, so a key that arrives before
+    // this effect is dropped. The attribute is only present while the listener
+    // is, which is what the triage shortcut test waits on.
+    document.documentElement.setAttribute("data-triage-keys", "true");
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.documentElement.removeAttribute("data-triage-keys");
+    };
   });
 
   if (total === 0 || cursor >= total) {

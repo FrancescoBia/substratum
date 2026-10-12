@@ -109,7 +109,7 @@ function numberFromEnv(name: string, fallback: number): number {
 
 /**
  * S3-compatible object storage — R2, B2, MinIO. Off unless
- * SUBSTRATUM_S3_BUCKET names a bucket, so an instance that configures nothing
+ * S3_BUCKET names a bucket, so an instance that configures nothing
  * keeps its images on local disk in the data volume exactly as before.
  *
  * A half-configured bucket throws rather than falling back: quietly writing to
@@ -119,16 +119,16 @@ function numberFromEnv(name: string, fallback: number): number {
 export const s3Config: S3Config | null = loadS3Config();
 
 function loadS3Config(): S3Config | null {
-  const bucket = process.env.SUBSTRATUM_S3_BUCKET?.trim();
+  const bucket = process.env.S3_BUCKET?.trim();
   if (!bucket) return null;
 
-  const endpoint = requiredEnv("SUBSTRATUM_S3_ENDPOINT").replace(/\/+$/, "");
+  const endpoint = requiredEnv("S3_ENDPOINT").replace(/\/+$/, "");
   let parsed: URL;
   try {
     parsed = new URL(endpoint);
   } catch {
     throw new Error(
-      `SUBSTRATUM_S3_ENDPOINT must be a URL including the scheme, got ${JSON.stringify(endpoint)}`,
+      `S3_ENDPOINT must be a URL including the scheme, got ${JSON.stringify(endpoint)}`,
     );
   }
   // Parsing alone is not the check: anything with a colon in it parses, so
@@ -139,7 +139,7 @@ function loadS3Config(): S3Config | null {
   // prevent. Same test `instanceUrlFor` applies above.
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error(
-      `SUBSTRATUM_S3_ENDPOINT must be an http(s) URL, got ${JSON.stringify(endpoint)} — did you mean "https://${endpoint}"?`,
+      `S3_ENDPOINT must be an http(s) URL, got ${JSON.stringify(endpoint)} — did you mean "https://${endpoint}"?`,
     );
   }
 
@@ -147,26 +147,26 @@ function loadS3Config(): S3Config | null {
   // than leaving every caller to guess whose job the slash is. Trimmed like
   // every other variable here: a stray space would otherwise become a literal
   // part of every key in the bucket.
-  const prefix = process.env.SUBSTRATUM_S3_PREFIX?.trim().replace(/^\/+|\/+$/g, "") ?? "";
+  const prefix = process.env.S3_PREFIX?.trim().replace(/^\/+|\/+$/g, "") ?? "";
 
   return {
     bucket,
     endpoint,
     // R2 wants "auto"; MinIO and most others are content with us-east-1.
-    region: process.env.SUBSTRATUM_S3_REGION?.trim() || "us-east-1",
-    accessKeyId: requiredEnv("SUBSTRATUM_S3_ACCESS_KEY_ID"),
-    secretAccessKey: requiredEnv("SUBSTRATUM_S3_SECRET_ACCESS_KEY"),
+    region: process.env.S3_REGION?.trim() || "us-east-1",
+    accessKeyId: requiredEnv("S3_ACCESS_KEY_ID"),
+    secretAccessKey: requiredEnv("S3_SECRET_ACCESS_KEY"),
     // Path-style addressing is what R2, B2 and MinIO all accept. AWS S3 proper
     // dropped it for buckets created after 2020, which is what turning this off
     // is for.
-    forcePathStyle: booleanFromEnv("SUBSTRATUM_S3_FORCE_PATH_STYLE", true),
+    forcePathStyle: booleanFromEnv("S3_FORCE_PATH_STYLE", true),
     prefix: prefix ? `${prefix}/` : "",
   };
 }
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
-  if (!value) throw new Error(`${name} is required when SUBSTRATUM_S3_BUCKET is set.`);
+  if (!value) throw new Error(`${name} is required when S3_BUCKET is set.`);
   return value;
 }
 

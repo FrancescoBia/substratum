@@ -33,17 +33,17 @@ services:
       # Note that a bucket makes the data volume no longer a complete backup —
       # the bucket becomes a second thing to back up. See the README.
       #
-      # SUBSTRATUM_S3_BUCKET: substratum
-      # SUBSTRATUM_S3_ENDPOINT: https://<account>.r2.cloudflarestorage.com
-      # SUBSTRATUM_S3_ACCESS_KEY_ID: ...
-      # SUBSTRATUM_S3_SECRET_ACCESS_KEY: ...
+      # S3_BUCKET: substratum
+      # S3_ENDPOINT: https://<account>.r2.cloudflarestorage.com
+      # S3_ACCESS_KEY_ID: ...
+      # S3_SECRET_ACCESS_KEY: ...
       # R2 wants "auto"; MinIO and most others are content with the default.
-      # SUBSTRATUM_S3_REGION: us-east-1
+      # S3_REGION: us-east-1
       # Path-style addressing, which R2, B2 and MinIO all accept. Set it false
       # for an AWS S3 bucket created after 2020.
-      # SUBSTRATUM_S3_FORCE_PATH_STYLE: "true"
+      # S3_FORCE_PATH_STYLE: "true"
       # Key prefix, so one bucket can hold more than one instance.
-      # SUBSTRATUM_S3_PREFIX: ""
+      # S3_PREFIX: ""
     restart: unless-stopped
 
 volumes:

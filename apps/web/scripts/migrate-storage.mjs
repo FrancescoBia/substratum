@@ -46,7 +46,7 @@ const assumeYes = process.argv.includes("--yes") || process.argv.includes("-y");
 if (!s3Config) {
   console.error(
     "No bucket is configured, so there is nothing to copy to or from.\n" +
-      "Set SUBSTRATUM_S3_BUCKET along with its endpoint and credentials, then run this again.",
+      "Set S3_BUCKET along with its endpoint and credentials, then run this again.",
   );
   process.exit(1);
 }
@@ -170,8 +170,8 @@ if (sourceKeys.length === 0) {
 
 /** The last step, once the target holds everything. */
 const switchOver = toDisk
-  ? "unset the SUBSTRATUM_S3_* variables and start the app to serve from disk."
-  : "set the SUBSTRATUM_S3_* variables and start the app to serve from the bucket.";
+  ? "unset the S3_* variables and start the app to serve from disk."
+  : "set the S3_* variables and start the app to serve from the bucket.";
 
 if (keys.length === 0) {
   console.log(`Nothing to copy — all ${sourceKeys.length} file(s) are already in ${target}.`);

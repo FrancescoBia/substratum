@@ -64,15 +64,15 @@ Optional. Left alone, images sit on local disk in the `data` volume and there is
 nothing to configure. To keep them in an S3-compatible bucket instead —
 Cloudflare R2, Backblaze B2, MinIO — set these alongside `SUBSTRATUM_URL`:
 
-| Variable                          | Default     |                                                                                                                   |
-| --------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
-| `SUBSTRATUM_S3_BUCKET`            | —           | Setting this is what moves storage to the bucket.                                                                 |
-| `SUBSTRATUM_S3_ENDPOINT`          | —           | API origin, e.g. `https://<account>.r2.cloudflarestorage.com`                                                     |
-| `SUBSTRATUM_S3_ACCESS_KEY_ID`     | —           |                                                                                                                   |
-| `SUBSTRATUM_S3_SECRET_ACCESS_KEY` | —           |                                                                                                                   |
-| `SUBSTRATUM_S3_REGION`            | `us-east-1` | R2 wants `auto`.                                                                                                  |
-| `SUBSTRATUM_S3_FORCE_PATH_STYLE`  | `true`      | Path-style addressing, which R2, B2 and MinIO all accept. Set it `false` for an AWS S3 bucket created after 2020. |
-| `SUBSTRATUM_S3_PREFIX`            | —           | Key prefix, so one bucket can hold more than one instance.                                                        |
+| Variable               | Default     |                                                                                                                   |
+| ---------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
+| `S3_BUCKET`            | —           | Setting this is what moves storage to the bucket.                                                                 |
+| `S3_ENDPOINT`          | —           | API origin, e.g. `https://<account>.r2.cloudflarestorage.com`                                                     |
+| `S3_ACCESS_KEY_ID`     | —           |                                                                                                                   |
+| `S3_SECRET_ACCESS_KEY` | —           |                                                                                                                   |
+| `S3_REGION`            | `us-east-1` | R2 wants `auto`.                                                                                                  |
+| `S3_FORCE_PATH_STYLE`  | `true`      | Path-style addressing, which R2, B2 and MinIO all accept. Set it `false` for an AWS S3 bucket created after 2020. |
+| `S3_PREFIX`            | —           | Key prefix, so one bucket can hold more than one instance.                                                        |
 
 The first four go together: set the bucket and leave one of the others out and
 the app stops at startup naming what's missing, rather than quietly carrying on
@@ -100,7 +100,7 @@ down while it runs. Pass the bucket settings to this one command only, so the
 app keeps serving from disk:
 
 ```bash
-docker compose exec -e SUBSTRATUM_S3_BUCKET=… -e SUBSTRATUM_S3_ENDPOINT=… -e SUBSTRATUM_S3_ACCESS_KEY_ID=… -e SUBSTRATUM_S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
+docker compose exec -e S3_BUCKET=… -e S3_ENDPOINT=… -e S3_ACCESS_KEY_ID=… -e S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
 ```
 
 **2. Stop the app and copy again.** Only what is missing from the bucket is
@@ -110,7 +110,7 @@ stopped:
 
 ```bash
 docker compose stop app
-docker compose run --rm -e SUBSTRATUM_S3_BUCKET=… -e SUBSTRATUM_S3_ENDPOINT=… -e SUBSTRATUM_S3_ACCESS_KEY_ID=… -e SUBSTRATUM_S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
+docker compose run --rm -e S3_BUCKET=… -e S3_ENDPOINT=… -e S3_ACCESS_KEY_ID=… -e S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
 ```
 
 **3. Switch over.** Add those same variables to `docker-compose.yml`, run

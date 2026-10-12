@@ -48,7 +48,7 @@ export default defineConfig({
       // say) can never point the suite at it: it would write test images into
       // a real bucket, and the purge spec asserts on files on disk. Empty reads
       // as "no bucket", so local disk.
-      SUBSTRATUM_S3_BUCKET: "",
+      S3_BUCKET: "",
       // SUBSTRATUM_URL is deliberately absent: unset is the default a developer
       // actually runs, and it is the path that used to hand out links to
       // whatever else was listening on port 3000. Leaving it off puts every

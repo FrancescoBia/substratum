@@ -47,6 +47,9 @@ jobs:
       # the existing ones or pinning a ceiling with `oxlint --max-warnings=N`.
       - run: pnpm lint
       - run: pnpm typecheck
+      # The S3 client is hand-rolled request signing with no browser in sight,
+      # so it is checked here rather than in the e2e job: seconds, no services.
+      - run: pnpm test:unit
       - run: pnpm build
 
   e2e:

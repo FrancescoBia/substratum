@@ -5,8 +5,8 @@
  *   pnpm dev            # in one terminal
  *   pnpm seed           # in another
  *
- * Defaults to http://localhost:3000. On any other port, say so — the seeder has
- * no way to discover where the dev server bound:
+ * Defaults to http://localhost:5173, where `pnpm dev` binds. On any other port,
+ * say so — the seeder has no way to discover where the dev server bound:
  *
  *   pnpm seed --url http://localhost:4000
  *
@@ -22,7 +22,7 @@ import sharp from "sharp";
 
 /** `--url` beats the env var, which beats the local-development default. */
 function resolveBase() {
-  const raw = flagValue("--url") ?? process.env.SUBSTRATUM_URL ?? "http://localhost:3000";
+  const raw = flagValue("--url") ?? process.env.SUBSTRATUM_URL ?? "http://localhost:5173";
   try {
     return new URL(raw).origin;
   } catch {

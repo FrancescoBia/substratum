@@ -34,3 +34,23 @@ export const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 /** Raster formats only — SVG is deliberately out of scope for v1. */
 export const ACCEPTED_FORMATS = ["jpeg", "png", "gif", "webp", "avif"] as const;
 export type AcceptedFormat = (typeof ACCEPTED_FORMATS)[number];
+
+/**
+ * How each accepted format is labelled on the wire when an Image is served.
+ *
+ * The S3 client in apps/web keeps its own copy for labelling stored objects,
+ * because it has to load under plain Node where this package cannot; a test
+ * there fails if the two drift apart.
+ */
+export const FORMAT_CONTENT_TYPES: Record<AcceptedFormat, string> = {
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+};
+
+/** The content type for a stored Image's recorded format. */
+export function contentTypeForFormat(format: string): string {
+  return FORMAT_CONTENT_TYPES[format as AcceptedFormat] ?? "application/octet-stream";
+}

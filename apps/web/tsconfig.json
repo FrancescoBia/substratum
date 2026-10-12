@@ -6,6 +6,9 @@
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "bundler",
+    // `test/` is run by node itself, not the bundler, so its imports carry the
+    // .ts extension. Safe with noEmit: nothing is rewritten on the way out.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "rootDirs": [".", "./.react-router/types"],
     "paths": {

@@ -88,8 +88,13 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     case "purge": {
+      try {
+        await storage.deletePrefix(storageKeys.prefix(imageId));
+      } catch (error) {
+        console.error(`[purge] could not remove image ${imageId}:`, error);
+        return { ok: false, error: "Couldn't delete the stored image. Try again." };
+      }
       await db.delete(schema.images).where(eq(schema.images.id, imageId));
-      await storage.deletePrefix(storageKeys.prefix(imageId)).catch(() => {});
       await pruneOrphanTags();
       return { ok: true };
     }

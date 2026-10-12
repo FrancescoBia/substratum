@@ -95,7 +95,7 @@ From the repo root, after `pnpm install`:
 | `pnpm --dir apps/extension typecheck` | `tsc --noEmit`                                                                   |
 
 You'll want a web app to point at — `pnpm dev` from the root runs one on
-http://localhost:3000.
+http://localhost:5173.
 
 ```
 entrypoints/background.ts     context menu, capture, badge, notifications

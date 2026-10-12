@@ -182,7 +182,7 @@ pnpm install
 pnpm dev
 ```
 
-The web app runs on http://localhost:3000. Any other port works too — `pnpm dev --port
+The web app runs on http://localhost:5173. Any other port works too — `pnpm dev --port
 4000` — and published board links follow the port you're actually on.
 
 Nothing needs configuring to run it. To try something that does — a bucket, say —
@@ -200,7 +200,7 @@ bucket can't drag `pnpm test:e2e` into it.
 | Command            | Does                                                                                                        |
 | ------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`         | Run the web app in dev mode                                                                                 |
-| `pnpm seed`        | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 3000) |
+| `pnpm seed`        | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 5173) |
 | `pnpm test:unit`   | Run the unit suite (the S3 client's request signing, against a stub bucket)                                 |
 | `pnpm test:e2e`    | Run every Playwright spec against a throwaway instance                                                      |
 | `pnpm shots`       | Regenerate just the screenshots in `apps/web/screenshots/`                                                  |

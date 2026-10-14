@@ -24,4 +24,5 @@ screenshots/
 
 # Local agent/editor scaffolding and planning notes (not part of the project)
 .claude/settings.local.json
+.claude/launch.json
 .scratch/

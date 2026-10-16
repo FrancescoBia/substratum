@@ -1,4 +1,6 @@
 import { Readable } from "node:stream";
+import { finished } from "node:stream/promises";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { ZipArchive } from "archiver";
 import { asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "~/db/index.server";
@@ -143,13 +145,34 @@ export function createExportArchive(manifest: Manifest): Readable {
           .where(eq(schema.images.id, image.id));
         if (!row) continue;
 
+        let opened;
         try {
-          archive.append(await storage.get(row.storageKey), { name: image.file });
+          opened = await storage.open(row.storageKey);
         } catch (error) {
           // A file that is genuinely gone shouldn't abort the whole export —
           // the manifest still records that the image existed.
           if (!(error instanceof StorageNotFound)) throw error;
           console.error(`[export] skipped missing ${image.id}:`, error);
+          continue;
+        }
+
+        // One original in flight at a time. The archive takes entries in order
+        // and only reads this one once the last has gone out, so opening the
+        // next before this has drained would hold every file — or, against a
+        // bucket, every connection — open at once. (The cast bridges the DOM
+        // and Node typings of the same runtime class.)
+        const source = Readable.fromWeb(opened.body as NodeReadableStream<Uint8Array>);
+        archive.append(source, { name: image.file });
+
+        // A download abandoned partway closes the archive, which then never
+        // reads this source — so it is released here rather than waited on for
+        // ever. `finished` then rejects, and the export ends below.
+        const abandon = () => source.destroy();
+        archive.once("close", abandon);
+        try {
+          await finished(source);
+        } finally {
+          archive.off("close", abandon);
         }
       }
 

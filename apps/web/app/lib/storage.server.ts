@@ -1,11 +1,15 @@
-import { mkdirSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createReadStream, mkdirSync } from "node:fs";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { Readable } from "node:stream";
+import { formatRange, resolveRange, type ByteRange, type ResolvedRange } from "./byte-range";
 import { imagesDir, s3Config } from "./config.server";
 import {
   deleteObjects,
   getObject,
+  headObject,
   listObjectKeys,
+  openObject,
   putObject,
   S3Error,
   type S3Config,
@@ -21,6 +25,15 @@ export interface Storage {
   put(key: string, data: Buffer): Promise<void>;
   /** Throws {@link StorageNotFound} when the key holds nothing. */
   get(key: string): Promise<Buffer>;
+  /**
+   * Streams the object, or the one range of it asked for, without holding it in
+   * memory — what serving an original needs, since a video is played by asking
+   * for pieces of it. Throws {@link StorageNotFound} like `get`, and
+   * {@link RangeNotSatisfiable} when no part of the object is in `range`.
+   *
+   * The caller owns the body and must read it to the end or cancel it.
+   */
+  open(key: string, range?: ByteRange): Promise<OpenedObject>;
   /** Removes the whole prefix — an Image's original and all its derivatives. */
   deletePrefix(prefix: string): Promise<void>;
 }
@@ -39,6 +52,29 @@ export class StorageNotFound extends Error {
   constructor(key: string, options?: { cause?: unknown }) {
     super(`No stored object for ${key}`, options);
     this.name = "StorageNotFound";
+  }
+}
+
+/**
+ * A body on its way out of storage. `range` is null when the body is the whole
+ * object — including when a range was asked for and the backend chose to send
+ * everything, which HTTP allows and the caller must then honour.
+ */
+export type OpenedObject = {
+  body: ReadableStream<Uint8Array>;
+  size: number;
+  range: ResolvedRange | null;
+};
+
+/** The object exists, but the range asked for lies wholly past its end. */
+export class RangeNotSatisfiable extends Error {
+  /** Reported back in the 416's `Content-Range`, so the client can ask again. */
+  readonly size: number;
+
+  constructor(key: string, size: number) {
+    super(`No bytes of ${key} (${size} long) are in the requested range`);
+    this.name = "RangeNotSatisfiable";
+    this.size = size;
   }
 }
 
@@ -65,6 +101,30 @@ class LocalStorage implements Storage {
       }
       throw error;
     }
+  }
+
+  async open(key: string, range?: ByteRange): Promise<OpenedObject> {
+    const path = join(imagesDir, key);
+
+    let size: number;
+    try {
+      size = (await stat(path)).size;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new StorageNotFound(key, { cause: error });
+      }
+      throw error;
+    }
+
+    const resolved = range ? resolveRange(range, size) : null;
+    if (range && !resolved) throw new RangeNotSatisfiable(key, size);
+
+    const stream = createReadStream(path, resolved ?? undefined);
+    return {
+      body: Readable.toWeb(stream) as ReadableStream<Uint8Array>,
+      size,
+      range: resolved,
+    };
   }
 
   async deletePrefix(prefix: string): Promise<void> {
@@ -96,6 +156,23 @@ class S3Storage implements Storage {
       // 404 is the bucket answering clearly; anything else is it failing to.
       if (error instanceof S3Error && error.status === 404) {
         throw new StorageNotFound(key, { cause: error });
+      }
+      throw error;
+    }
+  }
+
+  async open(key: string, range?: ByteRange): Promise<OpenedObject> {
+    try {
+      return await openObject(this.config, key, range ? formatRange(range) : undefined);
+    } catch (error) {
+      if (error instanceof S3Error && error.status === 404) {
+        throw new StorageNotFound(key, { cause: error });
+      }
+      // A 416 does not reliably say how large the object is, and the client
+      // needs that to ask again — so this rare path pays for one more request.
+      if (error instanceof S3Error && error.status === 416) {
+        const { size } = await headObject(this.config, key);
+        throw new RangeNotSatisfiable(key, size);
       }
       throw error;
     }

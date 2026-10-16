@@ -1,16 +1,17 @@
 import { createHash, createHmac } from "node:crypto";
 
 /**
- * A minimal S3 client: request signing, plus the four calls the storage adapter
- * makes.
+ * A minimal S3 client: request signing, plus the handful of calls the storage
+ * adapter makes.
  *
  * Hand-rolled rather than taken from an SDK because the surface needed here is
- * tiny — whole objects in and out, no multipart and no streaming, since images
- * are held in memory end to end and capped at 50 MB. It also sidesteps a real
- * compatibility problem: recent AWS SDK versions send integrity checksums by
- * default that several S3-compatible providers reject, and turning those back
- * off is configuration we would have to carry anyway to talk to the very
- * backends this exists to support.
+ * tiny — whole objects in, whole or ranged objects out, no multipart. The one
+ * streaming call is `openObject`, which exists because a browser plays video by
+ * asking for byte ranges and an original should not have to sit in memory to be
+ * served. It also sidesteps a real compatibility problem: recent AWS SDK
+ * versions send integrity checksums by default that several S3-compatible
+ * providers reject, and turning those back off is configuration we would have
+ * to carry anyway to talk to the very backends this exists to support.
  *
  * Keys here are adapter-relative, exactly as `storageKeys` builds them. The
  * bucket-side prefix is applied on the way out and stripped on the way back in,
@@ -86,6 +87,69 @@ export async function getObject(config: S3Config, key: string): Promise<Buffer> 
   return body;
 }
 
+/** What `openObject` hands back: a live body, and where it sits in the object. */
+export type OpenedS3Object = {
+  body: ReadableStream<Uint8Array>;
+  /** The whole object's size, whatever part of it the body covers. */
+  size: number;
+  /** Inclusive byte offsets of the body, or null when it is the whole object. */
+  range: { start: number; end: number } | null;
+};
+
+/**
+ * Streams an object, or one byte range of it.
+ *
+ * `range` is an HTTP `Range` value (`bytes=0-99`, `bytes=-500`) passed through
+ * as-is, so the bucket resolves it against a size only it knows — one request
+ * rather than a HEAD and then a GET. A range the bucket finds unsatisfiable
+ * comes back as a 416 `S3Error`. A bucket that ignores the header and answers
+ * 200 is honoured too: the result then says it is the whole object, and the
+ * caller serves it as such.
+ */
+export async function openObject(
+  config: S3Config,
+  key: string,
+  range?: string,
+): Promise<OpenedS3Object> {
+  const response = await send(config, {
+    method: "GET",
+    key,
+    headers: range ? { range } : undefined,
+    stream: true,
+  });
+  const body = response.stream as ReadableStream<Uint8Array>;
+
+  if (response.status === 206) {
+    const match = response.headers.get("content-range")?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
+    if (!match) {
+      await body.cancel();
+      throw new S3Error(
+        502,
+        "BadContentRange",
+        "Bucket sent a partial answer it did not describe.",
+      );
+    }
+    return {
+      body,
+      size: Number(match[3]),
+      range: { start: Number(match[1]), end: Number(match[2]) },
+    };
+  }
+
+  const length = response.headers.get("content-length");
+  if (length === null) {
+    await body.cancel();
+    throw new S3Error(502, "NoContentLength", "Bucket did not say how large the object is.");
+  }
+  return { body, size: Number(length), range: null };
+}
+
+/** An object's size, without its bytes. */
+export async function headObject(config: S3Config, key: string): Promise<{ size: number }> {
+  const { headers } = await send(config, { method: "HEAD", key });
+  return { size: Number(headers.get("content-length") ?? 0) };
+}
+
 /**
  * Every key under `prefix`, following continuation tokens to the end.
  *
@@ -159,23 +223,34 @@ export async function deleteObjects(config: S3Config, keys: string[]): Promise<v
 }
 
 /**
- * A bucket answer, read to completion.
+ * A bucket answer, read to completion — unless the request asked to stream.
  *
- * `send` buffers the body rather than handing back a live `Response`: every
- * object here is whole-in-memory anyway, an unread body holds its connection out
- * of the pool until the `Response` is collected, and a caller that never reads
- * leaks one per call. Buffering also means the per-attempt timeout can cover the
- * whole exchange and then be cleared, rather than either expiring mid-download
- * or not existing at all.
+ * `send` buffers the body by default rather than handing back a live
+ * `Response`: an unread body holds its connection out of the pool until the
+ * `Response` is collected, and a caller that never reads leaks one per call.
+ * Buffering also means the per-attempt timeout can cover the whole exchange and
+ * then be cleared, rather than either expiring mid-download or not existing at
+ * all.
+ *
+ * A streaming request gets its successful body as `stream` instead, and takes
+ * on the obligation to read or cancel it. Error answers are always buffered:
+ * they are small, and their XML is what says what went wrong.
  */
-type S3Response = { status: number; body: Buffer };
+type S3Response = {
+  status: number;
+  headers: Headers;
+  body: Buffer;
+  /** Set only for a successful answer to a request with `stream: true`. */
+  stream: ReadableStream<Uint8Array> | null;
+};
 
 type S3Request = {
-  method: "GET" | "PUT" | "POST" | "DELETE";
+  method: "GET" | "HEAD" | "PUT" | "POST" | "DELETE";
   key?: string;
   query?: Record<string, string>;
   body?: Buffer;
   headers?: Record<string, string>;
+  stream?: boolean;
 };
 
 /**
@@ -188,7 +263,8 @@ const RETRY_BASE_MS = 150;
 
 /**
  * How long one attempt gets, from opening the connection to holding the whole
- * body, before it is abandoned and retried.
+ * body, before it is abandoned and retried. A streamed body is bounded
+ * differently — see `idleTimeout`.
  *
  * A bucket that refuses a connection fails fast; one that accepts it and then
  * says nothing does not. Without a bound, Node's own timeouts are the only
@@ -240,6 +316,7 @@ async function send(config: S3Config, request: S3Request): Promise<S3Response> {
 
     if (response.status >= 200 && response.status < 300) return response;
 
+    // HEAD answers carry no body, so a failed one has no XML to explain it.
     const { code, message } = parseErrorXml(response.body.toString("utf8"));
     lastError = new S3Error(
       response.status,
@@ -324,6 +401,7 @@ async function signedFetch(config: S3Config, request: S3Request): Promise<S3Resp
     () => controller.abort(new Error(`Bucket did not answer within ${budget}ms.`)),
     budget,
   );
+  let streaming = false;
 
   try {
     const response = await fetch(
@@ -348,10 +426,67 @@ async function signedFetch(config: S3Config, request: S3Request): Promise<S3Resp
       },
     );
 
-    return { status: response.status, body: Buffer.from(await response.arrayBuffer()) };
+    if (request.stream && response.ok && response.body) {
+      // The headers are in, so this attempt has succeeded and `send` will not
+      // retry it. From here the whole-exchange budget would cut off any
+      // original slower to download than it — so it hands over to a bound on
+      // silence instead, which the body wrapper owns from now on.
+      streaming = true;
+      clearTimeout(timeout);
+      return {
+        status: response.status,
+        headers: response.headers,
+        body: Buffer.alloc(0),
+        stream: idleTimeout(response.body, controller, budget),
+      };
+    }
+
+    return {
+      status: response.status,
+      headers: response.headers,
+      body: Buffer.from(await response.arrayBuffer()),
+      stream: null,
+    };
   } finally {
-    clearTimeout(timeout);
+    if (!streaming) clearTimeout(timeout);
   }
+}
+
+/**
+ * Passes a streamed body through, abandoning it if the bucket goes quiet for
+ * `budget` milliseconds mid-download.
+ *
+ * The clock runs only while waiting on the bucket, never while the consumer is
+ * busy: a browser on a slow link applies backpressure, and a timer that kept
+ * running through that would cut off the viewer rather than a dead bucket.
+ */
+function idleTimeout(
+  body: ReadableStream<Uint8Array>,
+  controller: AbortController,
+  budget: number,
+): ReadableStream<Uint8Array> {
+  const reader = body.getReader();
+
+  return new ReadableStream<Uint8Array>({
+    async pull(consumer) {
+      const timer = setTimeout(
+        () => controller.abort(new Error(`Bucket went quiet for ${budget}ms mid-download.`)),
+        budget,
+      );
+      try {
+        const { done, value } = await reader.read();
+        if (done) consumer.close();
+        else consumer.enqueue(value);
+      } catch (error) {
+        consumer.error(error);
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    cancel(reason) {
+      return reader.cancel(reason);
+    },
+  });
 }
 
 /**

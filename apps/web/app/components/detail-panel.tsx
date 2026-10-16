@@ -8,6 +8,7 @@ import { ExternalLink, RotateCcw, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import type { ImageDetail } from "~/lib/library.server";
+import { formatDuration } from "~/lib/media";
 
 /**
  * The search param holding the Image whose details are open. Paired with
@@ -69,13 +70,33 @@ export function DetailPanelBody({
 
       {/* Only where the viewer is not already showing the Image beside this
           column: below `sm` the panel covers it, so it brings its own preview. */}
-      <a href={`/img/${image.id}/original`} target="_blank" rel="noreferrer" className="sm:hidden">
-        <img
-          src={`/img/${image.id}/medium`}
-          alt={image.displayTitle ?? ""}
-          className="bg-muted max-h-48 w-full rounded-lg object-contain"
+      {image.kind === "video" ? (
+        // Not autoplaying: the viewer underneath is already playing it.
+        <video
+          src={`/img/${image.id}/original`}
+          poster={`/img/${image.id}/medium`}
+          muted
+          loop
+          playsInline
+          controls
+          preload="none"
+          aria-label={image.displayTitle ?? "Video"}
+          className="bg-muted max-h-48 w-full rounded-lg object-contain sm:hidden"
         />
-      </a>
+      ) : (
+        <a
+          href={`/img/${image.id}/original`}
+          target="_blank"
+          rel="noreferrer"
+          className="sm:hidden"
+        >
+          <img
+            src={`/img/${image.id}/medium`}
+            alt={image.displayTitle ?? ""}
+            className="bg-muted max-h-48 w-full rounded-lg object-contain"
+          />
+        </a>
+      )}
 
       {/* Both fields are editable and both can start empty: a captured title is
           often unhelpful, and an uploaded Image arrives with no source at all. */}
@@ -151,6 +172,7 @@ export function DetailPanelBody({
 
         <div className="text-muted-foreground text-xs">
           {image.width}×{image.height} · {image.format.toUpperCase()} ·{" "}
+          {image.durationMs !== null && `${formatDuration(image.durationMs)} · `}
           {formatBytes(image.byteSize)} · saved{" "}
           {new Date(image.savedAt).toLocaleDateString("en-GB", {
             day: "numeric",

@@ -3,6 +3,7 @@ import { skipLightboxRevalidation } from "~/components/lightbox";
 import { UploadButton } from "~/components/upload-button";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listStream } from "~/lib/library.server";
+import { countLabel } from "~/lib/media";
 import type { Route } from "./+types/stream";
 
 // Opening or stepping the full-size viewer only moves `?view=`, which no loader
@@ -25,11 +26,7 @@ export default function Stream({ loaderData }: Route.ComponentProps) {
     <div className="p-6">
       <ViewHeader
         title="Stream"
-        subtitle={
-          images.length === 0
-            ? "Nothing saved yet"
-            : `${images.length} image${images.length === 1 ? "" : "s"}`
-        }
+        subtitle={images.length === 0 ? "Nothing saved yet" : countLabel(images)}
       >
         <UploadButton />
       </ViewHeader>

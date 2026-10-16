@@ -216,6 +216,24 @@ export async function visibleImageIds(page: Page): Promise<string[]> {
 }
 
 /**
+ * Waits until the page is hydrated and its effects have run. Listeners an
+ * effect attaches to `window` — the dropzone's, for one — don't exist before
+ * then, and an event dispatched early simply goes nowhere. `goto` resolving
+ * says the page loaded, not that React has finished with it.
+ */
+export async function hydrated(page: Page) {
+  await page.waitForFunction(() => {
+    const router = (window as { __reactRouterDataRouter?: { state: { initialized: boolean } } })
+      .__reactRouterDataRouter;
+    return router?.state.initialized === true;
+  });
+  // Effects run after the commit that follows; two frames is past it.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+}
+
+/**
  * Drops files on the window the way a real drag does. Playwright can't drive the
  * OS file dialog, so the DataTransfer is built in the page and dispatched — this
  * is the only way to exercise the window-level drop handler.
@@ -224,6 +242,7 @@ export async function dropFiles(
   page: Page,
   files: Array<{ name: string; base64: string; type?: string }>,
 ) {
+  await hydrated(page);
   const handle = await page.evaluateHandle((items) => {
     const transfer = new DataTransfer();
     for (const item of items) {

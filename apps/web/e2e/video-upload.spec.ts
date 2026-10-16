@@ -7,6 +7,7 @@ import sharp from "sharp";
 import {
   createBoard,
   dropFiles,
+  hydrated,
   mp4,
   portraitMp4,
   resetLibrary,
@@ -166,6 +167,7 @@ test("dropping a video on the page uploads it", async ({ page }) => {
 
 test("a video too large for the cap is refused before it is sent", async ({ page }) => {
   await page.goto("/");
+  await hydrated(page);
 
   // Built in the page: only the declared size matters, and nothing is posted.
   let posted = false;

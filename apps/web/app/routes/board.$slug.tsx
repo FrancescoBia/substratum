@@ -7,8 +7,10 @@ import {
   skipLightboxRevalidation,
   useTileMorphName,
 } from "~/components/lightbox";
+import { VideoPreview } from "~/components/video-preview";
 import { instanceUrlFor } from "~/lib/config.server";
 import { getPublishedBoard, listPublicBoardImages } from "~/lib/library.server";
+import { countLabel } from "~/lib/media";
 import type { Route } from "./+types/board.$slug";
 
 // Opening the full-size viewer is only a `?view=` change, and this loader never
@@ -24,9 +26,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [{ title: "Board not found · Substratum" }];
 
   const { board, images, canonical, ogImage } = loaderData;
-  const description = `A collection of ${images.length} image${
-    images.length === 1 ? "" : "s"
-  } on Substratum.`;
+  const description = `A collection of ${countLabel(images)} on Substratum.`;
 
   return [
     { title: `${board.name} · Substratum` },
@@ -79,9 +79,7 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
     <main className="mx-auto max-w-7xl px-6 pb-24">
       <header className="py-10">
         <h1 className="text-3xl font-semibold tracking-tight">{board.name}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {images.length} image{images.length === 1 ? "" : "s"}
-        </p>
+        <p className="text-muted-foreground mt-1 text-sm">{countLabel(images)}</p>
       </header>
 
       {images.length === 0 ? (
@@ -99,8 +97,8 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
                 preventScrollReset
                 viewTransition
                 onClick={() => morphFromTile(image.id)}
-                aria-label={image.title ?? "Image"}
-                className="group block"
+                aria-label={image.title ?? (image.kind === "video" ? "Video" : "Image")}
+                className="group relative block"
               >
                 <img
                   // See `image-grid.tsx`: the 400px `thumb` is too small for a
@@ -114,6 +112,9 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
                   style={{ viewTransitionName: tileMorphName(image.id) }}
                   className="bg-muted aspect-4/5 w-full rounded-lg object-cover transition group-hover:brightness-90"
                 />
+                {image.kind === "video" && (
+                  <VideoPreview id={image.id} durationMs={image.durationMs} />
+                )}
               </Link>
               {/* Attribution only where there is something to attribute — an
                   uploaded image has no source page. */}
@@ -140,6 +141,7 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
       <Lightbox
         images={images.map((image) => ({
           id: image.id,
+          kind: image.kind,
           width: image.width,
           height: image.height,
           title: image.title,

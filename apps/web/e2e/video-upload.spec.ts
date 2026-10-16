@@ -186,3 +186,61 @@ test("a video too large for the cap is refused before it is sent", async ({ page
   await expect(card).toContainText("huge.mov: That video is larger than 95 MB.");
   expect(posted).toBe(false);
 });
+
+test("a slow upload shows its bytes going up, then processing, then the result", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await hydrated(page);
+
+  // Every heading the card shows, in order — "Processing…" lasts well under a
+  // second, too briefly for polling to be sure of catching it.
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as { __headings?: string[] }).__headings = seen;
+    new MutationObserver(() => {
+      const heading = document.querySelector("[data-testid=upload-progress] p")?.textContent;
+      if (heading && seen.at(-1) !== heading) seen.push(heading);
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+
+  // About 4 MB at 1 MB/s: long enough to watch the bar move.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Network.enable");
+  await cdp.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: 1024 * 1024,
+  });
+
+  const buffer = await video("mp4", [
+    "-t",
+    "1",
+    "-vf",
+    "scale=640:360,noise=alls=60:allf=t",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "ultrafast",
+    "-crf",
+    "14",
+    "-pix_fmt",
+    "yuv420p",
+  ]);
+  await page
+    .locator("input[type=file]")
+    .setInputFiles({ name: "slow.mp4", mimeType: "video/mp4", buffer });
+
+  const bar = page.getByTestId("upload-progress").getByRole("progressbar");
+  await expect
+    .poll(async () => Number((await bar.getAttribute("aria-valuenow")) ?? 0))
+    .toBeGreaterThan(0);
+  expect(Number(await bar.getAttribute("aria-valuenow"))).toBeLessThan(100);
+
+  await expect(page.getByTestId("upload-progress")).toContainText("1 uploaded", {
+    timeout: 30_000,
+  });
+  const headings = await page.evaluate(() => (window as { __headings?: string[] }).__headings);
+  expect(headings).toEqual(["Uploading…", "Processing…", "1 uploaded"]);
+});

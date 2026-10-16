@@ -32,11 +32,18 @@ function ProgressTrack({ className, ...props }: ProgressPrimitive.Track.Props) {
   );
 }
 
+/**
+ * An indeterminate bar (`value={null}`) has no width to fill, so Base UI leaves
+ * it unsized and marks it `data-indeterminate` — and it sweeps instead.
+ */
 function ProgressIndicator({ className, ...props }: ProgressPrimitive.Indicator.Props) {
   return (
     <ProgressPrimitive.Indicator
       data-slot="progress-indicator"
-      className={cn("h-full bg-primary transition-all", className)}
+      className={cn(
+        "h-full bg-primary transition-all data-indeterminate:w-2/5 data-indeterminate:animate-progress-sweep",
+        className,
+      )}
       {...props}
     />
   );

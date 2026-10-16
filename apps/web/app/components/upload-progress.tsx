@@ -15,19 +15,27 @@ export function UploadProgress() {
 
   const succeeded = state.completed - state.failed;
 
-  // A lone file has only two states to report, so a determinate bar would read
-  // 0% for the entire wait. Sweeping is the honest shape for "working".
-  const indeterminate = state.running && state.total === 1;
-  const value = indeterminate ? null : Math.round((state.completed / state.total) * 100);
+  // Every byte is up and only the server's answers are outstanding. A full bar
+  // would read as finished, and nothing here can say how far along the server
+  // is — so the bar sweeps, which is the honest shape for "working".
+  const processing = state.running && state.processing > 0 && state.sentBytes >= state.totalBytes;
+
+  const value = processing
+    ? null
+    : state.totalBytes === 0
+      ? 100
+      : Math.round((state.sentBytes / state.totalBytes) * 100);
 
   // Once an import has failed, a full bar would say the opposite of the count
   // beside it. The numbers and the reasons carry the result on their own.
   const showBar = state.running || state.failed === 0;
 
   const heading = state.running
-    ? state.total === 1
-      ? "Uploading…"
-      : `Uploading ${state.completed} of ${state.total}`
+    ? processing
+      ? "Processing…"
+      : state.total === 1
+        ? "Uploading…"
+        : `Uploading ${state.completed} of ${state.total}`
     : state.failed > 0
       ? `${succeeded} uploaded, ${state.failed} failed`
       : `${succeeded} uploaded`;

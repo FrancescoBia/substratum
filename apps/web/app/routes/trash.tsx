@@ -2,8 +2,10 @@ import { Button } from "@repo/ui/components/button";
 import { RotateCcw, X } from "lucide-react";
 import { useFetcher } from "react-router";
 import { EmptyState, ViewHeader } from "~/components/image-grid";
+import { DurationBadge } from "~/components/video-preview";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listTrash } from "~/lib/library.server";
+import { countLabel } from "~/lib/media";
 import type { Route } from "./+types/trash";
 
 export function meta() {
@@ -30,9 +32,7 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
       <ViewHeader
         title="Trash"
         subtitle={
-          images.length === 0
-            ? "Empty"
-            : `${images.length} image${images.length === 1 ? "" : "s"} · recoverable until purged`
+          images.length === 0 ? "Empty" : `${countLabel(images)} · recoverable until purged`
         }
       />
 
@@ -50,6 +50,10 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
                 loading="lazy"
                 className="bg-muted aspect-4/5 w-full rounded-lg object-cover opacity-60"
               />
+              {/* Up top, clear of the Restore and Delete buttons along the bottom. */}
+              {image.kind === "video" && (
+                <DurationBadge durationMs={image.durationMs} position="top-2 right-2" />
+              )}
               <div className="absolute inset-x-1 bottom-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <Button
                   size="sm"
@@ -70,7 +74,7 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
                   className="text-destructive h-7"
                   title="Delete permanently"
                   onClick={() => {
-                    if (confirm("Delete this image permanently? This cannot be undone.")) {
+                    if (confirm(`Delete this ${image.kind} permanently? This cannot be undone.`)) {
                       act.submit(
                         { intent: "purge" },
                         { method: "post", action: `/image/${image.id}` },

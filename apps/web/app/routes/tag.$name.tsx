@@ -2,6 +2,7 @@ import { EmptyState, ImageGrid, ViewHeader } from "~/components/image-grid";
 import { skipLightboxRevalidation } from "~/components/lightbox";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listTagImages } from "~/lib/library.server";
+import { countLabel } from "~/lib/media";
 import type { Route } from "./+types/tag.$name";
 
 // Opening or stepping the full-size viewer only moves `?view=`, which no loader
@@ -22,10 +23,7 @@ export default function TagView({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="p-6">
-      <ViewHeader
-        title={`#${name}`}
-        subtitle={`${images.length} image${images.length === 1 ? "" : "s"}`}
-      />
+      <ViewHeader title={`#${name}`} subtitle={countLabel(images)} />
       {images.length === 0 ? (
         <EmptyState title="Nothing tagged this yet" />
       ) : (

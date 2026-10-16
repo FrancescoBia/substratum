@@ -1,14 +1,26 @@
+import { readFile } from "node:fs/promises";
+import { MAX_IMAGE_BYTES } from "@repo/shared";
 import { eq } from "drizzle-orm";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
-import { ingestImage } from "~/lib/ingest.server";
+import { ingestImage, ingestVideo, type IngestResult } from "~/lib/ingest.server";
 import { normalizeTag, resolveTagId } from "~/lib/library.server";
+import { sniffMedia } from "~/lib/media-sniff";
+import {
+  discardSpooled,
+  readHead,
+  receiveUpload,
+  UploadUnreadable,
+  type ReceivedUpload,
+  type SpooledFile,
+} from "~/lib/upload.server";
 import type { Route } from "./+types/upload";
 
 export type UploadResult = { uploaded: number; errors: string[] };
 
 /**
  * Manual upload — the path that makes Substratum usable without the extension.
+ * Takes images and videos alike; what each file is comes from its bytes.
  *
  * Its own route rather than an action on the Stream: a POST to "/" would target
  * the root layout route unless disambiguated with `?index`, and an explicit
@@ -17,10 +29,24 @@ export type UploadResult = { uploaded: number; errors: string[] };
 export async function action({ request }: Route.ActionArgs): Promise<UploadResult> {
   await requireOwnerSession(request);
 
-  const form = await request.formData();
-  const files = form.getAll("files").filter((entry): entry is File => entry instanceof File);
-  const boardId = String(form.get("boardId") ?? "");
-  const tagName = normalizeTag(String(form.get("tag") ?? ""));
+  let upload: ReceivedUpload;
+  try {
+    upload = await receiveUpload(request);
+  } catch (error) {
+    if (error instanceof UploadUnreadable) return { uploaded: 0, errors: [error.message] };
+    throw error;
+  }
+
+  try {
+    return await ingestAll(upload);
+  } finally {
+    await discardSpooled(upload.files);
+  }
+}
+
+async function ingestAll({ fields, files }: ReceivedUpload): Promise<UploadResult> {
+  const boardId = fields.get("boardId") ?? "";
+  const tagName = normalizeTag(fields.get("tag") ?? "");
 
   if (files.length === 0) {
     return { uploaded: 0, errors: ["No files were selected."] };
@@ -38,11 +64,10 @@ export async function action({ request }: Route.ActionArgs): Promise<UploadResul
   // source rather than a fabricated one.
   const results = await Promise.all(
     files.map(async (file) => {
-      const bytes = Buffer.from(await file.arrayBuffer());
-      const result = await ingestImage(bytes, null);
+      const result = await ingestSpooled(file);
       return result.ok
         ? { id: result.id, error: null }
-        : { id: null, error: `${file.name || "image"}: ${result.message}` };
+        : { id: null, error: `${file.name}: ${result.message}` };
     }),
   );
 
@@ -66,4 +91,28 @@ export async function action({ request }: Route.ActionArgs): Promise<UploadResul
   }
 
   return { uploaded: files.length - errors.length, errors };
+}
+
+/** Sends one spooled file down the image or video path, by what its bytes say it is. */
+async function ingestSpooled(file: SpooledFile): Promise<IngestResult> {
+  const sniffed = sniffMedia(await readHead(file.path));
+
+  if (sniffed.kind === "unsupported-video") {
+    return {
+      ok: false,
+      code: "unsupported-format",
+      message: `${sniffed.container} videos aren't supported — export it as MP4 or WebM to save it.`,
+    };
+  }
+
+  if (sniffed.kind === "video") {
+    return ingestVideo(file.path, file.size, sniffed.container, null);
+  }
+
+  // Stills are small enough to take into memory, as they always have been —
+  // but a 90 MB file that only claims to be one is refused before it is read.
+  if (file.size > MAX_IMAGE_BYTES) {
+    return { ok: false, code: "too-large", message: "That image is larger than 50 MB." };
+  }
+  return ingestImage(await readFile(file.path), null);
 }

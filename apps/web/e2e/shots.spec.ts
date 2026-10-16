@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createBoard, detailsPanel, openDetails, uploadImages } from "./helpers";
+import { createBoard, detailsPanel, openDetails, uploadFile, uploadImages, video } from "./helpers";
 
 const SHOTS = "screenshots";
 
@@ -11,6 +11,14 @@ const SHOTS = "screenshots";
 test("capture every view", async ({ page, request }) => {
   test.slow();
 
+  // Uploaded first so it sits last in the newest-first Stream: in every grid
+  // shot with its duration badge, without becoming the Image the detail-panel
+  // shots open.
+  await uploadFile(request, {
+    name: "motion.webm",
+    mimeType: "video/webm",
+    buffer: await video("webm", ["-c:v", "libvpx-vp9", "-deadline", "realtime"]),
+  });
   await uploadImages(request, 9);
   const darkUi = await createBoard(request, "Dark UI");
   await createBoard(request, "Typography");

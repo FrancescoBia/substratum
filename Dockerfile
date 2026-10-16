@@ -52,6 +52,11 @@ ENV SUBSTRATUM_DATA_DIR=/data
 ENV PORT=3000
 
 COPY --from=build /deploy /app
+# ffmpeg and ffprobe, for video ingest: static builds copied out of a pinned,
+# multi-arch image (amd64 and arm64 alike). Debian's own ffmpeg package would
+# drag a few hundred megabytes of shared libraries in with it; these are two
+# self-contained files. CI copies the same pin — keep the two in step.
+COPY --from=mwader/static-ffmpeg:9.0.2-1@sha256:f5d100184884eb3e82b0eb14bb5ebf98da99826ac824989720297fb9ef21c822 /ffmpeg /ffprobe /usr/local/bin/
 # `deploy` honours .gitignore, and build/ is ignored — so the compiled server
 # has to be copied in explicitly. Without this the image builds fine and then
 # fails to start, which is the worst way to find out.

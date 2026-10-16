@@ -1,5 +1,11 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import sharp from "sharp";
+import type { UploadResult } from "~/routes/upload";
 
 /** Credentials for the throwaway test instance only. */
 export const OWNER = {
@@ -16,6 +22,56 @@ export function png(width: number, height: number, rgb: [number, number, number]
   })
     .png()
     .toBuffer();
+}
+
+const ffmpeg = (args: string[]) =>
+  promisify(execFile)(process.env.FFMPEG_PATH || "ffmpeg", ["-v", "error", ...args]);
+
+/**
+ * A two-second clip of ffmpeg's test pattern at 320×240, encoded however `args`
+ * says — made fresh rather than committed, like the PNGs.
+ */
+export async function video(extension: string, args: string[]): Promise<Buffer> {
+  const dir = await mkdtemp(join(tmpdir(), "substratum-e2e-"));
+  try {
+    const path = join(dir, `clip.${extension}`);
+    await ffmpeg(["-f", "lavfi", "-i", "testsrc=size=320x240:rate=25:duration=2", ...args, path]);
+    return await readFile(path);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** H.264 in an MP4 — the everyday case. */
+export function mp4() {
+  return video("mp4", ["-c:v", "libx264", "-pix_fmt", "yuv420p"]);
+}
+
+/**
+ * The same MP4 stored the way a phone stores portrait footage: landscape
+ * frames, plus an instruction to show them turned a quarter.
+ */
+export async function portraitMp4(): Promise<Buffer> {
+  const dir = await mkdtemp(join(tmpdir(), "substratum-e2e-"));
+  try {
+    const [input, output] = [join(dir, "in.mp4"), join(dir, "out.mp4")];
+    await writeFile(input, await mp4());
+    await ffmpeg(["-display_rotation", "90", "-i", input, "-c", "copy", output]);
+    return await readFile(output);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** Posts one file to the upload endpoint and hands back what it said. */
+export async function uploadFile(
+  request: APIRequestContext,
+  file: { name: string; mimeType: string; buffer: Buffer },
+  fields: Record<string, string> = {},
+): Promise<UploadResult> {
+  const response = await request.post("/upload", { multipart: { files: file, ...fields } });
+  expect(response.ok()).toBe(true);
+  return (await response.json()) as UploadResult;
 }
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -160,18 +216,40 @@ export async function visibleImageIds(page: Page): Promise<string[]> {
 }
 
 /**
+ * Waits until the page is hydrated and its effects have run. Listeners an
+ * effect attaches to `window` — the dropzone's, for one — don't exist before
+ * then, and an event dispatched early simply goes nowhere. `goto` resolving
+ * says the page loaded, not that React has finished with it.
+ */
+export async function hydrated(page: Page) {
+  await page.waitForFunction(() => {
+    const router = (window as { __reactRouterDataRouter?: { state: { initialized: boolean } } })
+      .__reactRouterDataRouter;
+    return router?.state.initialized === true;
+  });
+  // Effects run after the commit that follows; two frames is past it.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+}
+
+/**
  * Drops files on the window the way a real drag does. Playwright can't drive the
  * OS file dialog, so the DataTransfer is built in the page and dispatched — this
  * is the only way to exercise the window-level drop handler.
  */
-export async function dropFiles(page: Page, files: Array<{ name: string; base64: string }>) {
+export async function dropFiles(
+  page: Page,
+  files: Array<{ name: string; base64: string; type?: string }>,
+) {
+  await hydrated(page);
   const handle = await page.evaluateHandle((items) => {
     const transfer = new DataTransfer();
     for (const item of items) {
       const binary = atob(item.base64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      transfer.items.add(new File([bytes], item.name, { type: "image/png" }));
+      transfer.items.add(new File([bytes], item.name, { type: item.type ?? "image/png" }));
     }
     return transfer;
   }, files);

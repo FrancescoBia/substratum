@@ -1,9 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { ACCEPTED_FORMATS, MAX_IMAGE_BYTES, type CaptureErrorCode } from "@repo/shared";
+import {
+  ACCEPTED_FORMATS,
+  MAX_IMAGE_BYTES,
+  MAX_VIDEO_BYTES,
+  type AcceptedVideoFormat,
+  type CaptureErrorCode,
+} from "@repo/shared";
 import sharp, { type Metadata } from "sharp";
 import { db, schema } from "~/db/index.server";
+import { extractFrame, probe, type ProbeOutput } from "./ffmpeg.server";
 import { MEDIUM_EDGE, THUMB_EDGE } from "./image-variants";
 import { storage, storageKeys } from "./storage.server";
+import { describeVideo } from "./video-metadata";
 
 /**
  * Where an Image came from. Null for one the Owner uploaded by hand — there is
@@ -57,39 +65,21 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
 
   const id = randomUUID();
 
-  try {
+  return commit(
+    id,
     // An animated GIF gets a still first frame as its derivative; the original
     // keeps its animation for the detail view.
-    const derive = (edge: number) =>
-      sharp(bytes)
-        .resize(edge, edge, { fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toBuffer();
-
-    const [thumb, medium] = await Promise.all([derive(THUMB_EDGE), derive(MEDIUM_EDGE)]);
-
-    // Together, not one after another: against a bucket these are three
-    // independent network round trips on the request the extension is waiting
-    // on, and nothing orders them.
-    const writes = await Promise.allSettled([
-      storage.put(storageKeys.original(id, format), bytes),
-      storage.put(storageKeys.thumb(id), thumb),
-      storage.put(storageKeys.medium(id), medium),
-    ]);
-    const failed = writes.find((write) => write.status === "rejected");
-    if (failed) throw failed.reason;
-  } catch (error) {
-    await discardStoredBytes(id);
-    return {
-      ok: false,
-      code: "server-error",
-      message: error instanceof Error ? error.message : "Couldn't process that image.",
-    };
-  }
-
-  try {
-    await db.insert(schema.images).values({
+    async () => {
+      const [thumb, medium] = await deriveVariants(bytes);
+      return [
+        storage.put(storageKeys.original(id, format), bytes),
+        storage.put(storageKeys.thumb(id), thumb),
+        storage.put(storageKeys.medium(id), medium),
+      ];
+    },
+    {
       id,
+      kind: "image",
       storageKey: storageKeys.original(id, format),
       width: metadata.width,
       height: metadata.height,
@@ -99,13 +89,129 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
       sourcePageUrl: source?.sourcePageUrl ?? null,
       sourcePageTitle: source?.sourcePageTitle ?? null,
       savedAt: Date.now(),
-    });
+    },
+  );
+}
+
+/**
+ * The video counterpart to `ingestImage`, for a file already spooled to disk —
+ * at up to 95 MB it is never read into memory. Takes the file: on success it
+ * has been moved into storage, and either way the caller removes whatever is
+ * left at `path`.
+ *
+ * `container` is what the file's leading bytes said it is (see `sniffMedia`);
+ * ffprobe has to agree before anything is kept. The poster frame becomes the
+ * `thumb` and `medium` derivatives exactly as a still would, so every grid,
+ * board and export treats a video's derivatives like any other.
+ */
+export async function ingestVideo(
+  path: string,
+  byteSize: number,
+  container: AcceptedVideoFormat,
+  source: IngestSource,
+): Promise<IngestResult> {
+  if (byteSize > MAX_VIDEO_BYTES) {
+    return { ok: false, code: "too-large", message: "That video is larger than 95 MB." };
+  }
+  if (byteSize === 0) {
+    return { ok: false, code: "invalid-request", message: "That file is empty." };
+  }
+
+  let probed: ProbeOutput;
+  try {
+    probed = await probe(path);
+  } catch {
+    return {
+      ok: false,
+      code: "unsupported-format",
+      message: "That video file is damaged, or isn't a video ffmpeg can read.",
+    };
+  }
+
+  const verdict = describeVideo(probed, container);
+  if (!verdict.ok) return { ok: false, code: "unsupported-format", message: verdict.message };
+  const { video } = verdict;
+
+  // A second in skips the fade from black most motion pieces open on; half way
+  // through covers clips shorter than two seconds. A container that never says
+  // how long it is gets the second, and the first frame if that misses.
+  const posterAt = video.durationMs === null ? 1 : Math.min(1, video.durationMs / 2000);
+
+  const id = randomUUID();
+
+  return commit(
+    id,
+    async () => {
+      const frame = await extractFrame(path, posterAt).catch(() => extractFrame(path, 0));
+      const [thumb, medium] = await deriveVariants(frame);
+      return [
+        storage.put(storageKeys.thumb(id), thumb),
+        storage.put(storageKeys.medium(id), medium),
+        storage.putFile(storageKeys.original(id, container), path),
+      ];
+    },
+    {
+      id,
+      kind: "video",
+      storageKey: storageKeys.original(id, container),
+      width: video.width,
+      height: video.height,
+      format: container,
+      byteSize,
+      durationMs: video.durationMs,
+      sourceImageUrl: source?.sourceImageUrl ?? null,
+      sourcePageUrl: source?.sourcePageUrl ?? null,
+      sourcePageTitle: source?.sourcePageTitle ?? null,
+      savedAt: Date.now(),
+    },
+  );
+}
+
+/** The `thumb` and `medium` WebPs of a still: an image itself, or a video's poster. */
+function deriveVariants(still: Buffer): Promise<[Buffer, Buffer]> {
+  const derive = (edge: number) =>
+    sharp(still)
+      .resize(edge, edge, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+
+  return Promise.all([derive(THUMB_EDGE), derive(MEDIUM_EDGE)]);
+}
+
+/**
+ * Stores an Image's bytes and then records it — all of it, or none.
+ *
+ * `write` starts every storage write and hands them back together rather than
+ * awaiting each: against a bucket they are independent network round trips on
+ * the request the Owner is waiting on, and nothing orders them. Any failure,
+ * in deriving or in writing, removes whatever did land and records nothing.
+ */
+async function commit(
+  id: string,
+  write: () => Promise<Array<Promise<void>>>,
+  row: typeof schema.images.$inferInsert,
+): Promise<IngestResult> {
+  try {
+    const writes = await Promise.allSettled(await write());
+    const failed = writes.find((result) => result.status === "rejected");
+    if (failed) throw failed.reason;
   } catch (error) {
     await discardStoredBytes(id);
     return {
       ok: false,
       code: "server-error",
-      message: error instanceof Error ? error.message : "Couldn't save that image.",
+      message: error instanceof Error ? error.message : "Couldn't process that file.",
+    };
+  }
+
+  try {
+    await db.insert(schema.images).values(row);
+  } catch (error) {
+    await discardStoredBytes(id);
+    return {
+      ok: false,
+      code: "server-error",
+      message: error instanceof Error ? error.message : "Couldn't save that file.",
     };
   }
 

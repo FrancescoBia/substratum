@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useRouteLoaderData } from "react-router";
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
 import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox";
+import { VideoPreview } from "~/components/video-preview";
 import type { GridImage } from "~/lib/library.server";
 import type { loader as libraryLoader } from "~/routes/library";
 
@@ -205,8 +206,10 @@ export function ImageGrid({
               preventScrollReset
               viewTransition
               onClick={() => morphFromTile(image.id)}
-              className={layout === "mosaic" ? "block h-full" : "block"}
-              aria-label={image.title ?? "Uploaded image"}
+              className={layout === "mosaic" ? "relative block h-full" : "relative block"}
+              aria-label={
+                image.title ?? (image.kind === "video" ? "Uploaded video" : "Uploaded image")
+              }
             >
               <img
                 // `medium`, not `thumb`: a tile is ~300 CSS px, so a retina
@@ -234,6 +237,13 @@ export function ImageGrid({
                     : "aspect-4/5"
                 }`}
               />
+              {image.kind === "video" && (
+                <VideoPreview
+                  id={image.id}
+                  durationMs={image.durationMs}
+                  className={layout === "mosaic" && isClamped(image) ? "object-top" : ""}
+                />
+              )}
             </Link>
 
             {image.untriaged && (

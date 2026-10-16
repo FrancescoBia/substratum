@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { ACCEPTED_FORMATS, MAX_IMAGE_BYTES, type CaptureErrorCode } from "@repo/shared";
 import sharp, { type Metadata } from "sharp";
 import { db, schema } from "~/db/index.server";
+// Loaded for its startup check: an instance that can't store videos should not
+// start accepting uploads.
+import "./ffmpeg.server";
 import { MEDIUM_EDGE, THUMB_EDGE } from "./image-variants";
 import { storage, storageKeys } from "./storage.server";
 

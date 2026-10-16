@@ -175,7 +175,11 @@ backups, since it excludes the Trash and won't restore an instance on its own.
 
 ## Development
 
-Requires Node 22+ and pnpm.
+Requires Node 22+, pnpm, and ffmpeg — video uploads read and poster their files
+with `ffprobe` and `ffmpeg`, and the app won't start without both. The container
+image ships its own; anywhere else, install them (`brew install ffmpeg`, or your
+distro's package), or point `FFMPEG_PATH` and `FFPROBE_PATH` at the binaries if
+they aren't on your `PATH`.
 
 ```bash
 pnpm install
@@ -201,7 +205,7 @@ bucket can't drag `pnpm test:e2e` into it.
 | ------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`         | Run the web app in dev mode                                                                                 |
 | `pnpm seed`        | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 5173) |
-| `pnpm test:unit`   | Run the unit suite (the S3 client's request signing, against a stub bucket)                                 |
+| `pnpm test:unit`   | Run the unit suite (the S3 client against a stub bucket, byte ranges, the ffmpeg wrappers)                  |
 | `pnpm test:e2e`    | Run every Playwright spec against a throwaway instance                                                      |
 | `pnpm shots`       | Regenerate just the screenshots in `apps/web/screenshots/`                                                  |
 | `pnpm build`       | Build every workspace package                                                                               |

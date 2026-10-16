@@ -94,8 +94,10 @@ function DropTarget({
       depth.current = 0;
       setDragging(false);
 
-      const files = Array.from(event.dataTransfer?.files ?? []).filter((file) =>
-        file.type.startsWith("image/"),
+      // Any image or video goes through; the server says which it can't take,
+      // and why, rather than a drop of the wrong file silently doing nothing.
+      const files = Array.from(event.dataTransfer?.files ?? []).filter(
+        (file) => file.type.startsWith("image/") || file.type.startsWith("video/"),
       );
       if (files.length === 0) return;
 
@@ -141,7 +143,7 @@ function DropTarget({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                Import {pendingFiles?.length ?? 0} image
+                Import {pendingFiles?.length ?? 0} file
                 {pendingFiles?.length === 1 ? "" : "s"}?
               </DialogTitle>
               <DialogDescription>

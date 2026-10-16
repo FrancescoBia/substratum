@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { createReadStream, openAsBlob } from "node:fs";
 
 /**
  * A minimal S3 client: request signing, plus the handful of calls the storage
@@ -69,17 +70,49 @@ const CONTENT_TYPES: Record<string, string> = {
   gif: "image/gif",
   webp: "image/webp",
   avif: "image/avif",
+  mp4: "video/mp4",
+  mov: "video/mp4",
+  webm: "video/webm",
 };
 
-/** Objects are labelled by extension so a bucket fronted by a CDN serves them correctly. */
 export async function putObject(config: S3Config, key: string, body: Buffer): Promise<void> {
-  const extension = key.slice(key.lastIndexOf(".") + 1).toLowerCase();
+  await send(config, { method: "PUT", key, body, headers: { "content-type": contentType(key) } });
+}
+
+/**
+ * Uploads a file from disk without holding it in memory — what a video needs,
+ * at up to 95 MB.
+ *
+ * Still a single PUT (S3 takes up to 5 GB in one), with the file as a Blob that
+ * `fetch` reads lazily and sizes up front: a stream of unknown length would go
+ * out chunked, and S3 refuses a chunked PUT unless it is wrapped in its own
+ * signed-chunk encoding, which isn't worth carrying for this. The payload is
+ * hashed in a first pass, so the signature covers the real bytes on every
+ * provider rather than relying on `UNSIGNED-PAYLOAD`, which not all of them
+ * accept.
+ */
+export async function putObjectFromFile(
+  config: S3Config,
+  key: string,
+  path: string,
+): Promise<void> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  const body = await openAsBlob(path);
+
   await send(config, {
     method: "PUT",
     key,
     body,
-    headers: { "content-type": CONTENT_TYPES[extension] ?? "application/octet-stream" },
+    payloadHash: hash.digest("hex"),
+    headers: { "content-type": contentType(key) },
   });
+}
+
+/** Objects are labelled by extension so a bucket fronted by a CDN serves them correctly. */
+function contentType(key: string): string {
+  const extension = key.slice(key.lastIndexOf(".") + 1).toLowerCase();
+  return CONTENT_TYPES[extension] ?? "application/octet-stream";
 }
 
 export async function getObject(config: S3Config, key: string): Promise<Buffer> {
@@ -248,7 +281,10 @@ type S3Request = {
   method: "GET" | "HEAD" | "PUT" | "POST" | "DELETE";
   key?: string;
   query?: Record<string, string>;
-  body?: Buffer;
+  /** A Buffer already in memory, or a Blob backed by a file on disk. */
+  body?: Buffer | Blob;
+  /** Required with a Blob body, whose hash can't be taken synchronously. */
+  payloadHash?: string;
   headers?: Record<string, string>;
   stream?: boolean;
 };
@@ -276,6 +312,14 @@ const RETRY_BASE_MS = 150;
  * a bound.
  */
 const REQUEST_TIMEOUT_MS = 60_000;
+
+/**
+ * The slowest upload rate a file PUT is given time for, on top of the base
+ * budget: 2 Mbit/s, so a 95 MB video gets about six and a half minutes. Slow
+ * enough for any uplink a self-hosted instance plausibly sits on, while a dead
+ * bucket still fails inside the retries rather than holding an upload for ever.
+ */
+const SLOWEST_UPLOAD_BYTES_PER_MS = 250;
 
 /**
  * Sends one signed request, retrying the answers an object store gives when it
@@ -353,7 +397,9 @@ async function signedFetch(config: S3Config, request: S3Request): Promise<S3Resp
   const now = new Date();
   const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
   const dateStamp = amzDate.slice(0, 8);
-  const payloadHash = sha256Hex(request.body ?? Buffer.alloc(0));
+  const payloadHash =
+    request.payloadHash ??
+    sha256Hex(Buffer.isBuffer(request.body) ? request.body : Buffer.alloc(0));
 
   // Names are lowercased on the way in, because the canonical form signs the
   // lowercase name. A caller writing "Content-Type" would otherwise have the
@@ -395,7 +441,13 @@ async function signedFetch(config: S3Config, request: S3Request): Promise<S3Resp
   // Per attempt, not per operation: a retry that follows a timeout gets its own
   // full budget, which is the point of retrying at all. Cleared as soon as the
   // body is in hand, so a fast answer leaves no timer behind.
-  const budget = config.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  //
+  // A file upload's budget grows with the file: the server may sit on a home
+  // uplink, and a flat minute would refuse a 95 MB video to anything under
+  // about 13 Mbit/s.
+  const budget =
+    (config.timeoutMs ?? REQUEST_TIMEOUT_MS) +
+    (request.body instanceof Blob ? Math.ceil(request.body.size / SLOWEST_UPLOAD_BYTES_PER_MS) : 0);
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(new Error(`Bucket did not answer within ${budget}ms.`)),
@@ -412,16 +464,16 @@ async function signedFetch(config: S3Config, request: S3Request): Promise<S3Resp
           ...sendHeaders,
           Authorization: `${ALGORITHM} Credential=${config.accessKeyId}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
         },
-        // A view rather than a copy: originals run to 50 MB and are already in
-        // memory. The cast is because Node types the backing store as possibly
-        // shared, which `fetch` will not take.
-        body: request.body
+        // A Buffer goes as a view rather than a copy: originals run to 50 MB
+        // and are already in memory. The cast is because Node types the
+        // backing store as possibly shared, which `fetch` will not take.
+        body: Buffer.isBuffer(request.body)
           ? new Uint8Array(
               request.body.buffer as ArrayBuffer,
               request.body.byteOffset,
               request.body.byteLength,
             )
-          : undefined,
+          : request.body,
         signal: controller.signal,
       },
     );

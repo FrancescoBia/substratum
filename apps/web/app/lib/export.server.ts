@@ -6,8 +6,11 @@ import { asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "~/db/index.server";
 import { storage, StorageNotFound } from "./storage.server";
 
-/** Bumped if the manifest's shape ever changes, so importers can tell. */
-const MANIFEST_VERSION = 2;
+/**
+ * Bumped if the manifest's shape ever changes, so importers can tell. 3 added
+ * `kind` and `durationMs`, when Images could be videos.
+ */
+const MANIFEST_VERSION = 3;
 
 const EXTENSIONS: Record<string, string> = {
   jpeg: "jpg",
@@ -15,15 +18,21 @@ const EXTENSIONS: Record<string, string> = {
   gif: "gif",
   webp: "webp",
   avif: "avif",
+  mp4: "mp4",
+  mov: "mov",
+  webm: "webm",
 };
 
 type ManifestImage = {
   id: string;
+  kind: "image" | "video";
   file: string;
   width: number;
   height: number;
   format: string;
   byteSize: number;
+  /** Null for a still, and for a video whose container never said. */
+  durationMs: number | null;
   /** The Owner's own name for the Image, or null if they never gave it one. */
   title: string | null;
   savedAt: string;
@@ -93,11 +102,13 @@ export async function buildManifest(exportedAt = new Date()): Promise<Manifest> 
     })),
     images: images.map((image) => ({
       id: image.id,
+      kind: image.kind,
       file: `images/${image.id}.${EXTENSIONS[image.format] ?? image.format}`,
       width: image.width,
       height: image.height,
       format: image.format,
       byteSize: image.byteSize,
+      durationMs: image.durationMs,
       title: image.title,
       savedAt: new Date(image.savedAt).toISOString(),
       source: image.sourcePageUrl

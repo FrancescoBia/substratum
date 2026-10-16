@@ -63,6 +63,7 @@ export type ProbeOutput = {
     codec_name?: string;
     width?: number;
     height?: number;
+    duration?: string;
     tags?: Record<string, string>;
     side_data_list?: Array<{ side_data_type?: string; rotation?: number }>;
     disposition?: Record<string, number>;

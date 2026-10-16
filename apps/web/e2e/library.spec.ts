@@ -22,7 +22,7 @@ test.describe("Stream and upload", () => {
   test("an empty instance explains both ways in", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Your Stream is empty" })).toBeVisible();
-    await expect(page.getByText(/Drag images anywhere/)).toBeVisible();
+    await expect(page.getByText(/Drag images or videos anywhere/)).toBeVisible();
     await expect(page.getByRole("link", { name: /Stream/ })).toBeVisible();
   });
 
@@ -455,7 +455,7 @@ test.describe("Boards", () => {
     await dropFiles(page, [{ name: "stream-only.png", base64: first.toString("base64") }]);
 
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByRole("heading", { name: "Import 1 image?" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Import 1 file?" })).toBeVisible();
     await expect(dialog).toContainText("Moodboard");
     await expect(page.locator("main img")).toHaveCount(0);
 
@@ -469,7 +469,7 @@ test.describe("Boards", () => {
       { name: "on-board-1.png", base64: second.toString("base64") },
       { name: "on-board-2.png", base64: third.toString("base64") },
     ]);
-    await expect(page.getByRole("heading", { name: "Import 2 images?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Import 2 files?" })).toBeVisible();
     await page.getByRole("dialog").getByRole("button", { name: "Import and add to board" }).click();
 
     await expect(page.locator("main img")).toHaveCount(2);
@@ -526,7 +526,7 @@ test.describe("Tags", () => {
     await dropFiles(page, [{ name: "stream-only.png", base64: first.toString("base64") }]);
 
     const dialog = page.getByRole("dialog");
-    await expect(dialog.getByRole("heading", { name: "Import 1 image?" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Import 1 file?" })).toBeVisible();
     await expect(dialog).toContainText("#palette");
 
     await dialog.getByRole("button", { name: "Import only" }).click();
@@ -539,7 +539,7 @@ test.describe("Tags", () => {
       { name: "tagged-1.png", base64: second.toString("base64") },
       { name: "tagged-2.png", base64: third.toString("base64") },
     ]);
-    await expect(page.getByRole("heading", { name: "Import 2 images?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Import 2 files?" })).toBeVisible();
     await page.getByRole("dialog").getByRole("button", { name: "Import and tag" }).click();
 
     await expect(page.locator("main img")).toHaveCount(3);

@@ -1,5 +1,5 @@
 import { createReadStream, mkdirSync } from "node:fs";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { formatRange, resolveRange, type ByteRange, type ResolvedRange } from "./byte-range";
@@ -11,6 +11,7 @@ import {
   listObjectKeys,
   openObject,
   putObject,
+  putObjectFromFile,
   S3Error,
   type S3Config,
 } from "./s3.server";
@@ -23,6 +24,14 @@ import {
  */
 export interface Storage {
   put(key: string, data: Buffer): Promise<void>;
+  /**
+   * Stores the file at `path` without reading it into memory — for a video,
+   * which is spooled to disk on arrival and can run to 95 MB.
+   *
+   * Takes the file: once this resolves, `path` may no longer exist (local disk
+   * moves it into place). Callers clean up with a forced remove either way.
+   */
+  putFile(key: string, path: string): Promise<void>;
   /** Throws {@link StorageNotFound} when the key holds nothing. */
   get(key: string): Promise<Buffer>;
   /**
@@ -92,6 +101,21 @@ class LocalStorage implements Storage {
     await writeFile(path, data);
   }
 
+  async putFile(key: string, path: string): Promise<void> {
+    const target = join(imagesDir, key);
+    await mkdir(dirname(target), { recursive: true });
+    try {
+      // The spool directory sits in the same volume, so this is normally a
+      // rename and costs nothing however large the file.
+      await rename(path, target);
+    } catch (error) {
+      // Unless an operator has mounted them apart, in which case it's a copy.
+      if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+      await copyFile(path, target);
+      await unlink(path);
+    }
+  }
+
   async get(key: string): Promise<Buffer> {
     try {
       return await readFile(join(imagesDir, key));
@@ -147,6 +171,10 @@ class S3Storage implements Storage {
 
   put(key: string, data: Buffer): Promise<void> {
     return putObject(this.config, key, data);
+  }
+
+  putFile(key: string, path: string): Promise<void> {
+    return putObjectFromFile(this.config, key, path);
   }
 
   async get(key: string): Promise<Buffer> {

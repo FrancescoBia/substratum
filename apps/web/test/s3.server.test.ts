@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { after, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { ACCEPTED_FORMATS, FORMAT_CONTENT_TYPES } from "@repo/shared";
+import { ACCEPTED_FORMATS, ACCEPTED_VIDEO_FORMATS, FORMAT_CONTENT_TYPES } from "@repo/shared";
 import {
   deleteObjects,
   getObject,
@@ -14,6 +15,7 @@ import {
   listObjectKeys,
   openObject,
   putObject,
+  putObjectFromFile,
   S3Error,
   type S3Config,
 } from "../app/lib/s3.server.ts";
@@ -299,13 +301,14 @@ describe("request signing", () => {
       return { status: 200 };
     });
 
-    for (const format of ACCEPTED_FORMATS) {
+    const formats = [...ACCEPTED_FORMATS, ...ACCEPTED_VIDEO_FORMATS];
+    for (const format of formats) {
       await putObject(config, `id/original.${format}`, Buffer.from(format));
     }
 
     assert.deepEqual(
       seen,
-      ACCEPTED_FORMATS.map((format) => FORMAT_CONTENT_TYPES[format]),
+      formats.map((format) => FORMAT_CONTENT_TYPES[format]),
     );
   });
 });
@@ -475,6 +478,47 @@ describe("streamed reads", () => {
     assert.deepEqual(await headObject(config, "id/original.mp4"), { size: 1234 });
     assert.equal(received[0].method, "HEAD");
     assertAllVerified(received, 1);
+  });
+});
+
+describe("file uploads", () => {
+  test("a file goes up whole, sized and signed over its real bytes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "substratum-s3-"));
+    try {
+      const path = join(dir, "clip.upload");
+      const bytes = Buffer.from(Array.from({ length: 300_000 }, (_, index) => index % 251));
+      await writeFile(path, bytes);
+
+      const { config, received } = await bucket(() => ({ status: 200 }));
+      await putObjectFromFile(config, "id/original.mp4", path);
+
+      // Sized, not chunked: S3 refuses a chunked PUT outright.
+      assert.equal(received[0].headers["content-length"], String(bytes.byteLength));
+      assert.equal(received[0].headers["transfer-encoding"], undefined);
+      assert.equal(received[0].headers["content-type"], "video/mp4");
+      assert.deepEqual(received[0].body, bytes);
+      assertAllVerified(received, 1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a retry sends the file again from the start", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "substratum-s3-"));
+    try {
+      const path = join(dir, "clip.upload");
+      await writeFile(path, "the whole file");
+
+      const { config, received } = await bucket((_request, index) =>
+        index === 0 ? { status: 503 } : { status: 200 },
+      );
+      await putObjectFromFile(config, "id/original.webm", path);
+
+      assert.equal(received[1].body.toString(), "the whole file");
+      assertAllVerified(received, 2);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
 

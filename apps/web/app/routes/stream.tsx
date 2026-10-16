@@ -36,8 +36,8 @@ export default function Stream({ loaderData }: Route.ComponentProps) {
 
       {images.length === 0 ? (
         <EmptyState title="Your Stream is empty">
-          Drag images anywhere onto this page to add them, or use the Upload button. With the
-          browser extension installed you can also right-click any image on the web and save it
+          Drag images or videos anywhere onto this page to add them, or use the Upload button. With
+          the browser extension installed you can also right-click any image on the web and save it
           here.
         </EmptyState>
       ) : (

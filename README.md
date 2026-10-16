@@ -1,6 +1,6 @@
 # Substratum
 
-Collect visual inspiration while you browse. Right-click any image, and it lands in your own self-hosted library — organized into boards and tags later, on your own time.
+Collect visual inspiration while you browse. Right-click any image, and it lands in your own self-hosted library — organized into boards and tags later, on your own time. Short videos — motion references, screen recordings — come in by upload.
 
 Substratum is two pieces: a **web app** you host yourself, and a **Chrome extension** that saves images into it. One person per instance; boards you choose to publish become public pages.
 
@@ -21,6 +21,7 @@ A few behaviours that aren't obvious from the outside:
 - **Boards are views, not folders.** An image can sit on any number of boards, or none, and deleting a board never deletes the images on it.
 - **Published board URLs are frozen.** A board's public slug is generated the first time you publish it and never changes, so renaming the board won't break links people already have. You can edit a slug by hand, but that will.
 - **Published boards show images and source links only** — never your tags or notes.
+- **Videos are kept exactly as uploaded.** MP4, MOV or WebM, with H.264, VP8 or VP9 inside, up to 95 MB. Nothing is transcoded, so the list is what every browser plays — HEVC, the iPhone camera's default, is refused with a note to export it as H.264, because most visitors to a published board couldn't play it. The extension saves images only, for now.
 - **Deleted images sit in the Trash for 30 days** — out of the stream, off every board, and off any public page — until they're purged automatically or you empty it by hand.
 
 ## Quickstart (self-hosting)
@@ -133,6 +134,19 @@ holds images the disk has never seen. The same two passes apply:
 ```bash
 pnpm migrate:storage --to-disk
 ```
+
+### Behind a reverse proxy
+
+Uploads go up as one request per file, and proxies cap request bodies — check
+yours allows the largest file you'll upload: 50 MB for an image, 95 MB for a
+video.
+
+- **nginx** allows 1 MB by default. Raise it with `client_max_body_size 100m;`.
+- **Cloudflare** (proxied DNS or a Tunnel) refuses bodies over 100 MB on the Free
+  and Pro plans, and that can't be raised. The 95 MB video cap sits under it on
+  purpose, with room for the multipart envelope around the file.
+
+When a proxy refuses an upload, the app says so rather than reporting a bare 413.
 
 ### Upgrading
 

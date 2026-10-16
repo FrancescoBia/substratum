@@ -22,6 +22,11 @@ export const sessions = sqliteTable("sessions", {
  * anywhere, by decision, so source metadata lives inline rather than in a
  * shared source entity.
  *
+ * "Image" is the word for anything saved, still or moving: a video is an Image
+ * whose `kind` says so. It keeps the name because everything else — Boards,
+ * Tags, the Trash, publishing, export — treats the two identically, and only
+ * ingest and the surfaces that render one ever need to tell them apart.
+ *
  * The three source_* columns are nullable: an Image captured while browsing has
  * a source page, but one the Owner uploaded by hand does not.
  */
@@ -29,11 +34,21 @@ export const images = sqliteTable(
   "images",
   {
     id: text("id").primaryKey(),
+    kind: text("kind", { enum: ["image", "video"] })
+      .notNull()
+      .default("image"),
     storageKey: text("storage_key").notNull(),
+    /** For a video, as displayed — already turned for any rotation it carries. */
     width: integer("width").notNull(),
     height: integer("height").notNull(),
+    /** The image format, or for a video its container (`mp4`, `mov`, `webm`). */
     format: text("format").notNull(),
     byteSize: integer("byte_size").notNull(),
+    /**
+     * Null for a still, and for the odd video whose container never says how
+     * long it is — a WebM straight out of a browser's MediaRecorder, say.
+     */
+    durationMs: integer("duration_ms"),
     /**
      * The Owner's own name for the Image. Null means nobody has named it, and
      * the captured page title stands in — see `displayTitle`. Kept apart from
@@ -109,5 +124,6 @@ export const imageTags = sqliteTable(
 
 export type Owner = typeof owner.$inferSelect;
 export type Image = typeof images.$inferSelect;
+export type ImageKind = Image["kind"];
 export type Board = typeof boards.$inferSelect;
 export type Tag = typeof tags.$inferSelect;

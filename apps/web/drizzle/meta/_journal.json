@@ -29,6 +29,13 @@
       "when": 1789074971255,
       "tag": "0003_colorful_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792137655235,
+      "tag": "0004_small_pixie",
+      "breakpoints": true
     }
   ]
 }

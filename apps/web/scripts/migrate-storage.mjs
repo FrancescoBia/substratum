@@ -30,14 +30,18 @@
  * whatever is actually stored is what gets copied, and the layout can change
  * without this script needing to know.
  */
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { mkdir, readdir, rename, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { dataDir, imagesDir, s3Config } from "../app/lib/config.server.ts";
-import { getObject, listObjectKeys, putObject } from "../app/lib/s3.server.ts";
+import { listObjectKeys, openObject, putObjectFromFile } from "../app/lib/s3.server.ts";
 
-/** How many objects to move at once — enough to hide latency, few enough that
- * only a handful of originals are held in memory at a time. */
+/** How many objects to move at once — enough to hide latency. Every copy
+ * streams, so this costs connections rather than memory: four 95 MB videos in
+ * flight hold a few buffers each, not 95 MB each. */
 const CONCURRENCY = 4;
 
 const toDisk = process.argv.includes("--to-disk");
@@ -157,11 +161,12 @@ const copy = toDisk
   ? async (key) => {
       const path = localPathFor(key);
       const partial = join(partialDir, String(partials++));
-      await writeFile(partial, await getObject(s3Config, key));
+      const { body } = await openObject(s3Config, key);
+      await pipeline(Readable.fromWeb(body), createWriteStream(partial));
       await mkdir(dirname(path), { recursive: true });
       await rename(partial, path);
     }
-  : async (key) => putObject(s3Config, key, await readFile(join(imagesDir, key)));
+  : async (key) => putObjectFromFile(s3Config, key, join(imagesDir, key));
 
 if (sourceKeys.length === 0) {
   console.log(`Nothing to copy — ${source} holds no stored images.`);

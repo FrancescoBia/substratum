@@ -44,9 +44,27 @@ export type UploadState = {
   completed: number;
   failed: number;
   errors: string[];
+  /** Every queued file's size, summed — what the bar fills towards. */
+  totalBytes: number;
+  /**
+   * How much of that has gone up. A file that settles counts in full, sent or
+   * not, so a refusal or a failure never leaves the bar short of the end.
+   */
+  sentBytes: number;
+  /** Files whose last byte has gone up and whose answer hasn't come back. */
+  processing: number;
 };
 
-const IDLE: UploadState = { running: false, total: 0, completed: 0, failed: 0, errors: [] };
+const IDLE: UploadState = {
+  running: false,
+  total: 0,
+  completed: 0,
+  failed: 0,
+  errors: [],
+  totalBytes: 0,
+  sentBytes: 0,
+  processing: 0,
+};
 
 type QueueItem = { file: File; destination?: UploadDestination };
 
@@ -64,12 +82,56 @@ export function useUpload() {
   return value;
 }
 
+/** How a file's upload reports itself while it runs. */
+type UploadCallbacks = {
+  /** Bytes of this file sent so far — the multipart envelope prorated away. */
+  onProgress: (sent: number) => void;
+  /** The last byte has gone; the server is working on it now. */
+  onSent: () => void;
+};
+
+/**
+ * POSTs a form, reporting progress as it goes up.
+ *
+ * `XMLHttpRequest` rather than `fetch`, because only it reports an upload's
+ * progress. Resolves with whatever the server answered; rejects only when no
+ * answer came at all.
+ */
+function post(
+  body: FormData,
+  fileSize: number,
+  { onProgress, onSent }: UploadCallbacks,
+): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", "/upload");
+
+    // The request is the file plus a multipart envelope a few hundred bytes
+    // long, so its own total runs slightly over the file's. Scaling back to the
+    // file keeps a queue's sum equal to the sizes it started from.
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress(Math.round((event.loaded / event.total) * fileSize));
+      }
+    };
+    request.upload.onload = () => onSent();
+
+    request.onload = () => resolve({ status: request.status, text: request.responseText });
+    request.onerror = () => reject(new Error("The request failed."));
+    request.onabort = () => reject(new Error("The request was aborted."));
+    request.send(body);
+  });
+}
+
 /**
  * Posts one file and reports what went wrong, if anything. The server already
  * prefixes its messages with the filename, so its wording is passed through
  * untouched and only transport failures are worded here.
  */
-async function uploadOne({ file, destination }: QueueItem): Promise<string | null> {
+async function uploadOne(
+  { file, destination }: QueueItem,
+  callbacks: UploadCallbacks,
+): Promise<string | null> {
   const body = new FormData();
   body.append("files", file);
   if (destination?.kind === "board") body.append("boardId", destination.id);
@@ -87,15 +149,17 @@ async function uploadOne({ file, destination }: QueueItem): Promise<string | nul
   }
 
   try {
-    const response = await fetch("/upload", { method: "POST", body });
+    const response = await post(body, file.size, callbacks);
     // A reverse proxy in front of the instance refused the body before the app
     // ever saw it — Cloudflare over 100 MB, or nginx's client_max_body_size.
     if (response.status === 413) {
       return `${name}: that file is larger than your server's proxy allows — see the README on upload limits.`;
     }
-    if (!response.ok) return `${name}: the server returned ${response.status}.`;
+    if (response.status < 200 || response.status >= 300) {
+      return `${name}: the server returned ${response.status}.`;
+    }
 
-    const result = (await response.json()) as UploadResult;
+    const result = JSON.parse(response.text) as UploadResult;
     if (result.errors.length > 0) return result.errors[0];
     return result.uploaded === 1 ? null : `${name}: it wasn't saved.`;
   } catch {
@@ -106,11 +170,15 @@ async function uploadOne({ file, destination }: QueueItem): Promise<string | nul
 /**
  * Owns every manual import in the app.
  *
- * One request per file rather than one for the batch: on a self-hosted instance
- * the bytes arrive almost immediately and the wait is sharp re-encoding on the
- * server, so a transfer bar would sit at 100% for the whole time the Owner is
- * actually waiting. Counting files that have finished ingesting is the only
- * number that means anything here.
+ * Progress is measured in bytes sent, across the whole queue. It used to count
+ * finished files instead, on the reasoning that bytes reach a self-hosted
+ * instance almost at once and the wait is the server's processing. Video broke
+ * that: 95 MB over a home uplink to a remote instance is most of a minute in
+ * transit, and a second or less to process. What's left between the last byte
+ * and the answer is shown separately, as processing.
+ *
+ * One request per file rather than one for the batch, so a failure names its
+ * file and the rest carry on.
  */
 export function UploadProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<UploadState>(IDLE);
@@ -130,12 +198,30 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         const item = queue.current.shift();
         if (!item) return;
 
-        const error = await uploadOne(item);
+        // Progress arrives as a running total for this file; the queue's sum
+        // moves by the difference.
+        let counted = 0;
+        let sent = false;
+        const error = await uploadOne(item, {
+          onProgress: (bytes) => {
+            const delta = bytes - counted;
+            counted = bytes;
+            if (delta > 0) setState((prev) => ({ ...prev, sentBytes: prev.sentBytes + delta }));
+          },
+          onSent: () => {
+            sent = true;
+            setState((prev) => ({ ...prev, processing: prev.processing + 1 }));
+          },
+        });
+
+        const rest = item.file.size - counted;
         setState((prev) => ({
           ...prev,
           completed: prev.completed + 1,
           failed: error ? prev.failed + 1 : prev.failed,
           errors: error ? [...prev.errors, error] : prev.errors,
+          sentBytes: prev.sentBytes + rest,
+          processing: sent ? prev.processing - 1 : prev.processing,
         }));
       }
     }
@@ -165,10 +251,11 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       // and one dropped on the Stream stay correctly filed in a shared queue.
       queue.current.push(...files.map((file) => ({ file, destination })));
 
+      const bytes = files.reduce((sum, file) => sum + file.size, 0);
       setState((prev) =>
         prev.running
-          ? { ...prev, total: prev.total + files.length }
-          : { running: true, total: files.length, completed: 0, failed: 0, errors: [] },
+          ? { ...prev, total: prev.total + files.length, totalBytes: prev.totalBytes + bytes }
+          : { ...IDLE, running: true, total: files.length, totalBytes: bytes },
       );
 
       if (!draining.current) void drain();

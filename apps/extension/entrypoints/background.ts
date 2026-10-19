@@ -5,7 +5,7 @@ import {
   type CaptureResponse,
 } from "@repo/shared";
 import { getInstanceUrl, hasPermission } from "@/lib/instance";
-import { syncSiteScripts } from "@/lib/sites";
+import { syncSiteScripts, toggleSiteFix } from "@/lib/sites";
 
 // Kept as it was when the menu only took images: it's the id Chrome already has
 // registered on every install.
@@ -32,6 +32,36 @@ export default defineBackground(() => {
   // page or revoked from chrome://extensions.
   browser.permissions.onAdded.addListener(() => syncSiteScripts());
   browser.permissions.onRemoved.addListener(() => syncSiteScripts());
+
+  // The toolbar icon has no popup: a click switches the overlay fix for the
+  // site it's on. toggleSiteFix has to be the first thing called, while the
+  // click's user gesture still allows a permission prompt.
+  browser.action.onClicked.addListener(async (tab) => {
+    const outcome = await toggleSiteFix(tab);
+    switch (outcome.kind) {
+      case "on":
+        flashBadge("on", "#16a34a");
+        return;
+      case "off":
+        // Already-open tabs keep the fix until they're reloaded.
+        flashBadge("off", "#6b7280");
+        return;
+      case "instance":
+        notify(
+          "That's your Substratum instance",
+          "Seeing through overlays is for sites you save from, so there's nothing to switch here.",
+        );
+        return;
+      case "not-a-site":
+        notify(
+          "Substratum can't run here",
+          "Seeing through overlays only works on websites served over http or https.",
+        );
+        return;
+      case "declined":
+        return;
+    }
+  });
 
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId !== MENU_ID) return;
@@ -67,11 +97,17 @@ export default defineBackground(() => {
 async function capture(media: Media, fields: CaptureRequest) {
   const instance = await getInstanceUrl();
   if (!instance) {
-    notify("Substratum isn't set up", "Open the extension's options and add your instance URL.");
+    notify(
+      "Substratum isn't set up",
+      "Open the extension's options and add your instance URL.",
+    );
     return;
   }
   if (!(await hasPermission(instance))) {
-    notify("Substratum needs permission", "Re-pair your instance in the extension's options.");
+    notify(
+      "Substratum needs permission",
+      "Re-pair your instance in the extension's options.",
+    );
     return;
   }
 
@@ -119,7 +155,10 @@ let keepAlive: ReturnType<typeof setInterval> | undefined;
  */
 function startWorking(): (text: string, color: string) => void {
   working++;
-  keepAlive ??= setInterval(() => void browser.runtime.getPlatformInfo(), 20_000);
+  keepAlive ??= setInterval(
+    () => void browser.runtime.getPlatformInfo(),
+    20_000,
+  );
   setBadge("…", "#6b7280");
 
   return (text, color) => {
@@ -174,7 +213,9 @@ function protocolOf(url: string): string | null {
  * arrive as that proxy's HTML error page rather than our JSON. Parsing blind
  * would turn a plain "502 Bad Gateway" into "Unexpected token '<'".
  */
-async function readCaptureResponse(response: Response): Promise<CaptureResponse> {
+async function readCaptureResponse(
+  response: Response,
+): Promise<CaptureResponse> {
   try {
     return (await response.json()) as CaptureResponse;
   } catch {
@@ -207,7 +248,10 @@ let clearBadge: ReturnType<typeof setTimeout> | undefined;
 function flashBadge(text: string, color: string) {
   setBadge(text, color);
   // While another capture is still under way, its "…" comes back afterwards.
-  clearBadge = setTimeout(() => setBadge(working > 0 ? "…" : "", "#6b7280"), 2500);
+  clearBadge = setTimeout(
+    () => setBadge(working > 0 ? "…" : "", "#6b7280"),
+    2500,
+  );
 }
 
 function setBadge(text: string, color: string) {

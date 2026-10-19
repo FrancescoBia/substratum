@@ -11,7 +11,15 @@ import {
   setInstanceUrl,
   toOrigin,
 } from "@/lib/instance";
-import { disableSite, enableSite, isSiteEnabled, SITES, type Site } from "@/lib/sites";
+import {
+  disableSite,
+  enableSite,
+  getAddedSites,
+  isSiteEnabled,
+  removeAddedSite,
+  SITES,
+  type Site,
+} from "@/lib/sites";
 
 type Status =
   | { kind: "idle" }
@@ -67,8 +75,13 @@ export function Options() {
   async function checkSession(origin: string) {
     setStatus({ kind: "checking" });
     try {
-      const response = await fetch(`${origin}/api/session`, { credentials: "include" });
-      const body = (await response.json()) as { authenticated: boolean; email?: string };
+      const response = await fetch(`${origin}/api/session`, {
+        credentials: "include",
+      });
+      const body = (await response.json()) as {
+        authenticated: boolean;
+        email?: string;
+      };
 
       setStatus(
         body.authenticated
@@ -94,8 +107,11 @@ export function Options() {
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-semibold tracking-tight">Substratum</h1>
         <p className="text-muted-foreground mt-2 text-sm">
-          Point this extension at your own Substratum instance. Then right-click any image on the
-          web and choose <strong className="text-foreground font-medium">Save to Substratum</strong>
+          Point this extension at your own Substratum instance. Then right-click
+          any image or video on the web and choose{" "}
+          <strong className="text-foreground font-medium">
+            Save to Substratum
+          </strong>
           .
         </p>
 
@@ -116,7 +132,11 @@ export function Options() {
             {paired === toOrigin(input) && paired ? "Re-pair" : "Pair instance"}
           </Button>
           {paired && (
-            <Button variant="outline" onClick={() => checkSession(paired)} disabled={busy}>
+            <Button
+              variant="outline"
+              onClick={() => checkSession(paired)}
+              disabled={busy}
+            >
               Check connection
             </Button>
           )}
@@ -126,14 +146,20 @@ export function Options() {
           // The success case has no variant of its own — `destructive` is the
           // only one the design system offers — so a passing check is a plain
           // alert and only a failure is coloured.
-          <Alert className="mt-5" variant={status.kind === "bad" ? "destructive" : "default"}>
-            <AlertDescription>{busy ? "Checking…" : status.message}</AlertDescription>
+          <Alert
+            className="mt-5"
+            variant={status.kind === "bad" ? "destructive" : "default"}
+          >
+            <AlertDescription>
+              {busy ? "Checking…" : status.message}
+            </AlertDescription>
           </Alert>
         )}
 
         {paired && (
           <p className="text-muted-foreground mt-6 text-xs">
-            Paired with <code className="bg-muted rounded px-1 py-0.5">{paired}</code>
+            Paired with{" "}
+            <code className="bg-muted rounded px-1 py-0.5">{paired}</code>
           </p>
         )}
 
@@ -144,14 +170,27 @@ export function Options() {
 }
 
 /**
- * Opt-in fixes for sites that cover their images so right-click can't reach
- * them. Each one asks for that site's permission, and nothing more.
+ * Opt-in fixes for sites that cover their images and videos so right-click
+ * can't reach them. Each one asks for that site's permission, and nothing more.
  */
 function SiteFixes() {
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
+  const [added, setAdded] = useState<string[]>([]);
 
   useEffect(() => {
-    readEnabled().then(setEnabled);
+    const refresh = () => {
+      readEnabled().then(setEnabled);
+      getAddedSites().then(setAdded);
+    };
+    refresh();
+    // A click on the toolbar icon, or a revoke in chrome://extensions, can
+    // change either list while this page is open.
+    browser.storage.onChanged.addListener(refresh);
+    browser.permissions.onRemoved.addListener(refresh);
+    return () => {
+      browser.storage.onChanged.removeListener(refresh);
+      browser.permissions.onRemoved.removeListener(refresh);
+    };
   }, []);
 
   async function toggle(site: Site, on: boolean) {
@@ -163,15 +202,19 @@ function SiteFixes() {
 
   return (
     <section className="mt-10">
-      <h2 className="text-sm font-semibold">Hidden images</h2>
+      <h2 className="text-sm font-semibold">Hidden images and videos</h2>
       <p className="text-muted-foreground mt-1 text-sm">
-        Some sites lay an invisible layer over their images, so right-click never reaches them.
-        Switching a site on lets Substratum see through that layer when you right-click — and needs
-        permission to run on that site.
+        Some sites lay an invisible layer over their images and videos, so
+        right-click never reaches them. Switching a site on lets Substratum see
+        through that layer when you right-click — and needs permission to run on
+        that site.
       </p>
       <div className="mt-4 flex flex-col gap-3">
         {SITES.map((site) => (
-          <label key={site.id} className="flex cursor-pointer items-center gap-2 text-sm">
+          <label
+            key={site.id}
+            className="flex cursor-pointer items-center gap-2 text-sm"
+          >
             <Checkbox
               checked={enabled[site.id] ?? false}
               onCheckedChange={(checked) => toggle(site, checked)}
@@ -179,14 +222,32 @@ function SiteFixes() {
             <span>{site.name}</span>
           </label>
         ))}
+        {added.map((origin) => (
+          <div
+            key={origin}
+            className="flex items-center justify-between gap-2 text-sm"
+          >
+            <code className="bg-muted truncate rounded px-1 py-0.5">
+              {new URL(origin).host}
+            </code>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => removeAddedSite(origin)}
+            >
+              Remove
+            </Button>
+          </div>
+        ))}
       </div>
       <p className="text-muted-foreground mt-3 text-xs">
-        Reload any tabs you already have open on that site.
+        For any other site, click the Substratum icon in the toolbar while
+        you're on it; click again to switch it off. Tabs already open on a site
+        you switch off keep the fix until they're reloaded.
       </p>
     </section>
   );
 }
-
 async function readEnabled(): Promise<Record<string, boolean>> {
   const entries = await Promise.all(
     SITES.map(async (site) => [site.id, await isSiteEnabled(site)] as const),

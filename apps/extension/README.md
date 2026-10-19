@@ -16,7 +16,7 @@ for hosting.
 The whole extension is a background service worker plus an options page. There
 is no popup and no injected UI, and out of the box nothing of Substratum's runs
 inside a page you're browsing. The one exception is opt-in, per site — see
-[Hidden images](#hidden-images).
+[Hidden images and videos](#hidden-images-and-videos).
 
 **The extension never touches the bytes.** It sends your instance three
 strings — the image or video URL, the page URL, the page title — and the
@@ -28,8 +28,9 @@ all websites" warning at install.
 | ------------------------------------ | ------------------------------------------------------------------------------------- |
 | `contextMenus`                       | The right-click item                                                                  |
 | `notifications`                      | Reporting failures                                                                    |
-| `scripting`                          | Registering the opt-in [hidden-image fixes](#hidden-images); no install warning       |
-| `storage`                            | Remembering your instance URL                                                         |
+| `activeTab`                          | Reading which site the toolbar icon was clicked on; no install warning                |
+| `scripting`                          | Registering the opt-in [overlay fixes](#hidden-images-and-videos); no install warning |
+| `storage`                            | Remembering your instance URL, and the sites you add from the toolbar                 |
 | `optional_host_permissions: *://*/*` | Requested at runtime for **your instance's origin**, and any site fixes you switch on |
 
 That last one looks alarming and isn't what it appears to be. One listed
@@ -40,34 +41,55 @@ explicitly switch on, and nothing else. Chrome requires a user gesture for that
 prompt, which is why pairing lives behind a button rather than happening as you
 type.
 
-### Hidden images
+### Hidden images and videos
 
-Some sites cover their images with an empty, transparent element — Instagram
-lays one over every photo. Right-click lands on that element instead of the
-image, so Chrome shows no image menu at all: neither **Save to Substratum** nor
-its own **Save image as…**.
+Some sites cover their images and videos with a layer that shows nothing —
+Instagram lays an empty element over every photo and clip, and many sites (such
+as overlay.studio) stretch a transparent play button over each video.
+Right-click lands on that layer instead, so Chrome shows no image or video menu
+at all: neither **Save to Substratum** nor its own **Save image as…**.
 
-The options page has a switch per affected site (currently just Instagram).
-Switching one on requests that site's host permission; the background worker
-sees the grant and registers a small content script
-([`unshield.content.ts`](entrypoints/unshield.content.ts)) for that site only.
-Revoking the permission, from the options page or `chrome://extensions`,
-unregisters it again — the permission is the only state.
+There are two ways to switch on a fix for a site:
+
+- **The options page** has a switch for each site known to need it (currently
+  just Instagram). Switching one on requests that site's host permission, and
+  that permission is the whole of its state.
+- **Clicking the toolbar icon** on any other site switches the fix on or off
+  there. Chrome asks for permission for that one site, the fix is injected into
+  the open tab straight away, and the badge flashes _on_ or _off_. The options
+  page lists sites added this way, each with a **Remove** button.
+
+  Added sites are also remembered in `storage.local`, because the permission
+  alone can't tell them apart from an instance origin you paired once. A site
+  counts as on only while it's in that list **and** its permission is still
+  granted, so revoking it from `chrome://extensions` switches it off and drops it
+  from the list. A click on your own instance's tab changes nothing, so it can't
+  take away the permission that pairing rests on.
+
+The background worker keeps a single registration of a small content script
+([`unshield.content.ts`](entrypoints/unshield.content.ts)) matching every site
+that's on. Already-open tabs pick up a site switched on from the options page
+when they're reloaded; a tab on a site switched off keeps the fix until then.
 
 The script is deliberately narrow, so the site keeps behaving as it did:
 
 - It acts only on a **right-button** press. Left clicks, hovers, taps and
   keyboard input never reach it.
-- It acts only when an `<img>` is under the cursor and **everything** stacked
-  above it is an empty element — no children, no text. An overlay with any
-  content (a button, a caption, a like count) makes it stand aside.
-- It makes those empty elements click-through (`pointer-events: none`) just
+- It acts only when an `<img>` or `<video>` is under the cursor and
+  **everything** stacked above it shows nothing: no text, and nothing inside but,
+  at most, a vector icon — an empty box, or a play button that is only a
+  triangle. A layer with anything to read or see (a caption, a labelled button, a
+  like count, a thumbnail, a form field) makes it stand aside.
+- It makes those layers click-through (`pointer-events: none`) just
   long enough for Chrome to hit-test the context menu, then restores their
   original inline style on the next task — or after 1s if no menu follows.
-- It doesn't rely on the site's class names, and it never reads or sends
-  anything: the capture itself still goes through the ordinary image menu.
+- It doesn't rely on the site's class names, adds nothing to the page's DOM, and
+  never reads or sends anything: the capture itself still goes through the
+  ordinary image or video menu.
 
-Already-open tabs pick it up on reload.
+Seeing through to a video doesn't make it saveable. Instagram, like most large
+sites, streams its videos, so there the menu comes back but leads to the
+[streaming notice](#what-it-wont-save) rather than a save.
 
 ### Pairing and auth
 
@@ -110,9 +132,9 @@ so the extension and the server can't drift on them.
 Videos that save are the ones a page links to as a plain file — portfolio sites,
 blogs, CMS-hosted clips, a `.mp4` opened in its own tab.
 
-The [hidden-image fix](#hidden-images) only looks for images. Instagram's videos
-are streamed anyway, so seeing through its overlays to them would only trade a
-missing menu for a "can't save" notice.
+The [overlay fix](#hidden-images-and-videos) can bring back the menu on a
+covered video, but not a file that isn't there: on a site that streams, it leads
+to the notice above.
 
 ### Feedback
 
@@ -155,11 +177,11 @@ You'll want a web app to point at — `pnpm dev` from the root runs one on
 http://localhost:5173.
 
 ```
-entrypoints/background.ts     context menu (images and videos), capture, badge, notifications
+entrypoints/background.ts     context menu (images and videos), toolbar click, capture, badge, notifications
 entrypoints/options/          the pairing page (React)
-entrypoints/unshield.content.ts  opt-in hidden-image fix, registered at runtime
+entrypoints/unshield.content.ts  opt-in overlay fix, registered at runtime
 lib/instance.ts               stored instance URL + permission helpers
-lib/sites.ts                  sites with hidden images + script registration
+lib/sites.ts                  overlay-fix sites, toolbar toggle, script registration
 wxt.config.ts                 the MV3 manifest
 ```
 

@@ -2,8 +2,15 @@ import { contentTypeForFormat } from "@repo/shared";
 import { eq } from "drizzle-orm";
 import { getOwnerFromSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
+import { parseRange } from "~/lib/byte-range";
 import { isPubliclyVisible } from "~/lib/library.server";
-import { storage, storageKeys, StorageNotFound, type Variant } from "~/lib/storage.server";
+import {
+  RangeNotSatisfiable,
+  storage,
+  storageKeys,
+  StorageNotFound,
+  type Variant,
+} from "~/lib/storage.server";
 import type { Route } from "./+types/img.$id.$variant";
 
 /**
@@ -34,41 +41,112 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw new Response("Not found", { status: 404 });
   }
 
-  const key =
-    variant === "original"
-      ? image.storageKey
-      : variant === "thumb"
-        ? storageKeys.thumb(image.id)
-        : storageKeys.medium(image.id);
+  // Public responses may sit in shared caches; the Owner's must not, since the
+  // same URL 404s for everyone else. Stored bytes never change for a given id,
+  // so either way they cache hard.
+  const cacheHeaders = {
+    "Cache-Control": isOwner
+      ? "private, max-age=31536000, immutable"
+      : "public, max-age=31536000, immutable",
+    Vary: "Cookie",
+  };
+
+  if (variant === "original") {
+    return serveOriginal(
+      request,
+      image.storageKey,
+      contentTypeForFormat(image.format),
+      cacheHeaders,
+    );
+  }
+
+  const key = variant === "thumb" ? storageKeys.thumb(image.id) : storageKeys.medium(image.id);
 
   let bytes: Buffer;
   try {
     bytes = await storage.get(key);
   } catch (error) {
-    if (error instanceof StorageNotFound) throw new Response("Not found", { status: 404 });
-
-    // The backend could not answer: wrong credentials, a bucket that stayed
-    // down past the retries, a network that went away. Saying "not found" here
-    // would tell the Owner their library had been deleted, and leave no trace
-    // of the real cause anywhere. 503 says come back, and does not get cached.
-    console.error(`[img] could not read ${key}:`, error);
-    throw new Response("Image temporarily unavailable", {
-      status: 503,
-      headers: { "Cache-Control": "no-store" },
-    });
+    throw storageFailure(key, error);
   }
 
   return new Response(new Uint8Array(bytes), {
     headers: {
-      "Content-Type": variant === "original" ? contentTypeForFormat(image.format) : "image/webp",
+      "Content-Type": "image/webp",
       "Content-Length": String(bytes.byteLength),
-      // Stored bytes never change for a given id, so this caches hard. Public
-      // responses may sit in shared caches; the Owner's must not, since the same
-      // URL 404s for everyone else.
-      "Cache-Control": isOwner
-        ? "private, max-age=31536000, immutable"
-        : "public, max-age=31536000, immutable",
-      Vary: "Cookie",
+      ...cacheHeaders,
     },
+  });
+}
+
+/**
+ * Streams an original, honouring a single `Range` — which is how a browser
+ * plays and seeks a video, and Safari will not play one at all without it.
+ *
+ * Derivatives don't come through here: they are small, nothing asks for part of
+ * one, and buffering them keeps their path exactly as it was.
+ */
+async function serveOriginal(
+  request: Request,
+  key: string,
+  contentType: string,
+  cacheHeaders: Record<string, string>,
+): Promise<Response> {
+  // If-Range asks for the range only if the client's copy is still current.
+  // Nothing here sends a validator to compare against, so the safe reading is
+  // that it may not be — and the answer is the whole object.
+  const header = request.headers.has("If-Range") ? null : request.headers.get("Range");
+  const range = header ? parseRange(header) : null;
+
+  let opened;
+  try {
+    opened = await storage.open(key, range ?? undefined);
+  } catch (error) {
+    if (error instanceof RangeNotSatisfiable) {
+      return new Response(null, {
+        status: 416,
+        headers: { "Content-Range": `bytes */${error.size}`, "Accept-Ranges": "bytes" },
+      });
+    }
+    throw storageFailure(key, error);
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    "Accept-Ranges": "bytes",
+    ...cacheHeaders,
+  };
+  if (opened.range) {
+    headers["Content-Range"] = `bytes ${opened.range.start}-${opened.range.end}/${opened.size}`;
+    headers["Content-Length"] = String(opened.range.end - opened.range.start + 1);
+  } else {
+    headers["Content-Length"] = String(opened.size);
+  }
+  const status = opened.range ? 206 : 200;
+
+  // The loader also answers HEAD. Handing back the body would have it read in
+  // full only to be thrown away — for a bucket, a whole download per probe.
+  if (request.method === "HEAD") {
+    await opened.body.cancel();
+    return new Response(null, { status, headers });
+  }
+
+  return new Response(opened.body, { status, headers });
+}
+
+/**
+ * The Response a failed read becomes.
+ *
+ * The backend could not answer: wrong credentials, a bucket that stayed down
+ * past the retries, a network that went away. Saying "not found" there would
+ * tell the Owner their library had been deleted, and leave no trace of the real
+ * cause anywhere. 503 says come back, and does not get cached.
+ */
+function storageFailure(key: string, error: unknown): Response {
+  if (error instanceof StorageNotFound) return new Response("Not found", { status: 404 });
+
+  console.error(`[img] could not read ${key}:`, error);
+  return new Response("Image temporarily unavailable", {
+    status: 503,
+    headers: { "Cache-Control": "no-store" },
   });
 }

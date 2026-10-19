@@ -8,6 +8,7 @@ import { Link, useFetcher } from "react-router";
 import { requireOwnerSession } from "~/auth/session.server";
 import { fullSizeSrcSet } from "~/lib/image-variants";
 import { listBoards, listTags, listUntriaged } from "~/lib/library.server";
+import { countLabel } from "~/lib/media";
 import type { Route } from "./+types/triage";
 
 export function meta() {
@@ -122,10 +123,10 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {total === 0
-              ? "Every image is on a board or tagged."
+              ? "Everything is on a board or tagged."
               : // Not "you filed N" — skipping is a normal move, and anything
                 // skipped is still untriaged and waiting here next time.
-                `Worked through ${total} image${total === 1 ? "" : "s"}. Anything you skipped is still waiting.`}
+                `Worked through ${countLabel(queue)}. Anything you skipped is still waiting.`}
           </p>
           <Link
             to="/"
@@ -161,20 +162,34 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
 
       <div className="grid min-h-0 flex-1 md:grid-cols-[1fr_340px]">
         <div className="bg-muted/40 flex items-center justify-center overflow-hidden p-6">
-          <img
-            key={currentId}
-            src={`/img/${currentId}/medium`}
-            // Same reasoning as the lightbox: this pane fills most of a wide
-            // window, so `medium` alone is upscaled on a large retina display.
-            // `100vw` overstates the box — the image is `object-contain` between
-            // a header and a sidebar — which biases the browser toward the
-            // original. That is the right way to be wrong on a view whose whole
-            // job is judging one image.
-            srcSet={fullSizeSrcSet(current)}
-            sizes="100vw"
-            alt=""
-            className="max-h-full max-w-full rounded-lg object-contain shadow-lg"
-          />
+          {current.kind === "video" ? (
+            <video
+              key={currentId}
+              src={`/img/${currentId}/original`}
+              poster={`/img/${currentId}/medium`}
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls
+              className="max-h-full max-w-full rounded-lg bg-black object-contain shadow-lg"
+            />
+          ) : (
+            <img
+              key={currentId}
+              src={`/img/${currentId}/medium`}
+              // Same reasoning as the lightbox: this pane fills most of a wide
+              // window, so `medium` alone is upscaled on a large retina display.
+              // `100vw` overstates the box — the image is `object-contain` between
+              // a header and a sidebar — which biases the browser toward the
+              // original. That is the right way to be wrong on a view whose whole
+              // job is judging one image.
+              srcSet={fullSizeSrcSet(current)}
+              sizes="100vw"
+              alt=""
+              className="max-h-full max-w-full rounded-lg object-contain shadow-lg"
+            />
+          )}
         </div>
 
         <div className="flex flex-col gap-4 border-l p-5 text-sm">

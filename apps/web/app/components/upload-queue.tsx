@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "@repo/shared";
 import { useRevalidator } from "react-router";
 import type { UploadResult } from "~/routes/upload";
 
@@ -18,6 +19,13 @@ import type { UploadResult } from "~/routes/upload";
 export type UploadDestination =
   | { kind: "board"; id: string; name: string }
   | { kind: "tag"; name: string };
+
+/**
+ * What the file picker offers. Images of any kind — the server says which it
+ * can't take — but only the video types it stores, since a picker is a hint
+ * about what will work and a drop is not.
+ */
+export const UPLOAD_ACCEPT = "image/*,video/mp4,video/quicktime,video/webm";
 
 /**
  * How many files are in flight at once. One request per file is what makes
@@ -67,10 +75,24 @@ async function uploadOne({ file, destination }: QueueItem): Promise<string | nul
   if (destination?.kind === "board") body.append("boardId", destination.id);
   if (destination?.kind === "tag") body.append("tag", destination.name);
 
-  const name = file.name || "image";
+  const name = file.name || "file";
+
+  // The server enforces both caps itself; checking here as well spares the
+  // Owner watching 95 MB go up only to be told it was too large.
+  if (file.type.startsWith("video/") && file.size > MAX_VIDEO_BYTES) {
+    return `${name}: That video is larger than 95 MB.`;
+  }
+  if (file.type.startsWith("image/") && file.size > MAX_IMAGE_BYTES) {
+    return `${name}: That image is larger than 50 MB.`;
+  }
 
   try {
     const response = await fetch("/upload", { method: "POST", body });
+    // A reverse proxy in front of the instance refused the body before the app
+    // ever saw it — Cloudflare over 100 MB, or nginx's client_max_body_size.
+    if (response.status === 413) {
+      return `${name}: that file is larger than your server's proxy allows — see the README on upload limits.`;
+    }
     if (!response.ok) return `${name}: the server returned ${response.status}.`;
 
     const result = (await response.json()) as UploadResult;

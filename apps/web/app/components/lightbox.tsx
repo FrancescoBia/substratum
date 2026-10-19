@@ -105,6 +105,7 @@ function isTileOnScreen(id: string) {
 
 export type LightboxImage = {
   id: string;
+  kind: "image" | "video";
   width: number;
   height: number;
   title: string | null;
@@ -268,7 +269,7 @@ export function Lightbox({
           className="fixed inset-0 z-50 flex outline-none duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         >
           <DialogPrimitive.Title className="sr-only">
-            {image?.title || "Image"}
+            {image?.title || (image?.kind === "video" ? "Video" : "Image")}
           </DialogPrimitive.Title>
 
           {image && (
@@ -374,16 +375,40 @@ function LightboxBody({
         className="flex min-h-0 flex-1 items-center justify-center px-4 sm:px-16"
         onClick={onClose}
       >
-        <img
-          key={image.id}
-          src={`/img/${image.id}/medium`}
-          srcSet={srcSet}
-          sizes="100vw"
-          alt={image.title ?? ""}
-          onClick={(event) => event.stopPropagation()}
-          style={{ viewTransitionName: morphId === image.id ? MORPH_NAME : undefined }}
-          className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
-        />
+        {image.kind === "video" ? (
+          // Plays straight away, muted and looping — a motion reference is
+          // something to watch, not to press play on. The sound is still in the
+          // file, and the controls can turn it on. The poster is the `medium`
+          // the tile already has cached, so the morph has a frame to land on
+          // while the clip starts.
+          <video
+            key={image.id}
+            src={`/img/${image.id}/original`}
+            poster={`/img/${image.id}/medium`}
+            width={image.width}
+            height={image.height}
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            aria-label={image.title ?? "Video"}
+            onClick={(event) => event.stopPropagation()}
+            style={{ viewTransitionName: morphId === image.id ? MORPH_NAME : undefined }}
+            className="h-auto max-h-full w-auto max-w-full rounded-lg bg-black object-contain shadow-2xl"
+          />
+        ) : (
+          <img
+            key={image.id}
+            src={`/img/${image.id}/medium`}
+            srcSet={srcSet}
+            sizes="100vw"
+            alt={image.title ?? ""}
+            onClick={(event) => event.stopPropagation()}
+            style={{ viewTransitionName: morphId === image.id ? MORPH_NAME : undefined }}
+            className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+          />
+        )}
       </div>
 
       <div className="flex min-h-14 items-center justify-center gap-4 px-4 py-3 text-xs text-white/60">

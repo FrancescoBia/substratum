@@ -29,6 +29,13 @@ if (!process.env.SUBSTRATUM_SKIP_ENV_FILE && existsSync(".env")) process.loadEnv
 export const dataDir = resolve(process.env.SUBSTRATUM_DATA_DIR ?? "./data");
 export const dbPath = join(dataDir, "library.db");
 export const imagesDir = join(dataDir, "images");
+/**
+ * Where an upload is spooled while it is checked, before it is stored or thrown
+ * away. Inside the data volume rather than the OS temp dir: a container's /tmp
+ * may be a small tmpfs that a single video would fill, and sharing a filesystem
+ * with `imagesDir` lets local storage take the file with a rename.
+ */
+export const uploadsTmpDir = join(dataDir, "tmp");
 
 /**
  * Public origin of this instance: published board links, canonical URLs and OG

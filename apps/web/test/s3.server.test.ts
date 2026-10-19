@@ -1,17 +1,21 @@
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { after, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { ACCEPTED_FORMATS, FORMAT_CONTENT_TYPES } from "@repo/shared";
+import { ACCEPTED_FORMATS, ACCEPTED_VIDEO_FORMATS, FORMAT_CONTENT_TYPES } from "@repo/shared";
 import {
   deleteObjects,
   getObject,
+  headObject,
   listObjectKeys,
+  openObject,
   putObject,
+  putObjectFromFile,
   S3Error,
   type S3Config,
 } from "../app/lib/s3.server.ts";
@@ -44,7 +48,16 @@ type Recorded = {
   signatureError: string | null;
 };
 
-type Reply = { status?: number; body?: string | Buffer; headers?: Record<string, string> };
+type Reply = {
+  status?: number;
+  body?: string | Buffer;
+  headers?: Record<string, string>;
+  /**
+   * Sends the head and `body`, then drops the connection or falls silent rather
+   * than finishing — a bucket failing partway through a streamed download.
+   */
+  cut?: "destroy" | "hang";
+};
 type Handler = (request: Recorded, index: number) => Reply | "hang" | "destroy";
 
 /**
@@ -86,6 +99,12 @@ async function withBucket(
       if (reply === "destroy") return void req.socket.destroy();
 
       res.writeHead(reply.status ?? 200, reply.headers ?? {});
+      if (reply.cut) {
+        res.write(reply.body ?? "");
+        // A beat first, so the partial body is on the wire before the drop.
+        if (reply.cut === "destroy") setTimeout(() => req.socket.destroy(), 20);
+        return;
+      }
       res.end(reply.body ?? "");
     });
   });
@@ -282,13 +301,14 @@ describe("request signing", () => {
       return { status: 200 };
     });
 
-    for (const format of ACCEPTED_FORMATS) {
+    const formats = [...ACCEPTED_FORMATS, ...ACCEPTED_VIDEO_FORMATS];
+    for (const format of formats) {
       await putObject(config, `id/original.${format}`, Buffer.from(format));
     }
 
     assert.deepEqual(
       seen,
-      ACCEPTED_FORMATS.map((format) => FORMAT_CONTENT_TYPES[format]),
+      formats.map((format) => FORMAT_CONTENT_TYPES[format]),
     );
   });
 });
@@ -356,6 +376,154 @@ describe("objects", () => {
     assert.match(error.message, /key does not exist/);
     // A 404 is the request being wrong, not the bucket being busy.
     assert.equal(received.length, 1);
+  });
+});
+
+/** A whole-object answer, sized the way S3 always sizes one. */
+function whole(body: string): Reply {
+  return { status: 200, headers: { "content-length": String(Buffer.byteLength(body)) }, body };
+}
+
+describe("streamed reads", () => {
+  test("a ranged read signs its Range and says where the body sits", async () => {
+    const { config, received } = await bucket(() => ({
+      status: 206,
+      headers: { "content-range": "bytes 2-5/10" },
+      body: "cdef",
+    }));
+
+    const opened = await openObject(config, "id/original.mp4", "bytes=2-5");
+
+    assert.equal(received[0].headers.range, "bytes=2-5");
+    assert.equal(await new Response(opened.body).text(), "cdef");
+    assert.equal(opened.size, 10);
+    assert.deepEqual(opened.range, { start: 2, end: 5 });
+    assertAllVerified(received, 1);
+  });
+
+  test("a bucket that answers a range with everything is reported as whole", async () => {
+    const { config } = await bucket(() => whole("abcdefghij"));
+
+    const opened = await openObject(config, "id/original.mp4", "bytes=2-5");
+
+    assert.equal(await new Response(opened.body).text(), "abcdefghij");
+    assert.equal(opened.size, 10);
+    assert.equal(opened.range, null);
+  });
+
+  test("a 503 before the body is retried", async () => {
+    const { config, received } = await bucket((_request, index) =>
+      index === 0 ? { status: 503 } : whole("bytes"),
+    );
+
+    const opened = await openObject(config, "id/original.mp4");
+    assert.equal(await new Response(opened.body).text(), "bytes");
+    assert.equal(received.length, 2);
+  });
+
+  test("an unsatisfiable range is a 416, and is not retried", async () => {
+    const { config, received } = await bucket(() => ({
+      status: 416,
+      body: "<Error><Code>InvalidRange</Code><Message>The requested range is not satisfiable</Message></Error>",
+    }));
+
+    const error = await openObject(config, "id/original.mp4", "bytes=100-").then(
+      () => null,
+      (e: unknown) => e,
+    );
+
+    assert.ok(error instanceof S3Error);
+    assert.equal(error.status, 416);
+    assert.equal(received.length, 1);
+  });
+
+  test("a connection dropped mid-body fails the body rather than retrying", async () => {
+    // Bytes have already gone to the viewer by then; starting again would send
+    // them twice into the same response.
+    const { config, received } = await bucket(() => ({
+      status: 200,
+      headers: { "content-length": "10" },
+      body: "abcd",
+      cut: "destroy",
+    }));
+
+    const opened = await openObject(config, "id/original.mp4");
+    await assert.rejects(new Response(opened.body).arrayBuffer());
+    assert.equal(received.length, 1);
+  });
+
+  test("a bucket that goes quiet mid-body is abandoned", async () => {
+    const { config } = await bucket(
+      () => ({ status: 200, headers: { "content-length": "10" }, body: "abcd", cut: "hang" }),
+      { timeoutMs: 250 },
+    );
+
+    const started = Date.now();
+    const opened = await openObject(config, "id/original.mp4");
+    await assert.rejects(new Response(opened.body).arrayBuffer());
+    assert.ok(Date.now() - started < 5_000, "the stalled body should have been abandoned");
+  });
+
+  test("a slow reader is not mistaken for a silent bucket", async () => {
+    const { config } = await bucket(() => whole("abcdefghij"), { timeoutMs: 100 });
+
+    const opened = await openObject(config, "id/original.mp4");
+    // Longer than the budget, spent on this side: the bucket has nothing to do
+    // with it, and the body must still arrive whole.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(await new Response(opened.body).text(), "abcdefghij");
+  });
+
+  test("a HEAD reports the object's size", async () => {
+    const { config, received } = await bucket(() => ({
+      status: 200,
+      headers: { "content-length": "1234" },
+    }));
+
+    assert.deepEqual(await headObject(config, "id/original.mp4"), { size: 1234 });
+    assert.equal(received[0].method, "HEAD");
+    assertAllVerified(received, 1);
+  });
+});
+
+describe("file uploads", () => {
+  test("a file goes up whole, sized and signed over its real bytes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "substratum-s3-"));
+    try {
+      const path = join(dir, "clip.upload");
+      const bytes = Buffer.from(Array.from({ length: 300_000 }, (_, index) => index % 251));
+      await writeFile(path, bytes);
+
+      const { config, received } = await bucket(() => ({ status: 200 }));
+      await putObjectFromFile(config, "id/original.mp4", path);
+
+      // Sized, not chunked: S3 refuses a chunked PUT outright.
+      assert.equal(received[0].headers["content-length"], String(bytes.byteLength));
+      assert.equal(received[0].headers["transfer-encoding"], undefined);
+      assert.equal(received[0].headers["content-type"], "video/mp4");
+      assert.deepEqual(received[0].body, bytes);
+      assertAllVerified(received, 1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a retry sends the file again from the start", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "substratum-s3-"));
+    try {
+      const path = join(dir, "clip.upload");
+      await writeFile(path, "the whole file");
+
+      const { config, received } = await bucket((_request, index) =>
+        index === 0 ? { status: 503 } : { status: 200 },
+      );
+      await putObjectFromFile(config, "id/original.webm", path);
+
+      assert.equal(received[1].body.toString(), "the whole file");
+      assertAllVerified(received, 2);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
 

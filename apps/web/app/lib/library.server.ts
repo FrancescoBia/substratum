@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db, schema } from "~/db/index.server";
+import type { ImageKind } from "~/db/schema";
 // Imported for its side effect: loading this module starts the Trash purge
 // sweeps. Every library view goes through here, so the sweeps start with the
 // first request rather than needing a separate entry point.
@@ -8,8 +9,11 @@ import "./purge.server";
 
 export type GridImage = {
   id: string;
+  kind: ImageKind;
   width: number;
   height: number;
+  /** Null for a still, and for a video whose container never said. */
+  durationMs: number | null;
   title: string | null;
   sourcePageUrl: string | null;
   untriaged: boolean;
@@ -39,8 +43,10 @@ export function displayTitle(row: { title: string | null; sourcePageTitle: strin
 function toGridImages(
   rows: Array<{
     id: string;
+    kind: ImageKind;
     width: number;
     height: number;
+    durationMs: number | null;
     title: string | null;
     sourcePageTitle: string | null;
     sourcePageUrl: string | null;
@@ -49,8 +55,10 @@ function toGridImages(
 ): GridImage[] {
   return rows.map((row) => ({
     id: row.id,
+    kind: row.kind,
     width: row.width,
     height: row.height,
+    durationMs: row.durationMs,
     title: displayTitle(row),
     sourcePageUrl: row.sourcePageUrl,
     untriaged: !organized.has(row.id),
@@ -59,8 +67,10 @@ function toGridImages(
 
 const gridColumns = {
   id: schema.images.id,
+  kind: schema.images.kind,
   width: schema.images.width,
   height: schema.images.height,
+  durationMs: schema.images.durationMs,
   title: schema.images.title,
   sourcePageTitle: schema.images.sourcePageTitle,
   sourcePageUrl: schema.images.sourcePageUrl,
@@ -181,8 +191,10 @@ export async function getImageDetail(id: string) {
 
   return {
     id: image.id,
+    kind: image.kind,
     width: image.width,
     height: image.height,
+    durationMs: image.durationMs,
     format: image.format,
     byteSize: image.byteSize,
     title: image.title,
@@ -218,8 +230,10 @@ export async function listPublicBoardImages(boardId: string) {
   const rows = await db
     .select({
       id: schema.images.id,
+      kind: schema.images.kind,
       width: schema.images.width,
       height: schema.images.height,
+      durationMs: schema.images.durationMs,
       sourcePageUrl: schema.images.sourcePageUrl,
       title: schema.images.title,
       sourcePageTitle: schema.images.sourcePageTitle,

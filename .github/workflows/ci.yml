@@ -39,6 +39,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Video ingest shells out to ffmpeg, and its unit tests run the real thing.
+      - uses: ./.github/actions/ffmpeg
       # Formatting is a real gate — oxfmt exits non-zero on a mismatch, and the
       # tree is currently clean.
       - run: pnpm format:check
@@ -65,6 +67,7 @@ jobs:
       # Only chromium: playwright.config.ts defines no other browser project,
       # and --with-deps pulls the system libraries the runner image lacks.
       - run: pnpm --filter @repo/web exec playwright install --with-deps chromium
+      - uses: ./.github/actions/ffmpeg
       - run: pnpm test:e2e
 
       # The CI reporter is `line`, so a failure leaves no HTML report — but
@@ -93,7 +96,16 @@ jobs:
           context: .
           platforms: linux/amd64
           push: false
+          # Into the local daemon, so the step below can run what was built.
+          load: true
+          tags: substratum:ci
           # Shares a cache scope with publish.yml, so the release build starts
           # from layers this job already produced.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The app refuses to start without these, so a COPY that silently brought
+      # the wrong thing would only show up as a container that won't boot.
+      - run: |
+          docker run --rm --entrypoint ffmpeg substratum:ci -version | head -1
+          docker run --rm --entrypoint ffprobe substratum:ci -version | head -1

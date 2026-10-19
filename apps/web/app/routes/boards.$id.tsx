@@ -10,6 +10,7 @@ import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { instanceUrlFor } from "~/lib/config.server";
 import { listBoardImages } from "~/lib/library.server";
+import { countLabel } from "~/lib/media";
 import type { Route } from "./+types/boards.$id";
 
 // Opening or stepping the full-size viewer only moves `?view=`, which no loader
@@ -42,10 +43,7 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="p-6">
-      <ViewHeader
-        title={renaming ? "" : board.name}
-        subtitle={`${images.length} image${images.length === 1 ? "" : "s"}`}
-      >
+      <ViewHeader title={renaming ? "" : board.name} subtitle={countLabel(images)}>
         {board.published ? (
           <edit.Form method="post" action="/boards">
             <input type="hidden" name="intent" value="unpublish" />
@@ -114,7 +112,7 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
 
       {images.length === 0 ? (
         <EmptyState title="This board is empty">
-          Open an image from your Stream and tick this board in the panel.
+          Open anything in your Stream and tick this board in its details.
         </EmptyState>
       ) : (
         <ImageGrid images={images} allowLayoutSwitch />

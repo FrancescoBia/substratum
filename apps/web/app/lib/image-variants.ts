@@ -24,13 +24,16 @@ export function variantWidth(width: number, height: number, edge: number): numbe
  * derivative, plus the original for displays with the pixels to use it.
  *
  * Undefined when the original is no larger than `medium` — a single-candidate
- * `srcSet` is just a slower way to write `src`.
+ * `srcSet` is just a slower way to write `src` — and always for a video, whose
+ * original is the clip itself and never something an `<img>` can show.
  */
 export function fullSizeSrcSet(image: {
   id: string;
+  kind: "image" | "video";
   width: number;
   height: number;
 }): string | undefined {
+  if (image.kind === "video") return undefined;
   const mediumWidth = variantWidth(image.width, image.height, MEDIUM_EDGE);
   if (image.width <= mediumWidth) return undefined;
   return `/img/${image.id}/medium ${mediumWidth}w, /img/${image.id}/original ${image.width}w`;

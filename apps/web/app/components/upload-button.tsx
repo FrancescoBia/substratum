@@ -1,5 +1,5 @@
 import { buttonVariants } from "@repo/ui/components/button";
-import { useUpload } from "~/components/upload-queue";
+import { UPLOAD_ACCEPT, useUpload } from "~/components/upload-queue";
 
 /**
  * The explicit way in, for when dragging isn't convenient. Uploads on selection
@@ -12,7 +12,7 @@ export function UploadButton() {
     <label>
       <input
         type="file"
-        accept="image/*"
+        accept={UPLOAD_ACCEPT}
         multiple
         className="sr-only"
         onChange={(event) => {
@@ -24,7 +24,7 @@ export function UploadButton() {
         }}
       />
       <span className={buttonVariants({ size: "sm", className: "cursor-pointer" })}>
-        {state.running ? "Uploading…" : "Upload images"}
+        {state.running ? "Uploading…" : "Upload"}
       </span>
     </label>
   );

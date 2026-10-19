@@ -26,11 +26,11 @@ export function UploadProgress() {
 
   const heading = state.running
     ? state.total === 1
-      ? "Uploading image…"
+      ? "Uploading…"
       : `Uploading ${state.completed} of ${state.total}`
     : state.failed > 0
       ? `${succeeded} uploaded, ${state.failed} failed`
-      : `${succeeded} image${succeeded === 1 ? "" : "s"} uploaded`;
+      : `${succeeded} uploaded`;
 
   return (
     <div

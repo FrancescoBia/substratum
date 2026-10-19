@@ -1,12 +1,17 @@
-import { mkdirSync } from "node:fs";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createReadStream, mkdirSync } from "node:fs";
+import { copyFile, mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { Readable } from "node:stream";
+import { formatRange, resolveRange, type ByteRange, type ResolvedRange } from "./byte-range";
 import { imagesDir, s3Config } from "./config.server";
 import {
   deleteObjects,
   getObject,
+  headObject,
   listObjectKeys,
+  openObject,
   putObject,
+  putObjectFromFile,
   S3Error,
   type S3Config,
 } from "./s3.server";
@@ -19,8 +24,25 @@ import {
  */
 export interface Storage {
   put(key: string, data: Buffer): Promise<void>;
+  /**
+   * Stores the file at `path` without reading it into memory — for a video,
+   * which is spooled to disk on arrival and can run to 95 MB.
+   *
+   * Takes the file: once this resolves, `path` may no longer exist (local disk
+   * moves it into place). Callers clean up with a forced remove either way.
+   */
+  putFile(key: string, path: string): Promise<void>;
   /** Throws {@link StorageNotFound} when the key holds nothing. */
   get(key: string): Promise<Buffer>;
+  /**
+   * Streams the object, or the one range of it asked for, without holding it in
+   * memory — what serving an original needs, since a video is played by asking
+   * for pieces of it. Throws {@link StorageNotFound} like `get`, and
+   * {@link RangeNotSatisfiable} when no part of the object is in `range`.
+   *
+   * The caller owns the body and must read it to the end or cancel it.
+   */
+  open(key: string, range?: ByteRange): Promise<OpenedObject>;
   /** Removes the whole prefix — an Image's original and all its derivatives. */
   deletePrefix(prefix: string): Promise<void>;
 }
@@ -42,6 +64,29 @@ export class StorageNotFound extends Error {
   }
 }
 
+/**
+ * A body on its way out of storage. `range` is null when the body is the whole
+ * object — including when a range was asked for and the backend chose to send
+ * everything, which HTTP allows and the caller must then honour.
+ */
+export type OpenedObject = {
+  body: ReadableStream<Uint8Array>;
+  size: number;
+  range: ResolvedRange | null;
+};
+
+/** The object exists, but the range asked for lies wholly past its end. */
+export class RangeNotSatisfiable extends Error {
+  /** Reported back in the 416's `Content-Range`, so the client can ask again. */
+  readonly size: number;
+
+  constructor(key: string, size: number) {
+    super(`No bytes of ${key} (${size} long) are in the requested range`);
+    this.name = "RangeNotSatisfiable";
+    this.size = size;
+  }
+}
+
 class LocalStorage implements Storage {
   constructor() {
     // The directory is this backend's own precondition, so this backend makes
@@ -56,6 +101,21 @@ class LocalStorage implements Storage {
     await writeFile(path, data);
   }
 
+  async putFile(key: string, path: string): Promise<void> {
+    const target = join(imagesDir, key);
+    await mkdir(dirname(target), { recursive: true });
+    try {
+      // The spool directory sits in the same volume, so this is normally a
+      // rename and costs nothing however large the file.
+      await rename(path, target);
+    } catch (error) {
+      // Unless an operator has mounted them apart, in which case it's a copy.
+      if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+      await copyFile(path, target);
+      await unlink(path);
+    }
+  }
+
   async get(key: string): Promise<Buffer> {
     try {
       return await readFile(join(imagesDir, key));
@@ -65,6 +125,30 @@ class LocalStorage implements Storage {
       }
       throw error;
     }
+  }
+
+  async open(key: string, range?: ByteRange): Promise<OpenedObject> {
+    const path = join(imagesDir, key);
+
+    let size: number;
+    try {
+      size = (await stat(path)).size;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new StorageNotFound(key, { cause: error });
+      }
+      throw error;
+    }
+
+    const resolved = range ? resolveRange(range, size) : null;
+    if (range && !resolved) throw new RangeNotSatisfiable(key, size);
+
+    const stream = createReadStream(path, resolved ?? undefined);
+    return {
+      body: Readable.toWeb(stream) as ReadableStream<Uint8Array>,
+      size,
+      range: resolved,
+    };
   }
 
   async deletePrefix(prefix: string): Promise<void> {
@@ -89,6 +173,10 @@ class S3Storage implements Storage {
     return putObject(this.config, key, data);
   }
 
+  putFile(key: string, path: string): Promise<void> {
+    return putObjectFromFile(this.config, key, path);
+  }
+
   async get(key: string): Promise<Buffer> {
     try {
       return await getObject(this.config, key);
@@ -96,6 +184,23 @@ class S3Storage implements Storage {
       // 404 is the bucket answering clearly; anything else is it failing to.
       if (error instanceof S3Error && error.status === 404) {
         throw new StorageNotFound(key, { cause: error });
+      }
+      throw error;
+    }
+  }
+
+  async open(key: string, range?: ByteRange): Promise<OpenedObject> {
+    try {
+      return await openObject(this.config, key, range ? formatRange(range) : undefined);
+    } catch (error) {
+      if (error instanceof S3Error && error.status === 404) {
+        throw new StorageNotFound(key, { cause: error });
+      }
+      // A 416 does not reliably say how large the object is, and the client
+      // needs that to ask again — so this rare path pays for one more request.
+      if (error instanceof S3Error && error.status === 416) {
+        const { size } = await headObject(this.config, key);
+        throw new RangeNotSatisfiable(key, size);
       }
       throw error;
     }

@@ -1,0 +1,16 @@
+# The same pinned static ffmpeg/ffprobe the container image ships, so tests run
+# against the binaries production runs rather than whatever the runner's apt
+# happens to carry. Keep the pin in step with the Dockerfile's.
+name: ffmpeg
+description: Install the pinned static ffmpeg and ffprobe onto PATH
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        image=mwader/static-ffmpeg:9.0.2-1@sha256:f5d100184884eb3e82b0eb14bb5ebf98da99826ac824989720297fb9ef21c822
+        id=$(docker create "$image")
+        sudo docker cp "$id:/ffmpeg" /usr/local/bin/ffmpeg
+        sudo docker cp "$id:/ffprobe" /usr/local/bin/ffprobe
+        docker rm "$id" > /dev/null
+        ffprobe -version | head -1

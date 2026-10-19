@@ -88,6 +88,41 @@ Operators wanting CDN offload put a proxy in front.
 > database, so snapshotting it no longer captures your images — the bucket is a
 > second thing to back up, with its own schedule and its own retention.
 
+#### Where the values go
+
+The simplest place is the `environment:` block in `docker-compose.yml`, next to
+`SUBSTRATUM_URL`. If that file is committed anywhere, keep the secret out of it:
+put the values in a `.env` file beside it, which Compose reads on its own, and
+refer to them by name instead:
+
+```yaml
+environment:
+  S3_BUCKET: ${S3_BUCKET:-}
+  S3_ENDPOINT: ${S3_ENDPOINT:-}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+  S3_REGION: ${S3_REGION:-}
+```
+
+The `:-` makes each one empty when `.env` doesn't set it, and an empty
+`S3_BUCKET` means local disk — so these lines can go in before any values do.
+Either way, a variable the compose file doesn't mention never reaches the app,
+whatever `.env` says.
+
+#### Check the bucket first
+
+Before moving anything, check the credentials actually work. The app only
+checks at startup that the variables are present; a wrong key, region or bucket
+name shows up at the first upload. This round-trips a few test objects with the
+app's own client and cleans up after itself:
+
+```bash
+docker compose exec -e S3_BUCKET=… -e S3_ENDPOINT=… -e S3_ACCESS_KEY_ID=… -e S3_SECRET_ACCESS_KEY=… -e S3_REGION=… app node ./scripts/check-bucket.mjs
+```
+
+Outside Docker, `pnpm check:bucket` with the variables set (or in
+`apps/web/.env`). Six `ok` lines means the app will get the same answers.
+
 ### Moving an existing library into a bucket
 
 Setting the variables doesn't move anything by itself — the app simply starts
@@ -95,12 +130,16 @@ looking in the bucket, so every image saved before the switch shows as broken
 while sitting untouched on disk. Copy them across first, in two passes, so
 nothing saved during the copy is left behind either.
 
+In the commands below, `app` is the service name from the quickstart's compose
+file — use yours if it differs. `S3_REGION` is optional for most providers but
+not for R2, which needs `auto`.
+
 **1. Copy while the app keeps running.** This is the long pass, and nothing is
 down while it runs. Pass the bucket settings to this one command only, so the
 app keeps serving from disk:
 
 ```bash
-docker compose exec -e S3_BUCKET=… -e S3_ENDPOINT=… -e S3_ACCESS_KEY_ID=… -e S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
+docker compose exec -e S3_BUCKET=… -e S3_ENDPOINT=… -e S3_ACCESS_KEY_ID=… -e S3_SECRET_ACCESS_KEY=… -e S3_REGION=… app node ./scripts/migrate-storage.mjs
 ```
 
 **2. Stop the app and copy again.** Only what is missing from the bucket is
@@ -110,21 +149,66 @@ stopped:
 
 ```bash
 docker compose stop app
-docker compose run --rm -e S3_BUCKET=… -e S3_ENDPOINT=… -e S3_ACCESS_KEY_ID=… -e S3_SECRET_ACCESS_KEY=… app node ./scripts/migrate-storage.mjs
+docker compose run --rm -e S3_BUCKET=… -e S3_ENDPOINT=… -e S3_ACCESS_KEY_ID=… -e S3_SECRET_ACCESS_KEY=… -e S3_REGION=… app node ./scripts/migrate-storage.mjs
 ```
 
-**3. Switch over.** Add those same variables to `docker-compose.yml`, run
-`docker compose up -d`, and check an old image still loads.
+On a small library you can skip step 1: a single pass with the app stopped
+copies everything, and the downtime is just however long that takes.
+
+**3. Switch over.** The `-e` flags above only reached the copy, never the app.
+Now give the app the same values, wherever it reads them — see "Where the
+values go" — and start it:
+
+```bash
+docker compose up -d
+```
+
+**4. Check it really switched.** "An old image still loads" proves nothing yet:
+your images are still on disk, so the site looks the same whether or not the
+switch happened. These do prove it:
+
+```bash
+docker compose exec app printenv S3_BUCKET
+```
+
+should print your bucket. If it prints nothing, the value never reached the
+app — check the compose file names the variable. Then upload an image and count
+the image folders on disk before and after:
+
+```bash
+docker compose exec app sh -c 'ls /data/images | wc -l'
+```
+
+The count should not change, and the bucket should gain a folder holding
+`original`, `thumb.webp` and `medium.webp`.
 
 Outside Docker it's the same: `pnpm migrate:storage` with the variables set for
 that command, stop the app, run it again, then set them for the app too.
 
 It copies rather than moves: the source is left exactly as it was, so the images
-on disk stay as your fallback until you clear them by hand. An interrupted copy
-is finished by running it again. Anything already at the target is skipped
-rather than compared — safe because stored images never change once saved —
-and anything you purge between the two passes stays in the bucket until you
-clear it by hand.
+on disk stay as your fallback. An interrupted copy is finished by running it
+again. Anything already at the target is skipped rather than compared — safe
+because stored images never change once saved — and anything you purge between
+the two passes stays in the bucket until you clear it by hand.
+
+#### Clearing the old copies
+
+Once you're confident, run the migration once more. If it reports nothing to
+copy, every file on disk is already in the bucket:
+
+```bash
+docker compose exec app node ./scripts/migrate-storage.mjs
+```
+
+Then remove the images directory. The database and `secret.key` sit in the same
+volume and are untouched — they're the half of your library the bucket doesn't
+hold:
+
+```bash
+docker compose exec app rm -rf /data/images
+```
+
+#### Moving back to disk
 
 `--to-disk` goes the other way, pulling everything out of the bucket and back
 into the data volume, which is what makes the switch reversible once the bucket
@@ -133,6 +217,25 @@ holds images the disk has never seen. The same two passes apply:
 ```bash
 pnpm migrate:storage --to-disk
 ```
+
+### Troubleshooting a bucket
+
+`pnpm check:bucket` (or `check-bucket.mjs` in the container) is the quickest way
+to see these. What each error usually means:
+
+- **`AccessDenied`** — the access key can't touch this bucket: its permission
+  is read-only, or it's limited to other buckets. On R2 a **misspelled bucket
+  name** also comes back as `AccessDenied` rather than "no such bucket", so
+  check the name first.
+- **`SignatureDoesNotMatch`** — a wrong secret key, or a wrong region. It reads
+  like a bad secret, but on R2 a missing `S3_REGION=auto` gives the same error.
+- **`NoSuchBucket`** — the bucket name is wrong.
+- **`fetch failed` or a timeout** — the endpoint is wrong or unreachable. It
+  needs the scheme: `https://…`, not just the host.
+- **The app refuses to start** naming a missing variable — one of the first
+  four isn't set. Setting the bucket alone is not enough.
+- **Images show as broken after switching** — they were saved after the last
+  copy. Run the migration again; it copies only what's missing.
 
 ### Upgrading
 

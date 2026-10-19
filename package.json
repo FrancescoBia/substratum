@@ -13,6 +13,7 @@
     "typecheck": "pnpm --recursive typecheck",
     "db:generate": "pnpm --filter @repo/web db:generate",
     "reset-password": "pnpm --filter @repo/web reset-password",
+    "check:bucket": "pnpm --filter @repo/web check:bucket",
     "migrate:storage": "pnpm --filter @repo/web migrate:storage",
     "seed": "pnpm --filter @repo/web seed",
     "test:unit": "pnpm --filter @repo/web test:unit",

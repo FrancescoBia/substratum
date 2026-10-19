@@ -293,36 +293,41 @@ describe("request signing", () => {
   });
 });
 
-describe("migration script", () => {
+describe("storage scripts", () => {
   /**
-   * `scripts/migrate-storage.mjs` loads these modules with plain Node inside the
-   * container, where a workspace package is TypeScript under node_modules and
-   * Node refuses to strip its types. The script then dies before it starts —
-   * and only there, because in a checkout the same import resolves outside
-   * node_modules and works. So: builtins and relative files only.
+   * `scripts/migrate-storage.mjs` and `scripts/check-bucket.mjs` load these
+   * modules with plain Node inside the container, where a workspace package is
+   * TypeScript under node_modules and Node refuses to strip its types. A script
+   * then dies before it starts — and only there, because in a checkout the same
+   * import resolves outside node_modules and works. So: builtins and relative
+   * files only.
    */
-  test("imports nothing plain Node cannot load in the container", async () => {
-    const script = fileURLToPath(new URL("../scripts/migrate-storage.mjs", import.meta.url));
-    const pending = [script];
-    const seen = new Set<string>();
-    const offending: string[] = [];
+  for (const name of ["migrate-storage.mjs", "check-bucket.mjs"]) {
+    test(`${name} imports nothing plain Node cannot load in the container`, async () => {
+      const script = fileURLToPath(new URL(`../scripts/${name}`, import.meta.url));
+      const pending = [script];
+      const seen = new Set<string>();
+      const offending: string[] = [];
 
-    while (pending.length > 0) {
-      const file = pending.pop()!;
-      if (seen.has(file)) continue;
-      seen.add(file);
+      while (pending.length > 0) {
+        const file = pending.pop()!;
+        if (seen.has(file)) continue;
+        seen.add(file);
 
-      const source = await readFile(file, "utf8");
-      // `import type` is erased before Node resolves anything, so it can't fail.
-      for (const [, specifier] of source.matchAll(/^import\s+(?!type\s)[^;]*?from\s+"([^"]+)"/gm)) {
-        if (specifier.startsWith("node:")) continue;
-        if (specifier.startsWith(".")) pending.push(resolve(dirname(file), specifier));
-        else offending.push(`${relative(process.cwd(), file)} imports ${specifier}`);
+        const source = await readFile(file, "utf8");
+        // `import type` is erased before Node resolves anything, so it can't fail.
+        for (const [, specifier] of source.matchAll(
+          /^import\s+(?!type\s)[^;]*?from\s+"([^"]+)"/gm,
+        )) {
+          if (specifier.startsWith("node:")) continue;
+          if (specifier.startsWith(".")) pending.push(resolve(dirname(file), specifier));
+          else offending.push(`${relative(process.cwd(), file)} imports ${specifier}`);
+        }
       }
-    }
 
-    assert.deepEqual(offending, []);
-  });
+      assert.deepEqual(offending, []);
+    });
+  }
 });
 
 describe("objects", () => {

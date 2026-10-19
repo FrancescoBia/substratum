@@ -11,8 +11,7 @@ export default defineConfig({
   }),
   manifest: {
     name: "Substratum",
-    description:
-      "Right-click any image or video to save it to your Substratum library.",
+    description: "Right-click any image or video to save it to your Substratum library.",
     // Minimal by design: no <all_urls>, no content scripts in the manifest. The
     // server fetches the bytes, so this extension only ever talks to the
     // user's own instance — whose origin is granted at runtime when they pair
@@ -20,13 +19,7 @@ export default defineConfig({
     // registers the opt-in site fixes (lib/sites.ts), each behind its own
     // runtime host permission. Nor does `activeTab`: it's what lets a click on
     // the toolbar icon read which site it was clicked on.
-    permissions: [
-      "activeTab",
-      "contextMenus",
-      "notifications",
-      "scripting",
-      "storage",
-    ],
+    permissions: ["activeTab", "contextMenus", "notifications", "scripting", "storage"],
     optional_host_permissions: ["*://*/*"],
     // Required for the badge — without an `action` key the browser.action API
     // doesn't exist, and the ✓/! success signal silently does nothing. No

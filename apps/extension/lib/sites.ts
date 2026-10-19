@@ -53,9 +53,7 @@ export function disableSite(site: Site): Promise<boolean> {
 export async function getAddedSites(): Promise<string[]> {
   const stored = await readAdded();
   const granted = await Promise.all(
-    stored.map((origin) =>
-      browser.permissions.contains({ origins: [originPattern(origin)] }),
-    ),
+    stored.map((origin) => browser.permissions.contains({ origins: [originPattern(origin)] })),
   );
   return stored.filter((_, index) => granted[index]);
 }
@@ -82,10 +80,7 @@ export type ToggleOutcome =
  * granted it resolves at once with no prompt, and only then is it decided
  * which way the click goes.
  */
-export async function toggleSiteFix(tab: {
-  id?: number;
-  url?: string;
-}): Promise<ToggleOutcome> {
+export async function toggleSiteFix(tab: { id?: number; url?: string }): Promise<ToggleOutcome> {
   const origin = tab.url ? toOrigin(tab.url) : null;
   if (!origin || tab.id === undefined) return { kind: "not-a-site" };
 
@@ -101,10 +96,7 @@ export async function toggleSiteFix(tab: {
 
   const listed = [];
   for (const site of SITES) {
-    if (
-      site.matches.some((match) => patternCovers(match, origin)) &&
-      (await isSiteEnabled(site))
-    ) {
+    if (site.matches.some((match) => patternCovers(match, origin)) && (await isSiteEnabled(site))) {
       listed.push(site);
     }
   }
@@ -156,9 +148,9 @@ async function sync(): Promise<void> {
     if (await isSiteEnabled(site)) matches.push(...site.matches);
   }
 
-  const registered = (
-    await browser.scripting.getRegisteredContentScripts()
-  ).filter((script) => script.id.startsWith(SCRIPT_ID));
+  const registered = (await browser.scripting.getRegisteredContentScripts()).filter((script) =>
+    script.id.startsWith(SCRIPT_ID),
+  );
   const current = registered.find((script) => script.id === SCRIPT_ID);
   const unchanged =
     registered.length === (matches.length > 0 ? 1 : 0) &&
@@ -181,9 +173,7 @@ async function sync(): Promise<void> {
 
 async function readAdded(): Promise<string[]> {
   const stored = (await browser.storage.local.get(ADDED_KEY))[ADDED_KEY];
-  return Array.isArray(stored)
-    ? stored.filter((item) => typeof item === "string")
-    : [];
+  return Array.isArray(stored) ? stored.filter((item) => typeof item === "string") : [];
 }
 
 async function writeAdded(origins: string[]): Promise<void> {

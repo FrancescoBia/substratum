@@ -107,12 +107,9 @@ export function Options() {
       <div className="w-full max-w-md">
         <h1 className="text-2xl font-semibold tracking-tight">Substratum</h1>
         <p className="text-muted-foreground mt-2 text-sm">
-          Point this extension at your own Substratum instance. Then right-click
-          any image or video on the web and choose{" "}
-          <strong className="text-foreground font-medium">
-            Save to Substratum
-          </strong>
-          .
+          Point this extension at your own Substratum instance. Then right-click any image or video
+          on the web and choose{" "}
+          <strong className="text-foreground font-medium">Save to Substratum</strong>.
         </p>
 
         <div className="mt-8 flex flex-col gap-2">
@@ -132,11 +129,7 @@ export function Options() {
             {paired === toOrigin(input) && paired ? "Re-pair" : "Pair instance"}
           </Button>
           {paired && (
-            <Button
-              variant="outline"
-              onClick={() => checkSession(paired)}
-              disabled={busy}
-            >
+            <Button variant="outline" onClick={() => checkSession(paired)} disabled={busy}>
               Check connection
             </Button>
           )}
@@ -146,20 +139,14 @@ export function Options() {
           // The success case has no variant of its own — `destructive` is the
           // only one the design system offers — so a passing check is a plain
           // alert and only a failure is coloured.
-          <Alert
-            className="mt-5"
-            variant={status.kind === "bad" ? "destructive" : "default"}
-          >
-            <AlertDescription>
-              {busy ? "Checking…" : status.message}
-            </AlertDescription>
+          <Alert className="mt-5" variant={status.kind === "bad" ? "destructive" : "default"}>
+            <AlertDescription>{busy ? "Checking…" : status.message}</AlertDescription>
           </Alert>
         )}
 
         {paired && (
           <p className="text-muted-foreground mt-6 text-xs">
-            Paired with{" "}
-            <code className="bg-muted rounded px-1 py-0.5">{paired}</code>
+            Paired with <code className="bg-muted rounded px-1 py-0.5">{paired}</code>
           </p>
         )}
 
@@ -204,17 +191,13 @@ function SiteFixes() {
     <section className="mt-10">
       <h2 className="text-sm font-semibold">Hidden images and videos</h2>
       <p className="text-muted-foreground mt-1 text-sm">
-        Some sites lay an invisible layer over their images and videos, so
-        right-click never reaches them. Switching a site on lets Substratum see
-        through that layer when you right-click — and needs permission to run on
-        that site.
+        Some sites lay an invisible layer over their images and videos, so right-click never reaches
+        them. Switching a site on lets Substratum see through that layer when you right-click — and
+        needs permission to run on that site.
       </p>
       <div className="mt-4 flex flex-col gap-3">
         {SITES.map((site) => (
-          <label
-            key={site.id}
-            className="flex cursor-pointer items-center gap-2 text-sm"
-          >
+          <label key={site.id} className="flex cursor-pointer items-center gap-2 text-sm">
             <Checkbox
               checked={enabled[site.id] ?? false}
               onCheckedChange={(checked) => toggle(site, checked)}
@@ -223,27 +206,18 @@ function SiteFixes() {
           </label>
         ))}
         {added.map((origin) => (
-          <div
-            key={origin}
-            className="flex items-center justify-between gap-2 text-sm"
-          >
-            <code className="bg-muted truncate rounded px-1 py-0.5">
-              {new URL(origin).host}
-            </code>
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => removeAddedSite(origin)}
-            >
+          <div key={origin} className="flex items-center justify-between gap-2 text-sm">
+            <code className="bg-muted truncate rounded px-1 py-0.5">{new URL(origin).host}</code>
+            <Button variant="outline" size="xs" onClick={() => removeAddedSite(origin)}>
               Remove
             </Button>
           </div>
         ))}
       </div>
       <p className="text-muted-foreground mt-3 text-xs">
-        For any other site, click the Substratum icon in the toolbar while
-        you're on it; click again to switch it off. Tabs already open on a site
-        you switch off keep the fix until they're reloaded.
+        For any other site, click the Substratum icon in the toolbar while you're on it; click again
+        to switch it off. Tabs already open on a site you switch off keep the fix until they're
+        reloaded.
       </p>
     </section>
   );

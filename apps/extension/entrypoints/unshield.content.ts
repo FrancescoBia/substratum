@@ -35,24 +35,19 @@ function onMouseDown(event: MouseEvent) {
 
   const stack = document.elementsFromPoint(event.clientX, event.clientY);
   const media = stack.find(
-    (element) =>
-      element instanceof HTMLImageElement ||
-      element instanceof HTMLVideoElement,
+    (element) => element instanceof HTMLImageElement || element instanceof HTMLVideoElement,
   );
   if (!media) return;
 
   const covers = stack.slice(0, stack.indexOf(media));
   if (covers.length === 0 || !covers.every(isSeeThrough)) return;
 
-  const saved = (covers as Array<HTMLElement | SVGElement>).map(
-    ({ style }) => ({
-      style,
-      value: style.getPropertyValue("pointer-events"),
-      priority: style.getPropertyPriority("pointer-events"),
-    }),
-  );
-  for (const { style } of saved)
-    style.setProperty("pointer-events", "none", "important");
+  const saved = (covers as Array<HTMLElement | SVGElement>).map(({ style }) => ({
+    style,
+    value: style.getPropertyValue("pointer-events"),
+    priority: style.getPropertyPriority("pointer-events"),
+  }));
+  for (const { style } of saved) style.setProperty("pointer-events", "none", "important");
 
   let restored = false;
   const restore = () => {
@@ -74,8 +69,7 @@ function onMouseDown(event: MouseEvent) {
 }
 
 /** Anything inside a layer that is content in its own right, not an icon. */
-const CONTENT =
-  "img, picture, video, canvas, iframe, object, embed, input, select, textarea";
+const CONTENT = "img, picture, video, canvas, iframe, object, embed, input, select, textarea";
 
 /**
  * A layer with nothing to read in it and nothing to see but, at most, a vector

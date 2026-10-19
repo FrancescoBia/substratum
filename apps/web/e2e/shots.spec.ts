@@ -59,7 +59,7 @@ test("capture every view", async ({ page, request }) => {
   // a half-drawn overlay.
   await page.locator("main a").first().click();
   await viewer.waitFor();
-  await viewer.locator("img").evaluate((node) => (node as HTMLImageElement).decode());
+  await viewer.locator("img[data-current]").evaluate((node) => (node as HTMLImageElement).decode());
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${SHOTS}/09-full-size.png` });

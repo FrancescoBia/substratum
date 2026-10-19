@@ -352,7 +352,10 @@ test.describe("Full-size view", () => {
     await expect(page).toHaveURL(new RegExp(`\\?view=${ids[0]}`));
 
     const viewer = page.getByRole("dialog");
-    await expect(viewer.locator("img")).toHaveAttribute("src", `/img/${ids[0]}/medium`);
+    await expect(viewer.locator("img[data-current]")).toHaveAttribute(
+      "src",
+      `/img/${ids[0]}/medium`,
+    );
     await expect(viewer.getByText("1 / 3")).toBeVisible();
     // The grid is still there underneath, ready for the tile to morph back to.
     await expect(page.locator("main img")).toHaveCount(3);

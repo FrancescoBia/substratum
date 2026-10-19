@@ -1,6 +1,14 @@
 import { ChevronLeft, ChevronRight, ExternalLink, Info, X } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import {
   Link,
   useLocation,
@@ -225,6 +233,7 @@ export function Lightbox({
       navigate(`${location.pathname}?${params}`, {
         replace: true,
         preventScrollReset: true,
+        state: { lightboxStep: Math.sign(delta) },
       });
     },
     [images, location.pathname, location.search, navigate],
@@ -276,9 +285,8 @@ export function Lightbox({
             <div className="relative flex min-h-0 flex-1">
               <div className="flex min-w-0 flex-1 flex-col">
                 <LightboxBody
-                  image={image}
+                  images={images}
                   index={index}
-                  total={images.length}
                   detailsHref={detailsHref}
                   detailsOpen={panel !== undefined && panel !== null}
                   onStep={step}
@@ -305,17 +313,15 @@ export function Lightbox({
 }
 
 function LightboxBody({
-  image,
+  images,
   index,
-  total,
   detailsHref,
   detailsOpen,
   onStep,
   onClose,
 }: {
-  image: LightboxImage;
+  images: LightboxImage[];
   index: number;
-  total: number;
   detailsHref?: (id: string) => string;
   detailsOpen: boolean;
   onStep: (delta: number) => void;
@@ -324,6 +330,21 @@ function LightboxBody({
   // The tile hands the name over for exactly as long as its Image is the one on
   // screen here, so the two are never both wearing it. See `morphFromTile`.
   const morphId = useMorphTarget();
+  const location = useLocation();
+  const image = images[index];
+  const total = images.length;
+  const position = useStripPosition(index, total, location.state);
+
+  // Every mounted slot, so the spring can place them without a render.
+  const slots = useRef(new Map<number, HTMLElement>());
+  const stage = useRef<HTMLDivElement>(null);
+  const blur = useRef<SVGFEGaussianBlurElement>(null);
+  const settledAt = useStripSpring(position, (at, velocity, frame) => {
+    // Blur first: it reads the stage's width, which is free while nothing
+    // has been written yet this frame and a forced layout after.
+    blurStrip(stage.current, blur.current, velocity, frame);
+    placeStrip(slots.current, at, images);
+  });
 
   // The `medium` derivative is capped at 1200px on its longest edge, which is
   // softer than "full size" on a large or retina display. Offering the original
@@ -331,20 +352,18 @@ function LightboxBody({
   // the layout actually needs them, rather than pushing a multi-megabyte file at
   // a phone. It is the only way to the original now that nothing links to it.
   //
-  // Held back for a frame, though. `original` is a different URL from the
-  // `medium` the tile already has in cache, so offering both from the start
-  // means this element has nothing to paint until the larger file lands — and
-  // that empty frame is exactly what the tile expands into. Starting at the
-  // cached `medium` and adding the candidates afterwards gets the same bytes in
-  // the end: an `<img>` keeps painting what it has until the replacement has
+  // Held back until the strip has come to rest on this Image, though, for two
+  // reasons. `original` is a different URL from the `medium` the tile already
+  // has in cache, so offering both from the start means this element has
+  // nothing to paint until the larger file lands — and that empty frame is
+  // exactly what the tile expands into. And walking quickly makes every Image
+  // passed over the open one for a moment: upgrading each of them would fetch
+  // and decode a run of multi-megabyte files in the middle of the glide, which
+  // is precisely the work that makes it drop frames. Starting at the cached
+  // `medium` and adding the candidates afterwards gets the same bytes in the
+  // end: an `<img>` keeps painting what it has until the replacement has
   // decoded, so the upgrade is invisible whenever it happens.
-  const [upgraded, setUpgraded] = useState(false);
-  useEffect(() => {
-    setUpgraded(false);
-    const frame = requestAnimationFrame(() => setUpgraded(true));
-    return () => cancelAnimationFrame(frame);
-  }, [image.id]);
-  const srcSet = upgraded ? fullSizeSrcSet(image) : undefined;
+  const srcSet = settledAt === position ? fullSizeSrcSet(image) : undefined;
 
   return (
     <>
@@ -369,46 +388,109 @@ function LightboxBody({
         </DialogPrimitive.Close>
       </div>
 
-      {/* Clicking the surround closes; clicking the image itself does not, so a
-          mis-aimed click on a tall image doesn't dismiss what you came to see. */}
+      {/* Clicking the surround closes; clicking an image does not, so a
+          mis-aimed click on a tall image doesn't dismiss what you came to see.
+          The neighbours step instead — they are the only part of them showing.
+
+          `container-type: size` is what lets every slot be laid out in CSS
+          alone: a slot's width and offset are fractions of this box, and the
+          image's own size, which is not known until it loads, never enters
+          into it. */}
+      {/* The motion blur `blurStrip` turns on while the strip moves fast.
+          Horizontal only — a CSS `blur()` goes every way and reads as out of
+          focus rather than as speed — and kept inside the stage's own box. */}
+      <svg aria-hidden className="pointer-events-none absolute size-0">
+        <filter
+          id={MOTION_BLUR_FILTER}
+          x="0"
+          y="0"
+          width="1"
+          height="1"
+          colorInterpolationFilters="sRGB"
+        >
+          <feGaussianBlur ref={blur} stdDeviation="0 0" />
+        </filter>
+      </svg>
+
       <div
-        className="flex min-h-0 flex-1 items-center justify-center px-4 sm:px-16"
+        ref={stage}
+        className="relative min-h-0 flex-1 overflow-hidden [--gap:0.75rem] [--peek:1.5rem] @container-size sm:[--gap:1.5rem] sm:[--peek:3.5rem]"
         onClick={onClose}
       >
-        {image.kind === "video" ? (
-          // Plays straight away, muted and looping — a motion reference is
-          // something to watch, not to press play on. The sound is still in the
-          // file, and the controls can turn it on. The poster is the `medium`
-          // the tile already has cached, so the morph has a frame to land on
-          // while the clip starts.
-          <video
-            key={image.id}
-            src={`/img/${image.id}/original`}
-            poster={`/img/${image.id}/medium`}
-            width={image.width}
-            height={image.height}
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls
-            aria-label={image.title ?? "Video"}
-            onClick={(event) => event.stopPropagation()}
-            style={{ viewTransitionName: morphId === image.id ? MORPH_NAME : undefined }}
-            className="h-auto max-h-full w-auto max-w-full rounded-lg bg-black object-contain shadow-2xl"
-          />
-        ) : (
-          <img
-            key={image.id}
-            src={`/img/${image.id}/medium`}
-            srcSet={srcSet}
-            sizes="100vw"
-            alt={image.title ?? ""}
-            onClick={(event) => event.stopPropagation()}
-            style={{ viewTransitionName: morphId === image.id ? MORPH_NAME : undefined }}
-            className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
-          />
-        )}
+        {stripWindow(position, total).map((slot) => {
+          const offset = slot - position;
+          const slotImage = images[mod(slot, total)];
+          const isCurrent = offset === 0;
+          const isNeighbour = Math.abs(offset) === 1;
+
+          const ref = (element: HTMLElement | null) => {
+            if (!element) return;
+            slots.current.set(slot, element);
+            return () => {
+              slots.current.delete(slot);
+            };
+          };
+          const style = {
+            ...slotSize(slotImage),
+            viewTransitionName: isCurrent && morphId === slotImage.id ? MORPH_NAME : undefined,
+          };
+          const className = `absolute top-0 left-0 rounded-lg opacity-(--dim) shadow-2xl ${
+            isCurrent ? "" : isNeighbour ? "cursor-pointer hover:opacity-60" : "pointer-events-none"
+          }`;
+
+          // Only the open slot plays. A video passing by, or waiting at the
+          // edge, is its `medium` still — the same frame its poster is.
+          if (isCurrent && slotImage.kind === "video") {
+            return (
+              // Plays straight away, muted and looping — a motion reference is
+              // something to watch, not to press play on. The sound is still
+              // in the file, and the controls can turn it on. The poster is the
+              // `medium` the tile already has cached, so the morph has a frame
+              // to land on while the clip starts.
+              <video
+                key={slot}
+                src={`/img/${slotImage.id}/original`}
+                poster={`/img/${slotImage.id}/medium`}
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+                aria-label={slotImage.title ?? "Video"}
+                data-current=""
+                ref={ref}
+                onClick={(event) => event.stopPropagation()}
+                style={style}
+                className={`${className} bg-black object-contain`}
+              />
+            );
+          }
+
+          return (
+            <img
+              key={slot}
+              src={`/img/${slotImage.id}/medium`}
+              srcSet={isCurrent ? srcSet : undefined}
+              sizes="100vw"
+              alt={isCurrent ? (slotImage.title ?? "") : ""}
+              aria-hidden={isCurrent ? undefined : true}
+              data-current={isCurrent ? "" : undefined}
+              draggable={isCurrent}
+              // Slots mount mid-glide, as the strip brings them within reach.
+              // Decoding them off to the side keeps that from holding up a
+              // frame; the open one stays synchronous so the morph from the
+              // tile never captures it undecoded.
+              decoding={isCurrent ? undefined : "async"}
+              ref={ref}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (isNeighbour) onStep(offset);
+              }}
+              style={style}
+              className={className}
+            />
+          );
+        })}
       </div>
 
       <div className="flex min-h-14 items-center justify-center gap-4 px-4 py-3 text-xs text-white/60">
@@ -447,6 +529,319 @@ function LightboxBody({
       </div>
     </>
   );
+}
+
+/**
+ * The viewer is a strip of images running off both edges: the one being viewed
+ * in the middle, a sliver of its neighbours at the edges, and one more on each
+ * side just out of sight, so a step always has something to slide in.
+ *
+ * Slots are numbered along an *unwrapped* strip — `position` keeps counting
+ * past the last image rather than wrapping to 0 — and React keys each `<img>`
+ * by that number. So stepping keeps every image that is still in the window
+ * mounted, and `useStripSpring` slides them along. Wrapping the number instead
+ * would make a short gallery's neighbours fly across the screen to the other
+ * side, and would not let one Image appear twice, which a gallery of two
+ * needs: its one other Image is both the previous and the next.
+ *
+ * Four either side, though only one shows: the strip can trail `position` by
+ * up to `MAX_LAG` while it catches up, and whatever it is passing over still
+ * has to be there to be seen.
+ */
+const STRIP_REACH = 4;
+
+function mod(n: number, m: number) {
+  return ((n % m) + m) % m;
+}
+
+function stripWindow(position: number, total: number): number[] {
+  if (total < 2) return [position];
+  const slots: number[] = [];
+  for (let slot = position - STRIP_REACH; slot <= position + STRIP_REACH; slot++) slots.push(slot);
+  return slots;
+}
+
+/**
+ * Where on the unwrapped strip the open Image sits. It starts at its own index
+ * and from then on moves by the shortest way round to wherever `?view=` went,
+ * so arrows held down — which can land a few places at once — still slide the
+ * right way. A gallery small enough for both ways round to be equally short
+ * goes the way the step was aimed, which `step` leaves in the location state.
+ */
+function useStripPosition(index: number, total: number, locationState: unknown): number {
+  const [strip, setStrip] = useState({ index, position: index });
+  if (strip.index === index) return strip.position;
+
+  const forward = mod(index - strip.index, total);
+  const backward = forward - total;
+  const aimedBack =
+    typeof locationState === "object" &&
+    locationState !== null &&
+    "lightboxStep" in locationState &&
+    locationState.lightboxStep === -1;
+  const shortest =
+    forward < -backward || (forward === -backward && !aimedBack) ? forward : backward;
+
+  const position = strip.position + shortest;
+  setStrip({ index, position });
+  return position;
+}
+
+/**
+ * The strip is moved by a spring rather than a CSS transition, for the two
+ * things a fixed curve gets wrong when stepping:
+ *
+ * - It answers at once. A spring pulls hardest when it is furthest from where
+ *   it is going, so the strip is already moving on the frame after the key,
+ *   and the resistance is all at the far end, where it settles into place.
+ * - It keeps its speed when the target moves. A transition restarted from
+ *   wherever it had got to starts again from rest, so quick steps stutter —
+ *   lurch, brake, lurch. A spring just has somewhere new to go, so a run of
+ *   steps reads as one glide that slows down once the steps stop.
+ *
+ * Critically damped, so it never overshoots: ω = √180 ≈ 13.4/s puts a step
+ * half way there in ~125ms and within 1% of it in ~500ms.
+ */
+const SPRING_STIFFNESS = 180;
+const SPRING_DAMPING = 2 * Math.sqrt(SPRING_STIFFNESS);
+
+/**
+ * How far the strip may trail its target, in slots. A spring following steady
+ * steps trails them by 2/ω slots per step-per-second — about 1.6 slots for
+ * someone tapping eleven times a second — so this leaves room for quick
+ * tapping to glide. Arrows held down repeat faster than any spring worth
+ * looking at can follow; past this the strip is dragged along rather than
+ * left to fall further and further behind.
+ */
+const MAX_LAG = 2.5;
+
+/**
+ * Drives the strip's position towards `target` and calls `paint` with it on
+ * every frame. Painting happens outside React — a render per frame for
+ * something only styles depend on would be all cost — but also once after
+ * every render, so slots that have just mounted are placed before the browser
+ * gets to draw them where they are not.
+ *
+ * `paint` also gets the strip's velocity, in slots per second, and how long
+ * the frame being painted took, in seconds — between them, how far it moved.
+ *
+ * Returns the position the strip last came to rest at, or `null` before it
+ * first has: the one moment it is worth starting expensive work. Never sooner
+ * than a frame after a render, which is what the opening morph needs.
+ */
+function useStripSpring(
+  target: number,
+  paint: (at: number, velocity: number, frame: number) => void,
+): number | null {
+  const spring = useRef({
+    at: target,
+    velocity: 0,
+    target,
+    frame: 0,
+    last: 0,
+    restFrame: 0,
+  });
+  const paintRef = useRef(paint);
+  const [settledAt, setSettledAt] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const state = spring.current;
+    paintRef.current = paint;
+    state.target = target;
+
+    // A reader who asked for less motion gets the strip where it is going.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      cancelAnimationFrame(state.frame);
+      state.frame = 0;
+      state.at = target;
+      state.velocity = 0;
+    }
+
+    state.at = Math.min(Math.max(state.at, target - MAX_LAG), target + MAX_LAG);
+    paint(state.at, state.velocity, 1 / 60);
+    if (state.frame) return;
+
+    if (state.at === target && state.velocity === 0) {
+      if (settledAt !== target && !state.restFrame) {
+        state.restFrame = requestAnimationFrame(() => {
+          state.restFrame = 0;
+          setSettledAt(state.target);
+        });
+      }
+      return;
+    }
+    cancelAnimationFrame(state.restFrame);
+    state.restFrame = 0;
+
+    function tick(now: number) {
+      // Capped, so a frame that arrives late — a background tab coming back —
+      // finishes the motion instead of jumping past it.
+      const frame = Math.min((now - state.last) / 1000, 0.1);
+      let remaining = frame;
+      state.last = now;
+
+      // Small fixed steps keep the integration stable at any frame rate.
+      while (remaining > 0) {
+        const dt = Math.min(remaining, 1 / 240);
+        const force =
+          -SPRING_STIFFNESS * (state.at - state.target) - SPRING_DAMPING * state.velocity;
+        state.velocity += force * dt;
+        state.at += state.velocity * dt;
+        remaining -= dt;
+      }
+
+      if (Math.abs(state.at - state.target) < 0.0005 && Math.abs(state.velocity) < 0.005) {
+        state.at = state.target;
+        state.velocity = 0;
+        state.frame = 0;
+        setSettledAt(state.target);
+      } else {
+        state.frame = requestAnimationFrame(tick);
+      }
+      paintRef.current(state.at, state.velocity, frame);
+    }
+
+    state.last = performance.now();
+    state.frame = requestAnimationFrame(tick);
+  });
+
+  // Zeroed as well as cancelled: the handles double as "already scheduled", and
+  // a remount — StrictMode does one on purpose — would otherwise wait forever
+  // for frames that were cancelled here.
+  useEffect(() => {
+    const state = spring.current;
+    return () => {
+      cancelAnimationFrame(state.frame);
+      cancelAnimationFrame(state.restFrame);
+      state.frame = 0;
+      state.restFrame = 0;
+    };
+  }, []);
+
+  return settledAt;
+}
+
+/** The widest any image may be: room left for both neighbours' slivers. */
+const MAX_WIDTH = "(100cqw - 2 * (var(--peek) + var(--gap)))";
+
+/**
+ * Every image is fitted to the same box — as tall as the stage, and no wider
+ * than `MAX_WIDTH` — so its size is known from its dimensions before a byte of
+ * it has loaded. All of it is in terms of the stage (`cqw`, `cqh`), `--peek`
+ * (how much of a neighbour shows) and `--gap` (the space between two images).
+ */
+function slotSize(image: LightboxImage): CSSProperties {
+  return {
+    width: `min(calc${MAX_WIDTH}, calc(100cqh * ${image.width} / ${image.height}))`,
+    aspectRatio: `${image.width} / ${image.height}`,
+  };
+}
+
+function fittedHeight(image: LightboxImage): string {
+  return `min(${MAX_WIDTH} * ${image.height} / ${image.width}, 100cqh)`;
+}
+
+/**
+ * Where an image's left edge sits `offset` whole slots from the middle. The
+ * neighbours hang off the edges of the stage by their inner edge rather than
+ * off the open image, so the sliver is the same width whatever shape the
+ * image in the middle is. Everything further out sits one widest-possible
+ * image beyond the slot before it, out of sight.
+ */
+function slotX(offset: number): string {
+  if (offset === 0) return "calc(50cqw - 50%)";
+  if (offset === -1) return "calc(var(--peek) - 100%)";
+  if (offset === 1) return "calc(100cqw - var(--peek))";
+
+  const beyond = `${Math.abs(offset) - 2} * (${MAX_WIDTH} + var(--gap))`;
+  return offset < 0
+    ? `calc(var(--peek) - var(--gap) - ${MAX_WIDTH} - 100% - ${beyond})`
+    : `calc(100cqw - var(--peek) + var(--gap) + ${MAX_WIDTH} + ${beyond})`;
+}
+
+function mix(from: string, to: string, amount: number): string {
+  if (amount === 0) return from;
+  return `calc(${from} * ${1 - amount} + ${to} * ${amount})`;
+}
+
+/**
+ * Places every slot for the strip being at `at`, which is fractional while it
+ * moves: each image is a straight-line blend of the two whole slots it is
+ * between.
+ *
+ * Off-centre images are shown at half size and dimmed, and stand on the open
+ * image's bottom edge, shrunk towards their inner bottom corner — so the
+ * sliver at the edge stays the same width, and a neighbour stepped to grows
+ * up and out of the row into place. The open image is centred, so its bottom
+ * edge is a pure function of its dimensions too; between two images it is a
+ * blend of both, and the row rides it.
+ *
+ * Neighbours never collide. Two images a slot apart are blended by the same
+ * amount between positions that are at least a gap apart at both ends, and a
+ * blend of two such pairs is a gap apart too. Scaling cannot break that: the
+ * origin is always inside the box, so a scaled image never leaves the space
+ * its full-size box would take.
+ */
+function placeStrip(slots: Map<number, HTMLElement>, at: number, images: LightboxImage[]) {
+  const below = Math.floor(at);
+  const between = at - below;
+  const openHeight = mix(
+    fittedHeight(images[mod(below, images.length)]),
+    fittedHeight(images[mod(below + 1, images.length)]),
+    between,
+  );
+
+  for (const [slot, element] of slots) {
+    const offset = slot - at;
+    const whole = Math.floor(offset);
+    const x = mix(slotX(whole), slotX(whole + 1), offset - whole);
+    // 0 for the open image, 1 for a neighbour and anything further out.
+    const aside = Math.min(Math.abs(offset), 1);
+    const side = Math.max(-1, Math.min(offset, 1));
+
+    element.style.translate = `${x} calc(50cqh + ${openHeight} / 2 - 100%)`;
+    element.style.scale = `${1 - 0.5 * aside}`;
+    element.style.transformOrigin = `${50 - 50 * side}% 100%`;
+    element.style.setProperty("--dim", `${1 - 0.65 * aside}`);
+  }
+}
+
+/**
+ * EXPERIMENT: motion blur for a fast-moving strip.
+ *
+ * A screen shows each frame sharp, so something moving a couple of hundred
+ * pixels a frame is seen as a row of crisp copies rather than as movement —
+ * strobing, which film never shows because the shutter smears it. This puts
+ * the smear back: a horizontal blur scaled to how far the strip moved in the
+ * frame, as a shutter open for part of it would have recorded.
+ *
+ * `MOTION_BLUR` is that fraction — 0 turns the whole thing off. Below half a
+ * pixel the filter comes off altogether, so it costs nothing at rest and
+ * never softens the open image.
+ */
+const MOTION_BLUR = 0.25;
+const MOTION_BLUR_MAX = 8;
+const MOTION_BLUR_FILTER = "lightbox-motion-blur";
+
+function blurStrip(
+  stage: HTMLElement | null,
+  blur: SVGFEGaussianBlurElement | null,
+  velocity: number,
+  frame: number,
+) {
+  if (!stage || !blur) return;
+
+  // A slot is about three quarters of the stage wide: less between narrow
+  // images, more between wide ones. Close enough for a smear.
+  const travel = Math.abs(velocity) * stage.clientWidth * 0.75 * frame;
+  const radius = Math.min(travel * MOTION_BLUR, MOTION_BLUR_MAX);
+
+  if (radius < 0.5) {
+    stage.style.filter = "";
+    return;
+  }
+  blur.setAttribute("stdDeviation", `${radius.toFixed(1)} 0`);
+  stage.style.filter = `url(#${MOTION_BLUR_FILTER})`;
 }
 
 function hostOf(url: string): string {

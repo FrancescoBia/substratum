@@ -68,11 +68,7 @@ export async function receiveUpload(request: Request): Promise<ReceivedUpload> {
     }
 
     // Named here, never from the client's filename.
-    const file: SpooledFile = {
-      name: info.filename || "file",
-      path: join(uploadsTmpDir, `${randomUUID()}.upload`),
-      size: 0,
-    };
+    const file: SpooledFile = { name: info.filename || "file", path: spoolPath(), size: 0 };
     files.push(file);
 
     const out = createWriteStream(file.path);
@@ -91,6 +87,14 @@ export async function receiveUpload(request: Request): Promise<ReceivedUpload> {
   }
 
   return { fields, files };
+}
+
+/**
+ * A fresh path in the spool directory, for a file on its way into ingest — an
+ * upload's, or a capture's download. Whoever takes one removes it.
+ */
+export function spoolPath(): string {
+  return join(uploadsTmpDir, `${randomUUID()}.upload`);
 }
 
 /** Removes spooled files, including any that ingest has already moved away. */

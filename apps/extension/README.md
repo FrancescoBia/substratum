@@ -1,6 +1,6 @@
 # Substratum — Chrome extension
 
-Right-click any image on the web and choose **Save to Substratum**. The image
+Right-click any image or video on the web and choose **Save to Substratum**. It
 lands in your own self-hosted instance.
 
 This is the accelerator, not the only door — the web app takes manual uploads and
@@ -18,9 +18,9 @@ is no popup and no injected UI, and out of the box nothing of Substratum's runs
 inside a page you're browsing. The one exception is opt-in, per site — see
 [Hidden images](#hidden-images).
 
-**The extension never touches image bytes.** It sends your instance three
-strings — the image URL, the page URL, the page title — and the instance
-downloads the image itself. That's the reason the permissions are as small as
+**The extension never touches the bytes.** It sends your instance three
+strings — the image or video URL, the page URL, the page title — and the
+instance downloads the file itself. That's the reason the permissions are as small as
 they are: no host permission for third-party sites, and so no "read your data on
 all websites" warning at install.
 
@@ -91,17 +91,28 @@ headers only to `chrome-extension://` origins.
 Two cases are rejected in the extension, before any request goes out, because the
 instance would have nothing to download:
 
-- **`blob:`** — an image the page built in memory. Opening it in its own tab often
-  yields a real URL.
-- **`data:`** — an image embedded straight into the markup. Without the early
-  check, the round trip would upload the whole image as a form field only to be
+- **`blob:`** — something the page built in memory. For an image, opening it in
+  its own tab often yields a real URL. For a video it almost always means
+  streaming: YouTube, Instagram, X, Vimeo and most large sites fetch a video in
+  small pieces and feed them to the player themselves, so there's no single file
+  anywhere to save. Nothing in the extension can change that.
+- **`data:`** — something embedded straight into the markup. Without the early
+  check, the round trip would upload the whole file as a form field only to be
   told no.
 
 Anything not `http`/`https` is refused for the same reason. Beyond that, the
-instance decides: raster formats only (`jpeg`, `png`, `gif`, `webp`, `avif` — SVG
-is out of scope for v1), 50 MB maximum. The rules live in
-[`packages/shared`](../../packages/shared/src/index.ts) so the extension and the
-server can't drift on them.
+instance decides, from the downloaded bytes, by the same rules as a manual
+upload: raster images (`jpeg`, `png`, `gif`, `webp`, `avif` — SVG is out of scope
+for v1) up to 50 MB, and MP4, MOV or WebM videos with H.264, VP8 or VP9 inside up
+to 95 MB. The limits live in [`packages/shared`](../../packages/shared/src/index.ts)
+so the extension and the server can't drift on them.
+
+Videos that save are the ones a page links to as a plain file — portfolio sites,
+blogs, CMS-hosted clips, a `.mp4` opened in its own tab.
+
+The [hidden-image fix](#hidden-images) only looks for images. Instagram's videos
+are streamed anyway, so seeing through its overlays to them would only trade a
+missing menu for a "can't save" notice.
 
 ### Feedback
 
@@ -111,9 +122,23 @@ reason — not signed in, format unsupported, too large, couldn't download,
 instance unreachable — so a lost save is never silent and you learn something
 actionable.
 
-Captures are synchronous by design: `/api/capture` responds only once the image is
+Captures are synchronous by design: `/api/capture` responds only once the file is
 actually stored, so the ✓ is truthful. There's no retry queue — you retry by
-right-clicking again.
+right-clicking again. While a capture is working, the badge shows a grey …
+
+A video can take the instance longer than Chrome lets an extension's worker wait.
+Chrome stops the worker when a `fetch()` response takes more than 30s to arrive,
+or when it goes 30s without an extension event or API call, and the ✓ or the
+failure notice goes with it. So:
+
+- A capture that hasn't finished within 10s sends its `200` and headers anyway,
+  then a space every 10s, then the real JSON verdict. JSON allows leading
+  whitespace, so the body parses exactly as before; the verdict is in `ok`, not
+  in the status. The response carries `Cache-Control: no-transform` and
+  `X-Accel-Buffering: no`, so compression and nginx don't hold the spaces back.
+- The worker makes a no-op API call every 20s while a capture is under way.
+
+The instance gives the download itself 15s of silence and 3 minutes in total.
 
 ## Development
 
@@ -130,7 +155,7 @@ You'll want a web app to point at — `pnpm dev` from the root runs one on
 http://localhost:5173.
 
 ```
-entrypoints/background.ts     context menu, capture, badge, notifications
+entrypoints/background.ts     context menu (images and videos), capture, badge, notifications
 entrypoints/options/          the pairing page (React)
 entrypoints/unshield.content.ts  opt-in hidden-image fix, registered at runtime
 lib/instance.ts               stored instance URL + permission helpers

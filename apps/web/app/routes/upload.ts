@@ -1,18 +1,13 @@
-import { readFile } from "node:fs/promises";
-import { MAX_IMAGE_BYTES } from "@repo/shared";
 import { eq } from "drizzle-orm";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
-import { ingestImage, ingestVideo, type IngestResult } from "~/lib/ingest.server";
+import { ingestFile } from "~/lib/ingest.server";
 import { normalizeTag, resolveTagId } from "~/lib/library.server";
-import { sniffMedia } from "~/lib/media-sniff";
 import {
   discardSpooled,
-  readHead,
   receiveUpload,
   UploadUnreadable,
   type ReceivedUpload,
-  type SpooledFile,
 } from "~/lib/upload.server";
 import type { Route } from "./+types/upload";
 
@@ -64,7 +59,7 @@ async function ingestAll({ fields, files }: ReceivedUpload): Promise<UploadResul
   // source rather than a fabricated one.
   const results = await Promise.all(
     files.map(async (file) => {
-      const result = await ingestSpooled(file);
+      const result = await ingestFile(file.path, file.size, null);
       return result.ok
         ? { id: result.id, error: null }
         : { id: null, error: `${file.name}: ${result.message}` };
@@ -91,28 +86,4 @@ async function ingestAll({ fields, files }: ReceivedUpload): Promise<UploadResul
   }
 
   return { uploaded: files.length - errors.length, errors };
-}
-
-/** Sends one spooled file down the image or video path, by what its bytes say it is. */
-async function ingestSpooled(file: SpooledFile): Promise<IngestResult> {
-  const sniffed = sniffMedia(await readHead(file.path));
-
-  if (sniffed.kind === "unsupported-video") {
-    return {
-      ok: false,
-      code: "unsupported-format",
-      message: `${sniffed.container} videos aren't supported — export it as MP4 or WebM to save it.`,
-    };
-  }
-
-  if (sniffed.kind === "video") {
-    return ingestVideo(file.path, file.size, sniffed.container, null);
-  }
-
-  // Stills are small enough to take into memory, as they always have been —
-  // but a 90 MB file that only claims to be one is refused before it is read.
-  if (file.size > MAX_IMAGE_BYTES) {
-    return { ok: false, code: "too-large", message: "That image is larger than 50 MB." };
-  }
-  return ingestImage(await readFile(file.path), null);
 }

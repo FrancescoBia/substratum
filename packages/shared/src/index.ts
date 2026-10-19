@@ -3,7 +3,11 @@
  * Keep this package dependency-free — the extension bundles it directly.
  */
 
-/** What the extension sends for each Capture. It never sends image bytes. */
+/**
+ * What the extension sends for each Capture, of an image or a video. It never
+ * sends the bytes. `sourceImageUrl` keeps its name for videos too: a video is
+ * an Image of kind "video".
+ */
 export type CaptureRequest = {
   sourceImageUrl: string;
   sourcePageUrl: string;

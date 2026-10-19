@@ -1,8 +1,8 @@
 # Substratum
 
-Collect visual inspiration while you browse. Right-click any image, and it lands in your own self-hosted library — organized into boards and tags later, on your own time. Short videos — motion references, screen recordings — come in by upload.
+Collect visual inspiration while you browse. Right-click any image or video, and it lands in your own self-hosted library — organized into boards and tags later, on your own time. Short videos — motion references, screen recordings — come in by upload too.
 
-Substratum is two pieces: a **web app** you host yourself, and a **Chrome extension** that saves images into it. One person per instance; boards you choose to publish become public pages.
+Substratum is two pieces: a **web app** you host yourself, and a **Chrome extension** that saves images and videos into it. One person per instance; boards you choose to publish become public pages.
 
 > [!WARNING]
 > **Not production ready.** Substratum is in active development and not yet ready for production use.
@@ -21,7 +21,7 @@ A few behaviours that aren't obvious from the outside:
 - **Boards are views, not folders.** An image can sit on any number of boards, or none, and deleting a board never deletes the images on it.
 - **Published board URLs are frozen.** A board's public slug is generated the first time you publish it and never changes, so renaming the board won't break links people already have. You can edit a slug by hand, but that will.
 - **Published boards show images and source links only** — never your tags or notes.
-- **Videos are kept exactly as uploaded.** MP4, MOV or WebM, with H.264, VP8 or VP9 inside, up to 95 MB. Nothing is transcoded, so the list is what every browser plays — HEVC, the iPhone camera's default, is refused with a note to export it as H.264, because most visitors to a published board couldn't play it. The extension saves images only, for now.
+- **Videos are kept exactly as uploaded.** MP4, MOV or WebM, with H.264, VP8 or VP9 inside, up to 95 MB. Nothing is transcoded, so the list is what every browser plays — HEVC, the iPhone camera's default, is refused with a note to export it as H.264, because most visitors to a published board couldn't play it. The extension saves a video the same way, as long as the page serves it as a file — most large sites stream video in pieces instead, and there's no file to save.
 - **Deleted images sit in the Trash for 30 days** — out of the stream, off every board, and off any public page — until they're purged automatically or you empty it by hand.
 
 ## Quickstart (self-hosting)

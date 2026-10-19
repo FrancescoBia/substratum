@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import {
   ACCEPTED_FORMATS,
   MAX_IMAGE_BYTES,
@@ -10,7 +11,9 @@ import sharp, { type Metadata } from "sharp";
 import { db, schema } from "~/db/index.server";
 import { extractFrame, probe, type ProbeOutput } from "./ffmpeg.server";
 import { MEDIUM_EDGE, THUMB_EDGE } from "./image-variants";
+import { sniffMedia } from "./media-sniff";
 import { storage, storageKeys } from "./storage.server";
+import { readHead } from "./upload.server";
 import { describeVideo } from "./video-metadata";
 
 /**
@@ -26,6 +29,39 @@ export type IngestSource = {
 export type IngestResult =
   | { ok: true; id: string }
   | { ok: false; code: CaptureErrorCode; message: string };
+
+/**
+ * Sends a file on disk down the image or video path, by what its bytes say it
+ * is — the door both manual upload and extension capture come in through.
+ * Like `ingestVideo`, it may move the file away; the caller removes whatever is
+ * left at `path` either way.
+ */
+export async function ingestFile(
+  path: string,
+  size: number,
+  source: IngestSource,
+): Promise<IngestResult> {
+  const sniffed = sniffMedia(await readHead(path));
+
+  if (sniffed.kind === "unsupported-video") {
+    return {
+      ok: false,
+      code: "unsupported-format",
+      message: `${sniffed.container} videos aren't supported — export it as MP4 or WebM to save it.`,
+    };
+  }
+
+  if (sniffed.kind === "video") {
+    return ingestVideo(path, size, sniffed.container, source);
+  }
+
+  // Stills are small enough to take into memory, as they always have been —
+  // but a 90 MB file that only claims to be one is refused before it is read.
+  if (size > MAX_IMAGE_BYTES) {
+    return { ok: false, code: "too-large", message: "That image is larger than 50 MB." };
+  }
+  return ingestImage(await readFile(path), source);
+}
 
 /**
  * The single path by which bytes become an Image — shared by manual upload and
@@ -233,64 +269,5 @@ async function discardStoredBytes(id: string): Promise<void> {
     await storage.deletePrefix(storageKeys.prefix(id));
   } catch (error) {
     console.error(`[ingest] could not clean up ${id}; its stored bytes are orphaned:`, error);
-  }
-}
-
-/** Fetch timeout for server-side capture. */
-const FETCH_TIMEOUT_MS = 15_000;
-
-/**
- * Downloads an image the extension pointed us at. The Referer is set to the
- * page the image was found on, which is what gets past most hotlink protection.
- */
-export async function fetchSourceImage(
-  sourceImageUrl: string,
-  sourcePageUrl: string,
-): Promise<{ ok: true; bytes: Buffer } | { ok: false; code: CaptureErrorCode; message: string }> {
-  let url: URL;
-  try {
-    url = new URL(sourceImageUrl);
-  } catch {
-    return { ok: false, code: "invalid-request", message: "That image URL isn't valid." };
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return {
-      ok: false,
-      code: "invalid-request",
-      message: "Only http and https images can be saved.",
-    };
-  }
-
-  try {
-    const response = await fetch(url, {
-      redirect: "follow",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: sourcePageUrl ? { Referer: sourcePageUrl } : undefined,
-    });
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        code: "fetch-failed",
-        message: `The site returned ${response.status} for that image.`,
-      };
-    }
-
-    // Trust the header only as an early bail-out; the real check is on bytes.
-    const declared = Number(response.headers.get("content-length") ?? 0);
-    if (declared > MAX_IMAGE_BYTES) {
-      return { ok: false, code: "too-large", message: "That image is larger than 50 MB." };
-    }
-
-    return { ok: true, bytes: Buffer.from(await response.arrayBuffer()) };
-  } catch (error) {
-    return {
-      ok: false,
-      code: "fetch-failed",
-      message:
-        error instanceof Error && error.name === "TimeoutError"
-          ? "That image took too long to download."
-          : "Couldn't download that image.",
-    };
   }
 }

@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import {
-  contentDisposition,
-  downloadFilename,
-  type NamedImage,
-} from "../app/lib/download-name.ts";
+import { contentDisposition, downloadFilename, type NamedImage } from "../app/lib/download-name.ts";
 
 /**
  * What a served file is called when it is saved or dragged out of the browser.

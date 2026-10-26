@@ -199,24 +199,20 @@ export async function ingestVideo(
   }
 
   const verdict = describeVideo(probed, container);
-  if (!verdict.ok)
-    return { ok: false, code: "unsupported-format", message: verdict.message };
+  if (!verdict.ok) return { ok: false, code: "unsupported-format", message: verdict.message };
   const { video } = verdict;
 
   // A second in skips the fade from black most motion pieces open on; half way
   // through covers clips shorter than two seconds. A container that never says
   // how long it is gets the second, and the first frame if that misses.
-  const posterAt =
-    video.durationMs === null ? 1 : Math.min(1, video.durationMs / 2000);
+  const posterAt = video.durationMs === null ? 1 : Math.min(1, video.durationMs / 2000);
 
   const id = randomUUID();
 
   return commit(
     id,
     async () => {
-      const frame = await extractFrame(path, posterAt).catch(() =>
-        extractFrame(path, 0),
-      );
+      const frame = await extractFrame(path, posterAt).catch(() => extractFrame(path, 0));
       const [thumb, medium] = await deriveVariants(frame);
       return [
         storage.put(storageKeys.thumb(id), thumb),
@@ -275,8 +271,7 @@ async function commit(
     return {
       ok: false,
       code: "server-error",
-      message:
-        error instanceof Error ? error.message : "Couldn't process that file.",
+      message: error instanceof Error ? error.message : "Couldn't process that file.",
     };
   }
 
@@ -287,8 +282,7 @@ async function commit(
     return {
       ok: false,
       code: "server-error",
-      message:
-        error instanceof Error ? error.message : "Couldn't save that file.",
+      message: error instanceof Error ? error.message : "Couldn't save that file.",
     };
   }
 
@@ -309,9 +303,6 @@ async function discardStoredBytes(id: string): Promise<void> {
   try {
     await storage.deletePrefix(storageKeys.prefix(id));
   } catch (error) {
-    console.error(
-      `[ingest] could not clean up ${id}; its stored bytes are orphaned:`,
-      error,
-    );
+    console.error(`[ingest] could not clean up ${id}; its stored bytes are orphaned:`, error);
   }
 }

@@ -127,9 +127,11 @@ function nameFromUrl(url: string | null): string | null {
  * spaces macOS and Windows treat specially.
  */
 function sanitize(name: string): string {
-  return name
-    // oxlint-disable-next-line no-control-regex -- ASCII controls and DEL are not legal in a file name
-    .replace(/[\x00-\x1f\x7f/\\:*?"<>|]/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/^[\s.]+|[\s.]+$/g, "");
+  return (
+    name
+      // oxlint-disable-next-line no-control-regex -- ASCII controls and DEL are not legal in a file name
+      .replace(/[\x00-\x1f\x7f/\\:*?"<>|]/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/^[\s.]+|[\s.]+$/g, "")
+  );
 }

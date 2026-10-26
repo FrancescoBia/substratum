@@ -34,6 +34,21 @@ test("the whole original says it can be asked for in pieces", async ({ request }
   expect(body.subarray(1, 4).toString("ascii")).toBe("PNG");
 });
 
+test("a served file is named for the file that was uploaded", async ({ request }) => {
+  const id = await onlyImageId(request);
+
+  // What "Save Image As…" and a drag to the desktop call it — not `original`.
+  for (const [variant, name] of [
+    ["original", "test-0.png"],
+    ["medium", "test-0.webp"],
+  ]) {
+    const response = await request.get(`/img/${id}/${variant}`);
+    expect(response.headers()["content-disposition"]).toBe(
+      `inline; filename="${name}"; filename*=UTF-8''${name}`,
+    );
+  }
+});
+
 test("a range comes back as exactly those bytes", async ({ request }) => {
   const id = await onlyImageId(request);
   const whole = await (await request.get(`/img/${id}/original`)).body();

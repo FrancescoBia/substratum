@@ -26,6 +26,8 @@ export type IngestSource = {
   sourcePageTitle: string;
 } | null;
 
+export type IngestOrigin = { source: IngestSource; filename?: string | null };
+
 export type IngestResult =
   | { ok: true; id: string }
   | { ok: false; code: CaptureErrorCode; message: string };
@@ -39,7 +41,7 @@ export type IngestResult =
 export async function ingestFile(
   path: string,
   size: number,
-  source: IngestSource,
+  origin: IngestOrigin,
 ): Promise<IngestResult> {
   const sniffed = sniffMedia(await readHead(path));
 
@@ -52,15 +54,19 @@ export async function ingestFile(
   }
 
   if (sniffed.kind === "video") {
-    return ingestVideo(path, size, sniffed.container, source);
+    return ingestVideo(path, size, sniffed.container, origin);
   }
 
   // Stills are small enough to take into memory, as they always have been —
   // but a 90 MB file that only claims to be one is refused before it is read.
   if (size > MAX_IMAGE_BYTES) {
-    return { ok: false, code: "too-large", message: "That image is larger than 50 MB." };
+    return {
+      ok: false,
+      code: "too-large",
+      message: "That image is larger than 50 MB.",
+    };
   }
-  return ingestImage(await readFile(path), source);
+  return ingestImage(await readFile(path), origin);
 }
 
 /**
@@ -71,12 +77,23 @@ export async function ingestFile(
  * Nothing is written unless every step succeeds: a failure leaves no row and no
  * orphaned file.
  */
-export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<IngestResult> {
+export async function ingestImage(
+  bytes: Buffer,
+  { source, filename }: IngestOrigin,
+): Promise<IngestResult> {
   if (bytes.byteLength > MAX_IMAGE_BYTES) {
-    return { ok: false, code: "too-large", message: "That image is larger than 50 MB." };
+    return {
+      ok: false,
+      code: "too-large",
+      message: "That image is larger than 50 MB.",
+    };
   }
   if (bytes.byteLength === 0) {
-    return { ok: false, code: "invalid-request", message: "That file is empty." };
+    return {
+      ok: false,
+      code: "invalid-request",
+      message: "That file is empty.",
+    };
   }
 
   // Format comes from the bytes, never from the URL or a declared content-type.
@@ -84,7 +101,11 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
   try {
     metadata = await sharp(bytes).metadata();
   } catch {
-    return { ok: false, code: "unsupported-format", message: "That file isn't an image." };
+    return {
+      ok: false,
+      code: "unsupported-format",
+      message: "That file isn't an image.",
+    };
   }
 
   const format = metadata.format;
@@ -96,7 +117,11 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
     };
   }
   if (!metadata.width || !metadata.height) {
-    return { ok: false, code: "unsupported-format", message: "That image has no dimensions." };
+    return {
+      ok: false,
+      code: "unsupported-format",
+      message: "That image has no dimensions.",
+    };
   }
 
   const id = randomUUID();
@@ -121,6 +146,7 @@ export async function ingestImage(bytes: Buffer, source: IngestSource): Promise<
       height: metadata.height,
       format,
       byteSize: bytes.byteLength,
+      filename: filename ?? null,
       sourceImageUrl: source?.sourceImageUrl ?? null,
       sourcePageUrl: source?.sourcePageUrl ?? null,
       sourcePageTitle: source?.sourcePageTitle ?? null,
@@ -144,13 +170,21 @@ export async function ingestVideo(
   path: string,
   byteSize: number,
   container: AcceptedVideoFormat,
-  source: IngestSource,
+  { source, filename }: IngestOrigin,
 ): Promise<IngestResult> {
   if (byteSize > MAX_VIDEO_BYTES) {
-    return { ok: false, code: "too-large", message: "That video is larger than 95 MB." };
+    return {
+      ok: false,
+      code: "too-large",
+      message: "That video is larger than 95 MB.",
+    };
   }
   if (byteSize === 0) {
-    return { ok: false, code: "invalid-request", message: "That file is empty." };
+    return {
+      ok: false,
+      code: "invalid-request",
+      message: "That file is empty.",
+    };
   }
 
   let probed: ProbeOutput;
@@ -165,20 +199,24 @@ export async function ingestVideo(
   }
 
   const verdict = describeVideo(probed, container);
-  if (!verdict.ok) return { ok: false, code: "unsupported-format", message: verdict.message };
+  if (!verdict.ok)
+    return { ok: false, code: "unsupported-format", message: verdict.message };
   const { video } = verdict;
 
   // A second in skips the fade from black most motion pieces open on; half way
   // through covers clips shorter than two seconds. A container that never says
   // how long it is gets the second, and the first frame if that misses.
-  const posterAt = video.durationMs === null ? 1 : Math.min(1, video.durationMs / 2000);
+  const posterAt =
+    video.durationMs === null ? 1 : Math.min(1, video.durationMs / 2000);
 
   const id = randomUUID();
 
   return commit(
     id,
     async () => {
-      const frame = await extractFrame(path, posterAt).catch(() => extractFrame(path, 0));
+      const frame = await extractFrame(path, posterAt).catch(() =>
+        extractFrame(path, 0),
+      );
       const [thumb, medium] = await deriveVariants(frame);
       return [
         storage.put(storageKeys.thumb(id), thumb),
@@ -195,6 +233,7 @@ export async function ingestVideo(
       format: container,
       byteSize,
       durationMs: video.durationMs,
+      filename: filename ?? null,
       sourceImageUrl: source?.sourceImageUrl ?? null,
       sourcePageUrl: source?.sourcePageUrl ?? null,
       sourcePageTitle: source?.sourcePageTitle ?? null,
@@ -236,7 +275,8 @@ async function commit(
     return {
       ok: false,
       code: "server-error",
-      message: error instanceof Error ? error.message : "Couldn't process that file.",
+      message:
+        error instanceof Error ? error.message : "Couldn't process that file.",
     };
   }
 
@@ -247,7 +287,8 @@ async function commit(
     return {
       ok: false,
       code: "server-error",
-      message: error instanceof Error ? error.message : "Couldn't save that file.",
+      message:
+        error instanceof Error ? error.message : "Couldn't save that file.",
     };
   }
 
@@ -268,6 +309,9 @@ async function discardStoredBytes(id: string): Promise<void> {
   try {
     await storage.deletePrefix(storageKeys.prefix(id));
   } catch (error) {
-    console.error(`[ingest] could not clean up ${id}; its stored bytes are orphaned:`, error);
+    console.error(
+      `[ingest] could not clean up ${id}; its stored bytes are orphaned:`,
+      error,
+    );
   }
 }

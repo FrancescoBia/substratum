@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getOwnerFromSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { parseRange } from "~/lib/byte-range";
+import { contentDisposition, downloadFilename } from "~/lib/download-name";
 import { isPubliclyVisible } from "~/lib/library.server";
 import {
   RangeNotSatisfiable,
@@ -44,11 +45,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   // Public responses may sit in shared caches; the Owner's must not, since the
   // same URL 404s for everyone else. Stored bytes never change for a given id,
   // so either way they cache hard.
-  const cacheHeaders = {
+  //
+  // The name rides along with them: it is what "Save Image As…" and dragging
+  // to the desktop call the file, which would otherwise be the URL's last
+  // segment — the variant. A derivative is named for the Image too, as a WebP.
+  const servedFormat = variant === "original" ? image.format : "webp";
+  const baseHeaders = {
     "Cache-Control": isOwner
       ? "private, max-age=31536000, immutable"
       : "public, max-age=31536000, immutable",
     Vary: "Cookie",
+    "Content-Disposition": contentDisposition(downloadFilename(image, servedFormat)),
   };
 
   if (variant === "original") {
@@ -56,7 +63,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       request,
       image.storageKey,
       contentTypeForFormat(image.format),
-      cacheHeaders,
+      baseHeaders,
     );
   }
 
@@ -73,7 +80,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     headers: {
       "Content-Type": "image/webp",
       "Content-Length": String(bytes.byteLength),
-      ...cacheHeaders,
+      ...baseHeaders,
     },
   });
 }
@@ -89,7 +96,7 @@ async function serveOriginal(
   request: Request,
   key: string,
   contentType: string,
-  cacheHeaders: Record<string, string>,
+  baseHeaders: Record<string, string>,
 ): Promise<Response> {
   // If-Range asks for the range only if the client's copy is still current.
   // Nothing here sends a validator to compare against, so the safe reading is
@@ -113,7 +120,7 @@ async function serveOriginal(
   const headers: Record<string, string> = {
     "Content-Type": contentType,
     "Accept-Ranges": "bytes",
-    ...cacheHeaders,
+    ...baseHeaders,
   };
   if (opened.range) {
     headers["Content-Range"] = `bytes ${opened.range.start}-${opened.range.end}/${opened.size}`;

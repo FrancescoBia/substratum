@@ -12,7 +12,6 @@ import { SNIFF_BYTES } from "./media-sniff";
 
 /** One uploaded file, spooled to disk and not yet looked at. */
 export type SpooledFile = {
-  /** The client's name for it — for messages only, never a path. */
   name: string;
   path: string;
   /**

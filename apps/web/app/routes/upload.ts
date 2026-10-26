@@ -59,7 +59,10 @@ async function ingestAll({ fields, files }: ReceivedUpload): Promise<UploadResul
   // source rather than a fabricated one.
   const results = await Promise.all(
     files.map(async (file) => {
-      const result = await ingestFile(file.path, file.size, null);
+      const result = await ingestFile(file.path, file.size, {
+        source: null,
+        filename: file.name,
+      });
       return result.ok
         ? { id: result.id, error: null }
         : { id: null, error: `${file.name}: ${result.message}` };

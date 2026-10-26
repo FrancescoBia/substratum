@@ -4,6 +4,7 @@ import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { ZipArchive } from "archiver";
 import { asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "~/db/index.server";
+import { FORMAT_EXTENSIONS } from "./download-name";
 import { storage, StorageNotFound } from "./storage.server";
 
 /**
@@ -11,17 +12,6 @@ import { storage, StorageNotFound } from "./storage.server";
  * `kind` and `durationMs`, when Images could be videos.
  */
 const MANIFEST_VERSION = 3;
-
-const EXTENSIONS: Record<string, string> = {
-  jpeg: "jpg",
-  png: "png",
-  gif: "gif",
-  webp: "webp",
-  avif: "avif",
-  mp4: "mp4",
-  mov: "mov",
-  webm: "webm",
-};
 
 type ManifestImage = {
   id: string;
@@ -103,7 +93,7 @@ export async function buildManifest(exportedAt = new Date()): Promise<Manifest> 
     images: images.map((image) => ({
       id: image.id,
       kind: image.kind,
-      file: `images/${image.id}.${EXTENSIONS[image.format] ?? image.format}`,
+      file: `images/${image.id}.${FORMAT_EXTENSIONS[image.format] ?? image.format}`,
       width: image.width,
       height: image.height,
       format: image.format,

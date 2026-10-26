@@ -87,7 +87,7 @@ async function capture(source: {
     }
 
     // A failure at any step stores nothing, so there's no partial state to undo.
-    const result = await ingestFile(path, downloaded.size, source);
+    const result = await ingestFile(path, downloaded.size, { source });
     if (!result.ok) {
       return { body: { ok: false, code: result.code, message: result.message }, status: 422 };
     }

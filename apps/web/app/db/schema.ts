@@ -1,4 +1,10 @@
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 /**
  * Exactly one Owner per instance. Created on first run; there is no
@@ -56,6 +62,7 @@ export const images = sqliteTable(
      * actually called.
      */
     title: text("title"),
+    filename: text("filename"),
     sourceImageUrl: text("source_image_url"),
     sourcePageUrl: text("source_page_url"),
     sourcePageTitle: text("source_page_title"),

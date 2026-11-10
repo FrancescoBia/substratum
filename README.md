@@ -358,3 +358,5 @@ packages/shared   types shared by the capture API
 ## License
 
 [AGPL-3.0](LICENSE). You may use, modify, and host Substratum freely, including commercially — but if you modify it and offer it to others over a network, you must publish your modified source. No fork of Substratum can be made closed-source.
+
+Pull requests are turned off, but issues are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).

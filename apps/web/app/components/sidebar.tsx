@@ -1,10 +1,10 @@
-import { Badge } from "@repo/ui/components/badge";
 import { Button, buttonVariants } from "@repo/ui/components/button";
+import Logo from "@repo/ui/assets/logo/substratum_logo.svg?react";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
-import { Download, Globe, Inbox, Layers, Plus, Trash2 } from "lucide-react";
+import { Download, Globe, Inbox, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Form, NavLink, useFetcher } from "react-router";
+import { Form, Link, NavLink, useFetcher } from "react-router";
 import { ModeToggle } from "~/components/mode-toggle";
 
 type Board = { id: string; name: string; published: boolean; count: number };
@@ -23,10 +23,8 @@ function navClass({ isActive }: { isActive: boolean }) {
  */
 export function Sidebar({
   boards,
-  tags,
   untriagedCount,
   trashCount,
-  email,
 }: {
   boards: Board[];
   tags: Tag[];
@@ -38,26 +36,27 @@ export function Sidebar({
   const createBoard = useFetcher();
 
   return (
-    <aside className="bg-sidebar flex w-60 shrink-0 flex-col border-r">
-      <div className="px-4 py-5">
-        <div className="text-lg font-semibold tracking-tight">Substratum</div>
-        <div className="text-muted-foreground truncate text-xs">{email}</div>
+    <aside className="bg-sidebar flex w-70 shrink-0 flex-col text-muted-foreground px-1">
+      {/* Header */}
+      <div className="flex justify-between items-center p-6">
+        <Link
+          to="/"
+          aria-label="Stream"
+          title="Stream"
+          className="text-foreground hover:text-foreground/70 inline-flex rounded-md transition-colors"
+        >
+          <Logo className="size-7 shrink-0" />
+        </Link>
+
+        {untriagedCount > 0 && (
+          <NavLink to="/triage" className="flex gap-2 items-center text-primary">
+            <Inbox className="size-icon" />
+            <h4 className="text-xs font-medium tabular-nums">{untriagedCount}</h4>
+          </NavLink>
+        )}
       </div>
 
       <ScrollArea className="min-h-0 flex-1 px-2">
-        <NavLink to="/" end className={navClass}>
-          <Layers className="size-4" /> Stream
-        </NavLink>
-
-        {untriagedCount > 0 && (
-          <NavLink to="/triage" className={navClass}>
-            <Inbox className="size-4" /> Triage
-            <Badge variant="secondary" className="ml-auto">
-              {untriagedCount}
-            </Badge>
-          </NavLink>
-        )}
-
         <div className="text-muted-foreground mt-5 mb-1 flex items-center justify-between px-2">
           <span className="text-xs font-medium tracking-wide uppercase">Boards</span>
           <button

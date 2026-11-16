@@ -106,3 +106,7 @@
     @apply font-sans;
   }
 }
+
+@utility size-icon {
+  @apply size-3.5;
+}

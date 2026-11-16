@@ -8,6 +8,7 @@ import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { getImageDetail, listBoards, listStream, listTags } from "~/lib/library.server";
 import type { Route } from "./+types/library";
+import { TAGS_ENABLED } from "~/lib/features";
 
 // Opening or stepping the full-size viewer only moves `?view=`, which no loader
 // here reads. Without this, every arrow key would re-run these queries.
@@ -57,7 +58,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
   const tag = tags.find((tag) => location.pathname === `/tag/${encodeURIComponent(tag.name)}`);
   const destination: UploadDestination | undefined = board
     ? { kind: "board", id: board.id, name: board.name }
-    : tag
+    : TAGS_ENABLED && tag
       ? { kind: "tag", name: tag.name }
       : undefined;
 

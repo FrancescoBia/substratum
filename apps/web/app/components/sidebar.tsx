@@ -2,7 +2,7 @@ import { Badge } from "@repo/ui/components/badge";
 import { Button, buttonVariants } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
-import { Download, Globe, Hash, Inbox, Layers, Plus, Trash2 } from "lucide-react";
+import { Download, Globe, Inbox, Layers, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Form, NavLink, useFetcher } from "react-router";
 import { ModeToggle } from "~/components/mode-toggle";
@@ -110,25 +110,6 @@ export function Sidebar({
             </span>
           </NavLink>
         ))}
-
-        {tags.length > 0 && (
-          <>
-            <div className="text-muted-foreground mt-5 mb-1 px-2 text-xs font-medium tracking-wide uppercase">
-              Tags
-            </div>
-            {tags.map((tag) => (
-              <NavLink
-                key={tag.id}
-                to={`/tag/${encodeURIComponent(tag.name)}`}
-                className={navClass}
-              >
-                <Hash className="size-3.5 shrink-0" />
-                <span className="truncate">{tag.name}</span>
-                <span className="text-muted-foreground ml-auto text-xs">{tag.count}</span>
-              </NavLink>
-            ))}
-          </>
-        )}
 
         {/* className receives the active state, so it must stay a function —
             interpolating it into a template literal stringifies the function

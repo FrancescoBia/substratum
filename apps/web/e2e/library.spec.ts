@@ -277,7 +277,7 @@ test.describe("Detail panel", () => {
     );
   });
 
-  test("tagging from the panel updates the sidebar", async ({ page, request }) => {
+  test.skip("tagging from the panel updates the sidebar", async ({ page, request }) => {
     await uploadImages(request, 1);
     await page.goto("/");
     await openDetails(page);
@@ -509,7 +509,7 @@ test.describe("Boards", () => {
   });
 });
 
-test.describe("Tags", () => {
+test.describe.skip("Tags", () => {
   test("a tag drop asks whether to tag the imported images", async ({ page, request }) => {
     // The tag has to exist before it can be a drop destination, and the panel is
     // the only way in — Tags are created by first use, not up front.

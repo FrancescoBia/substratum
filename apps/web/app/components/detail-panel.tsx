@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useFetcher } from "react-router";
 import type { ImageDetail } from "~/lib/library.server";
 import { formatDuration } from "~/lib/media";
+import { TAGS_ENABLED } from "~/lib/features";
 
 /**
  * The search param holding the Image whose details are open. Paired with
@@ -209,55 +210,57 @@ export function DetailPanelBody({
         ))}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          Tags
+      {TAGS_ENABLED && (
+        <div className="flex flex-col gap-2">
+          <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+            Tags
+          </div>
+          {image.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {image.tags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="secondary"
+                  className="cursor-pointer"
+                  title="Remove tag"
+                  onClick={() => send({ intent: "remove-tag", tag })}
+                >
+                  {tag} ×
+                </Badge>
+              ))}
+            </div>
+          )}
+          <Input
+            placeholder="Add a tag…"
+            value={tagInput}
+            onChange={(event) => setTagInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && tagInput.trim()) {
+                event.preventDefault();
+                send({ intent: "add-tag", tag: tagInput });
+                setTagInput("");
+              }
+            }}
+          />
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {suggestions.map((name) => (
+                <Badge
+                  key={name}
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={() => {
+                    send({ intent: "add-tag", tag: name });
+                    setTagInput("");
+                  }}
+                >
+                  + {name}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
-        {image.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {image.tags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="cursor-pointer"
-                title="Remove tag"
-                onClick={() => send({ intent: "remove-tag", tag })}
-              >
-                {tag} ×
-              </Badge>
-            ))}
-          </div>
-        )}
-        <Input
-          placeholder="Add a tag…"
-          value={tagInput}
-          onChange={(event) => setTagInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && tagInput.trim()) {
-              event.preventDefault();
-              send({ intent: "add-tag", tag: tagInput });
-              setTagInput("");
-            }
-          }}
-        />
-        {suggestions.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {suggestions.map((name) => (
-              <Badge
-                key={name}
-                variant="outline"
-                className="cursor-pointer"
-                onClick={() => {
-                  send({ intent: "add-tag", tag: name });
-                  setTagInput("");
-                }}
-              >
-                + {name}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">

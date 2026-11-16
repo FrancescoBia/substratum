@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useRouteLoaderData } from "react-router
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
 import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox";
 import { VideoPreview } from "~/components/video-preview";
+import { TAGS_ENABLED } from "~/lib/features";
 import type { GridImage } from "~/lib/library.server";
 import type { loader as libraryLoader } from "~/routes/library";
 
@@ -249,7 +250,7 @@ export function ImageGrid({
             {image.untriaged && (
               <span
                 className="bg-primary ring-background pointer-events-none absolute top-2 left-2 size-2 rounded-full ring-2"
-                title="Not on any board or tagged yet"
+                title={TAGS_ENABLED ? "Not on any board or tagged yet" : "Not on any board yet"}
               />
             )}
           </div>

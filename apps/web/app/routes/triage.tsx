@@ -10,6 +10,7 @@ import { fullSizeSrcSet } from "~/lib/image-variants";
 import { listBoards, listTags, listUntriaged } from "~/lib/library.server";
 import { countLabel } from "~/lib/media";
 import type { Route } from "./+types/triage";
+import { TAGS_ENABLED } from "~/lib/features";
 
 export function meta() {
   return [{ title: "Triage · Substratum" }];
@@ -123,7 +124,7 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {total === 0
-              ? "Everything is on a board or tagged."
+              ? "Everything is on a board."
               : // Not "you filed N" — skipping is a normal move, and anything
                 // skipped is still untriaged and waiting here next time.
                 `Worked through ${countLabel(queue)}. Anything you skipped is still waiting.`}
@@ -235,45 +236,47 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
             ))}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Tags
+          {TAGS_ENABLED && (
+            <div className="flex flex-col gap-2">
+              <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                Tags
+              </div>
+              {imageTags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {imageTags.map((tag) => (
+                    <Badge key={tag} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <Input
+                placeholder="Add a tag…"
+                value={tagInput}
+                onChange={(event) => setTagInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addTag(tagInput);
+                  }
+                }}
+              />
+              {suggestions.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {suggestions.map((name) => (
+                    <Badge
+                      key={name}
+                      variant="outline"
+                      className="cursor-pointer"
+                      onClick={() => addTag(name)}
+                    >
+                      + {name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
-            {imageTags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {imageTags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            <Input
-              placeholder="Add a tag…"
-              value={tagInput}
-              onChange={(event) => setTagInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  addTag(tagInput);
-                }
-              }}
-            />
-            {suggestions.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {suggestions.map((name) => (
-                  <Badge
-                    key={name}
-                    variant="outline"
-                    className="cursor-pointer"
-                    onClick={() => addTag(name)}
-                  >
-                    + {name}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="mt-auto flex gap-2">
             <Button

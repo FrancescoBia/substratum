@@ -7,6 +7,12 @@
 @import "@repo/ui/globals.css";
 
 /**
+ * Stories sit next to the components they describe, but Storybook builds them
+ * (apps/storybook) — keep their classes out of the app's CSS.
+ */
+@source not "./**/*.stories.tsx";
+
+/**
  * One clock for opening and closing the viewer. The tile's flight, the page's
  * cross-fade underneath it and the scrim's own fade are one gesture as far as
  * the reader is concerned, so they run off one duration and one curve — the

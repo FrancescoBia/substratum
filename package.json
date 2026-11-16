@@ -5,6 +5,7 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "pnpm --filter @repo/web dev",
+    "storybook": "pnpm --filter @repo/storybook dev",
     "build": "pnpm --recursive build",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",

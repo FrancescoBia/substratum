@@ -1,0 +1,14 @@
+/**
+ * web's stylesheet, which pulls in `@repo/ui/globals.css` (Tailwind, the theme,
+ * and a `@source` for the primitives) plus the CSS only web's components use.
+ */
+@import "../../web/app/app.css";
+
+/**
+ * Tailwind's automatic scan starts here, in apps/storybook, so it sees none of
+ * the story files or web's components. Name them. web's own `app.css` keeps
+ * story files out of the app's build; these put them back for Storybook.
+ */
+@source "../../web/app";
+@source "../../web/app/**/*.stories.tsx";
+@source "../../../packages/ui/stories";

@@ -54,6 +54,17 @@ Then fix two things the CLI leaves behind:
 
 Then `pnpm format`, since the registry's formatting is not ours.
 
+## Storybook
+
+Storybook itself is `apps/storybook`; the stories for this package live here in
+`stories/`, and that app collects them. Run it with `pnpm storybook` from the
+repo root.
+
+They sit outside `src/` on purpose: `globals.css` tells Tailwind to scan
+`src/**`, so a story in there would put its classes in every app's CSS. The
+toolbar's theme switch sets the same `.dark` / `.light` class on `<html>` that
+`ThemeProvider` does.
+
 ## Composing primitives
 
 Base UI has no `asChild`. Two replacements, and the choice between them matters:

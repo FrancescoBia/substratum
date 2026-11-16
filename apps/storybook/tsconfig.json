@@ -1,0 +1,17 @@
+{
+  // Only the Storybook config itself. The stories are typechecked by the
+  // workspace they live in, against that workspace's own paths and types.
+  "include": [".storybook/**/*"],
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "types": ["node", "vite/client"],
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true
+  }
+}

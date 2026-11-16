@@ -26,3 +26,6 @@ screenshots/
 .claude/settings.local.json
 .claude/launch.json
 .scratch/
+
+# Storybook static build (apps/storybook)
+storybook-static/

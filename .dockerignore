@@ -9,3 +9,4 @@ prototype-gallery
 data
 *.log
 .DS_Store
+**/storybook-static

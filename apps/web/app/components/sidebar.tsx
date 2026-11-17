@@ -38,7 +38,12 @@ export const Sidebar = ({
         </Link>
 
         {untriagedCount > 0 && (
-          <NavLink to="/triage" className="flex gap-2 items-center text-primary">
+          <NavLink
+            to="/triage"
+            aria-label={`Triage (${untriagedCount})`}
+            title="Triage"
+            className="flex gap-2 items-center text-primary"
+          >
             <Inbox className="size-icon" />
             <h4 className="text-xs font-medium tabular-nums">{untriagedCount}</h4>
           </NavLink>

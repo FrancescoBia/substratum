@@ -26,7 +26,8 @@
     "jsx-a11y/no-static-element-interactions": "warn",
     "jsx-a11y/no-noninteractive-element-interactions": "warn",
     "jsx-a11y/no-autofocus": "warn",
-    "react/set-state-in-effect": "warn"
+    "react/set-state-in-effect": "warn",
+    "eslint/no-unused-vars": "warn"
   },
   "ignorePatterns": ["apps/web/drizzle/**"]
 }

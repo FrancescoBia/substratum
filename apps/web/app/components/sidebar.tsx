@@ -1,11 +1,12 @@
-import { Button, buttonVariants } from "@repo/ui/components/button";
+import { Button } from "@repo/ui/components/button";
 import Logo from "@repo/ui/assets/logo/substratum_logo.svg?react";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "cn";
-import { CheckCircle2Icon, Globe, Inbox, LogOutIcon, PlusCircleIcon, Settings } from "lucide-react";
+import { CheckCircle2Icon, Globe, Inbox, LogOutIcon, PlusCircleIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, useFetcher, useSubmit } from "react-router";
+import { SettingsDialog } from "~/components/settings-dialog";
 
 type Board = { id: string; name: string; published: boolean; count: number };
 type Tag = { id: string; name: string; count: number };
@@ -104,15 +105,7 @@ export const Sidebar = ({
             <LogOutIcon className="size-icon" />
           </Button>
 
-          <NavLink
-            // not wired in
-            to="/settings"
-            aria-label="Settings"
-            title="Settings"
-            className={buttonVariants({ variant: "ghost", size: "xs" })}
-          >
-            <Settings className="size-icon" /> Settings
-          </NavLink>
+          <SettingsDialog />
 
           <span className="grow" />
         </div>

@@ -12,7 +12,13 @@
     "jsx": "react-jsx",
     "rootDirs": [".", "./.react-router/types"],
     "paths": {
-      "~/*": ["./app/*"]
+      "~/*": ["./app/*"],
+      // Types for the stories next to the components, borrowed from the
+      // Storybook app. Not a dependency of web on purpose: `pnpm deploy` builds
+      // the production image from web's full dependency tree, and Storybook's
+      // tree once broke it. Stories may only `import type` from here; a value
+      // import would not resolve when Storybook bundles them.
+      "@storybook/react-vite": ["../storybook/node_modules/@storybook/react-vite/dist/index.d.ts"]
     },
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,

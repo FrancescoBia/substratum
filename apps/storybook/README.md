@@ -11,9 +11,13 @@ pnpm storybook                          # dev server on :6006, from the repo roo
 pnpm --filter @repo/storybook build     # static build into storybook-static/
 ```
 
-Each workspace typechecks its own stories, which is why `@repo/ui` and
-`@repo/web` carry `@storybook/react-vite` as a dev dependency (for the `Meta` /
-`StoryObj` types).
+Each workspace typechecks its own stories. `@repo/ui` carries
+`@storybook/react-vite` as a dev dependency for the `Meta` / `StoryObj` types.
+`@repo/web` must not: its production image is built with `pnpm deploy`, which
+resolves web's whole dependency tree, and a broken package deep in Storybook's
+tree once failed that build. Instead, web's `tsconfig.json` maps
+`@storybook/react-vite` to this app's copy, so web stories can only
+`import type` from it.
 
 ## Things that are easy to trip over
 

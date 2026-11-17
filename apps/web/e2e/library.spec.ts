@@ -329,7 +329,8 @@ test.describe("Detail panel", () => {
 
     await expect(page.locator("main img")).toHaveCount(1);
 
-    await page.getByRole("link", { name: /Trash/ }).click();
+    await page.getByRole("button", { name: "Settings" }).click();
+    await page.getByRole("link", { name: /Open Trash/ }).click();
     await expect(page.getByRole("heading", { name: "Trash" })).toBeVisible();
     await page.locator("main .group").first().hover();
     await page
@@ -443,7 +444,7 @@ test.describe("Triage", () => {
 test.describe("Boards", () => {
   test("can be created from the sidebar", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: "New board" }).click();
+    await page.getByRole("button", { name: "Add Board" }).click();
     await page.getByPlaceholder("Board name…").fill("Moodboard");
     await page.getByPlaceholder("Board name…").press("Enter");
 

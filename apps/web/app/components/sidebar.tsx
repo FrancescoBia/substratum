@@ -7,6 +7,7 @@ import { CheckCircle2Icon, Globe, Inbox, LogOutIcon, PlusCircleIcon } from "luci
 import { useState } from "react";
 import { Link, NavLink, useFetcher, useSubmit } from "react-router";
 import { SettingsDialog } from "~/components/settings-dialog";
+import { APP_VERSION } from "~/lib/version";
 
 type Board = { id: string; name: string; published: boolean; count: number };
 type Tag = { id: string; name: string; count: number };
@@ -108,6 +109,7 @@ export const Sidebar = ({
           <SettingsDialog />
 
           <span className="grow" />
+          <h4 className="text-xs opacity-50 mr-1">v{APP_VERSION}</h4>
         </div>
       </div>
     </aside>

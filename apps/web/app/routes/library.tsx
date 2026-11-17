@@ -48,7 +48,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function Library({ loaderData }: Route.ComponentProps) {
-  const { boards, tags, untriagedCount, trashCount, email } = loaderData;
+  const { boards, tags, untriagedCount } = loaderData;
   const location = useLocation();
 
   // Which view the drop lands on, if it is one an Image can be filed into. The
@@ -65,13 +65,7 @@ export default function Library({ loaderData }: Route.ComponentProps) {
   return (
     <UploadDropzone destination={destination}>
       <div className="flex h-screen">
-        <Sidebar
-          boards={boards}
-          tags={tags}
-          untriagedCount={untriagedCount}
-          trashCount={trashCount}
-          email={email}
-        />
+        <Sidebar boards={boards} tags={tags} untriagedCount={untriagedCount} />
 
         <main className="min-w-0 flex-1 overflow-y-auto">
           <Outlet />

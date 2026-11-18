@@ -8,7 +8,7 @@ ENV PATH=$PNPM_HOME:$PATH
 # `corepack prepare` materialises pnpm into the image. Without it corepack
 # downloads pnpm on first use — which for the runtime stage means the container
 # needs network access just to start.
-RUN corepack enable && corepack prepare pnpm@10.3.0 --activate
+RUN corepack enable && corepack prepare pnpm@12.21.0 --activate
 WORKDIR /app
 
 FROM base AS build

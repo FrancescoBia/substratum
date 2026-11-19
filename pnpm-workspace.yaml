@@ -5,3 +5,10 @@ packages:
 allowBuilds:
   better-sqlite3: true
   esbuild: true
+
+# Security pins for packages that ship in the Docker image. Drop each one once
+# its parent's own range picks up the fix.
+overrides:
+  # archiver@8 still asks for readdir-glob ^3, which pulls minimatch 10
+  # (GHSA ReDoS). 4.0.0 is the same code on minimatch ^11.
+  archiver>readdir-glob: ^4.0.0

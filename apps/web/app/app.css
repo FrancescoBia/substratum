@@ -113,3 +113,12 @@
     --mosaic-cols: 5;
   }
 }
+
+/**
+ * How a board row settles: the selection background wiping in, and the name and
+ * asterisk sliding back on deselect (`sidebar.tsx`, `board-name.tsx`). The push
+ * itself is a spring computed in `board-name/push-spring.ts` and set inline as `--push`.
+ */
+:root {
+  --board-settle: 240ms cubic-bezier(0.23, 1, 0.32, 1);
+}

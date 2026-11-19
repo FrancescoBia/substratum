@@ -19,6 +19,9 @@ playwright-report/
 test-results/
 screenshots/
 
+# Vitest browser mode: failure screenshots
+.vitest/
+
 .DS_Store
 *.log
 

@@ -318,18 +318,19 @@ variable always wins over it, and self-hosting sets these in `docker-compose.yml
 instead. The Playwright suite pins itself to local disk, so a `.env` pointing at a
 bucket can't drag `pnpm test:e2e` into it.
 
-| Command            | Does                                                                                                        |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`         | Run the web app in dev mode                                                                                 |
-| `pnpm seed`        | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 5173) |
-| `pnpm test:unit`   | Run the unit suite (the S3 client against a stub bucket, byte ranges, the ffmpeg wrappers)                  |
-| `pnpm test:e2e`    | Run every Playwright spec against a throwaway instance                                                      |
-| `pnpm shots`       | Regenerate just the screenshots in `apps/web/screenshots/`                                                  |
-| `pnpm build`       | Build every workspace package                                                                               |
-| `pnpm typecheck`   | Typecheck every workspace package                                                                           |
-| `pnpm lint`        | Lint every workspace with oxlint                                                                            |
-| `pnpm format`      | Format the repo with oxfmt (`format:check` to only report)                                                  |
-| `pnpm db:generate` | Generate a Drizzle migration from schema changes                                                            |
+| Command             | Does                                                                                                        |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`          | Run the web app in dev mode                                                                                 |
+| `pnpm seed`         | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 5173) |
+| `pnpm test:unit`    | Run the unit suite (the S3 client against a stub bucket, byte ranges, the ffmpeg wrappers)                  |
+| `pnpm test:e2e`     | Run every Playwright spec against a throwaway instance                                                      |
+| `pnpm test:browser` | Run the component tests that need real layout (`*.browser.test.tsx`) in headless Chromium                   |
+| `pnpm shots`        | Regenerate just the screenshots in `apps/web/screenshots/`                                                  |
+| `pnpm build`        | Build every workspace package                                                                               |
+| `pnpm typecheck`    | Typecheck every workspace package                                                                           |
+| `pnpm lint`         | Lint every workspace with oxlint                                                                            |
+| `pnpm format`       | Format the repo with oxfmt (`format:check` to only report)                                                  |
+| `pnpm db:generate`  | Generate a Drizzle migration from schema changes                                                            |
 
 ### Seeing the app without clicking through setup
 

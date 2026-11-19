@@ -140,15 +140,40 @@ const BoardItem = ({ board }: { board: Board }) => {
       to={`/boards/${board.id}`}
       className={({ isActive }) =>
         cn(
-          "flex w-full items-center gap-2 rounded-md pr-3 py-1.5 text-left text-sm transition-colors my-px text-muted-foreground",
-          isActive ? "bg-accent font-medium pl-2" : "hover:bg-accent/50 pl-3",
+          "relative isolate my-px flex w-full items-center gap-2 rounded-md py-1.5 pr-3 pl-3 text-left text-sm text-muted-foreground",
+          "transition-[background-color,scale] duration-150 ease-out active:scale-[0.98] motion-reduce:active:scale-100",
+          !isActive && "hover:bg-accent/50",
         )
       }
     >
       {({ isActive }) => (
         <>
-          {isActive && <AsteriskIcon className="size-icon -mr-1 text-primary" strokeWidth={2.5} />}
-          <span className={cn("truncate", isActive && "text-primary")}>{board.name}</span>
+          <span
+            aria-hidden
+            className={cn(
+              "bg-accent absolute inset-0 -z-10 rounded-md motion-reduce:transition-none",
+              isActive
+                ? "opacity-100 [clip-path:inset(0_0_0_0_round_6px)] [transition:clip-path_240ms_cubic-bezier(0.23,1,0.32,1)]"
+                : "opacity-0 [clip-path:inset(0_100%_0_0_round_6px)] [transition:opacity_150ms_ease-out,clip-path_0ms_150ms]",
+            )}
+          />
+          <AsteriskIcon
+            strokeWidth={2.5}
+            className={cn(
+              "text-primary size-icon absolute left-2 motion-reduce:transition-none",
+              isActive
+                ? "translate-x-0 opacity-100 [transition:translate_240ms_cubic-bezier(0.23,1,0.32,1),opacity_150ms_ease-out]"
+                : "-translate-x-3.5 opacity-0 [transition:translate_240ms_cubic-bezier(0.23,1,0.32,1),opacity_120ms_ease-out]",
+            )}
+          />
+          <span
+            className={cn(
+              "truncate pr-3.5 transition-[translate,color] duration-[240ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none",
+              isActive && "text-primary translate-x-3.5 font-medium",
+            )}
+          >
+            {board.name}
+          </span>
           {board.published && (
             <span className="ml-auto" title="Published">
               <Globe className="size-icon shrink-0" />

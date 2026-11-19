@@ -44,6 +44,9 @@ jobs:
       # Formatting is a real gate — oxfmt exits non-zero on a mismatch, and the
       # tree is currently clean.
       - run: pnpm format:check
+      # Every package.json carries the same version, and a release bumps them
+      # together. Catching drift here means it never surfaces at tag time.
+      - run: pnpm release:check
       # Lint is informational for now: every rule the repo trips is a warning,
       # and `oxlint` exits 0 on warnings. Making it block means either clearing
       # the existing ones or pinning a ceiling with `oxlint --max-warnings=N`.

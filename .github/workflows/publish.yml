@@ -15,16 +15,39 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# One publish at a time. Two runs that both push `:latest` would otherwise race,
+# and whichever finishes last wins — not whichever was pushed last. This happened
+# with v0.4.1, when the tag was re-pointed while the first run was still going.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
+  # Cheap checks on the tag itself, before spending CI time on it.
+  verify:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # The tag must sit on the commit that bumped the version. A tag pushed onto
+      # the commit before the bump would otherwise ship that commit as the new
+      # version.
+      - run: node scripts/version.mjs check "$GITHUB_REF_NAME"
+
   # Branch protection cannot cover this: a `v*` tag can be pushed to any commit,
   # on any branch, and main's rules never see it. So the release gate is a job —
   # the same CI a pull request runs, against the exact commit being tagged. A
   # green run from before the tag is not evidence about the tag.
   ci:
+    needs: verify
+    if: ${{ !failure() && !cancelled() }}
     uses: ./.github/workflows/ci.yml
 
   image:
-    needs: ci
+    needs: [verify, ci]
+    # `verify` is skipped on a manual run, and a skipped dependency would
+    # otherwise skip this job too.
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -11,7 +11,7 @@ import {
   LogOutIcon,
   PlusCircleIcon,
 } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, useFetcher, useSubmit } from "react-router";
 import { SettingsDialog } from "~/components/settings-dialog";
 import { APP_VERSION } from "~/lib/version";
@@ -154,19 +154,15 @@ const BoardItem = ({ board }: { board: Board }) => {
                 : "opacity-0 [clip-path:inset(0_100%_0_0_round_6px)] [transition:opacity_150ms_ease-out,clip-path_0ms_150ms]",
             )}
           />
-          {/* Enters on the same spring as the name's first letter, so the marker
-              reads as what pushes the name along. Leaves on the label's curve. */}
           <AsteriskIcon
             strokeWidth={2.5}
             className={cn(
-              "text-primary size-icon absolute left-2 motion-reduce:transition-none",
-              isActive ? "translate-x-0 opacity-100" : "-translate-x-3.5 opacity-0",
+              "text-primary size-icon absolute left-2 motion-reduce:transition-opacity",
+              isActive
+                ? "translate-x-0 opacity-100 [transition:translate_var(--push),opacity_150ms_ease-out]"
+                : "-translate-x-3.5 opacity-0 [transition:translate_240ms_cubic-bezier(0.23,1,0.32,1),opacity_120ms_ease-out]",
             )}
-            style={{
-              transition: isActive
-                ? `translate ${PUSH.duration}ms ${PUSH.easing}, opacity 150ms ease-out`
-                : "translate 240ms cubic-bezier(0.23, 1, 0.32, 1), opacity 120ms ease-out",
-            }}
+            style={{ "--push": `${PUSH.duration}ms ${PUSH.easing}` } as CSSProperties}
           />
           <BoardName name={board.name} active={isActive} />
           {board.published && (
@@ -343,21 +339,32 @@ const BoardName = ({ name, active }: { name: string; active: boolean }) => {
       els.filter((el) => el.getBoundingClientRect().left < clipRight).length,
     );
     const slot = (i: number) => Math.min(i, visible - 1);
-    const lead = moveDelay(visible - 1, visible); // when the container (and "…") sets off
+    const lead = moveDelay(visible - 1, visible); // when the label sets off
 
     const colour = [{ color: "var(--muted-foreground)" }, { color: "var(--primary)" }];
     const tint = { duration: 260, easing: "ease" };
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // Kept so a deselect mid-push can stop them (see the cleanup below).
+    const running: Animation[] = [];
+
     // Colour still washes across under reduced motion; only the movement goes.
-    label.animate(colour, { ...tint, delay: colorDelay(visible - 1, visible), fill: "backwards" });
-    if (!reduce) {
-      label.animate([{ translate: "0px" }, { translate: `${SHIFT}px` }], {
-        duration: PUSH.duration,
-        delay: lead,
-        easing: PUSH.easing,
+    running.push(
+      label.animate(colour, {
+        ...tint,
+        delay: colorDelay(visible - 1, visible),
         fill: "backwards",
-      });
+      }),
+    );
+    if (!reduce) {
+      running.push(
+        label.animate([{ translate: "0px" }, { translate: `${SHIFT}px` }], {
+          duration: PUSH.duration,
+          delay: lead,
+          easing: PUSH.easing,
+          fill: "backwards",
+        }),
+      );
     }
 
     const total = PUSH.duration + lead;
@@ -365,7 +372,9 @@ const BoardName = ({ name, active }: { name: string; active: boolean }) => {
       // Held at the end (`both`): the container finishes later and would otherwise
       // pull a finished letter back to its in-between colour. Letters unmount on
       // deselect, so nothing outlives the selection.
-      el.animate(colour, { ...tint, delay: colorDelay(slot(i), visible), fill: "both" });
+      running.push(
+        el.animate(colour, { ...tint, delay: colorDelay(slot(i), visible), fill: "both" }),
+      );
       if (reduce) return;
       // Ahead of the container by however far the spring has got between this
       // letter's start and the container's: a whole letter's lead, sampled.
@@ -375,8 +384,15 @@ const BoardName = ({ name, active }: { name: string; active: boolean }) => {
         const ahead = springAt((t - delay) / PUSH.duration) - springAt((t - lead) / PUSH.duration);
         return { translate: `${(SHIFT * ahead).toFixed(2)}px`, offset: k / 32 };
       });
-      el.animate(frames, { duration: total, easing: "linear" });
+      running.push(el.animate(frames, { duration: total, easing: "linear" }));
     });
+
+    // The label outlives the selection. Left running, a quick deselect would
+    // see it finish the push in the accent colour, then snap back. Cancelled
+    // here, the label's CSS transition picks up from wherever it got to.
+    return () => {
+      for (const animation of running) animation.cancel();
+    };
   }, [active]);
 
   return (

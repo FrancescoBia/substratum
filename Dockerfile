@@ -2,13 +2,22 @@
 
 # Debian rather than Alpine: better-sqlite3, sharp and argon2 all ship glibc
 # prebuilds, so the image builds without hunting musl variants.
+# The pnpm version comes from `packageManager` in the root package.json, the
+# same field CI reads, so the image can't drift onto a different pnpm. Pulled
+# out on its own so that editing anything else in package.json doesn't
+# invalidate every layer below: Docker caches the copied file by content.
+FROM node:24-bookworm-slim AS package-manager
+COPY package.json /tmp/
+RUN node -p "require('/tmp/package.json').packageManager" > /package-manager
+
 FROM node:24-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
-# `corepack prepare` materialises pnpm into the image. Without it corepack
-# downloads pnpm on first use — which for the runtime stage means the container
-# needs network access just to start.
-RUN corepack enable && corepack prepare pnpm@12.21.0 --activate
+COPY --from=package-manager /package-manager /package-manager
+# `corepack install -g` materialises pnpm into the image and makes it the
+# default. Without it corepack downloads pnpm on first use, which for the
+# runtime stage means the container needs network access just to start.
+RUN corepack enable && corepack install -g "$(cat /package-manager)"
 WORKDIR /app
 
 FROM base AS build

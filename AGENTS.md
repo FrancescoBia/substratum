@@ -16,9 +16,8 @@ CI (`.github/workflows/ci.yml`) blocks on all of these, so run the relevant ones
 ```bash
 pnpm format:check   # blocking — run `pnpm format` to fix
 pnpm typecheck
-pnpm test:unit
-pnpm test:browser   # component tests needing real layout; Vitest browser mode, headless Chromium
-pnpm test:e2e       # needs ffmpeg/ffprobe on PATH; uses its own throwaway instance on :3100
+pnpm test:unit      # Vitest: Node unit tests + browser component tests (headless Chromium); needs ffmpeg/ffprobe
+pnpm test:e2e       # Playwright; needs ffmpeg/ffprobe on PATH; uses its own throwaway instance on :3100
 pnpm build
 ```
 
@@ -27,6 +26,7 @@ pnpm build
 ## Conventions that aren't obvious
 
 - **Migrations:** change the Drizzle schema and run `pnpm db:generate`. Never hand-write or edit files in `apps/web/drizzle/`. Migrations run automatically on startup.
+- **Unit tests** are colocated with the module they cover (`foo.ts` → `foo.test.ts`, same folder) and run on Vitest. Use `*.browser.test.tsx` for component tests that need real layout; those run in headless Chromium. Playwright is only for `e2e/`.
 - **Server-only code** uses the `*.server.ts` suffix. Config comes only from env vars with working defaults (see `apps/web/app/lib/config.server.ts`). Never add a required config file.
 - **`@repo/ui`** has no build step and resolves through its `exports` map, not tsconfig paths. After `shadcn add`, change `import { cn } from "cn"` to `@repo/ui/lib/utils`, drop the `cn` dependency the CLI adds, and remove `"use client"` (see `packages/ui/README.md`).
 - **Tags are hidden** behind `TAGS_ENABLED` in `apps/web/app/lib/features.ts`. Keep tag code working, but don't surface it in the UI.

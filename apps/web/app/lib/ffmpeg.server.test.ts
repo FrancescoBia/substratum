@@ -1,12 +1,11 @@
-import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, before, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { extractFrame, ffmpegPath, probe } from "../app/lib/ffmpeg.server.ts";
+import { afterAll, assert, beforeAll, describe, expect, test } from "vitest";
+import { extractFrame, ffmpegPath, probe } from "./ffmpeg.server";
 
 /**
  * Runs the real binaries against clips generated on the spot — ffmpeg's own
@@ -15,12 +14,12 @@ import { extractFrame, ffmpegPath, probe } from "../app/lib/ffmpeg.server.ts";
  */
 
 const run = promisify(execFile);
-const MODULE = fileURLToPath(new URL("../app/lib/ffmpeg.server.ts", import.meta.url));
+const MODULE = fileURLToPath(new URL("./ffmpeg.server.ts", import.meta.url));
 
 let dir: string;
 let clip: string;
 
-before(async () => {
+beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "substratum-ffmpeg-"));
   clip = join(dir, "clip.mp4");
   await run(ffmpegPath, [
@@ -38,7 +37,7 @@ before(async () => {
   ]);
 });
 
-after(async () => {
+afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
@@ -47,22 +46,22 @@ describe("probe", () => {
     const output = await probe(clip);
     const video = output.streams?.find((stream) => stream.codec_type === "video");
 
-    assert.match(output.format?.format_name ?? "", /mp4/);
-    assert.equal(video?.codec_name, "h264");
-    assert.equal(video?.width, 320);
-    assert.equal(video?.height, 240);
-    assert.equal(Math.round(Number(output.format?.duration)), 2);
+    expect(output.format?.format_name ?? "").toMatch(/mp4/);
+    expect(video?.codec_name).toBe("h264");
+    expect(video?.width).toBe(320);
+    expect(video?.height).toBe(240);
+    expect(Math.round(Number(output.format?.duration))).toBe(2);
   });
 
   test("rejects a file that isn't media at all", async () => {
-    await assert.rejects(probe(MODULE));
+    await expect(probe(MODULE)).rejects.toThrow();
   });
 });
 
 describe("extractFrame", () => {
   test("hands back one frame as PNG", async () => {
     const frame = await extractFrame(clip, 1);
-    assert.equal(frame.subarray(1, 4).toString("ascii"), "PNG");
+    expect(frame.subarray(1, 4).toString("ascii")).toBe("PNG");
   });
 });
 
@@ -76,7 +75,7 @@ test("refuses to load when a binary can't be run", async () => {
     (error: { code?: number; stderr?: string }) => error,
   );
 
-  assert.ok(result, "loading the module should have failed");
-  assert.match(result.stderr ?? "", /needs ffprobe to store videos/);
-  assert.match(result.stderr ?? "", /FFPROBE_PATH/);
+  assert(result, "loading the module should have failed");
+  expect(result.stderr ?? "").toMatch(/needs ffprobe to store videos/);
+  expect(result.stderr ?? "").toMatch(/FFPROBE_PATH/);
 });

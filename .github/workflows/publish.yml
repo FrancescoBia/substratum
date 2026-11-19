@@ -106,3 +106,33 @@ jobs:
           # slow enough to be worth caching between runs.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # The GitHub Release is where self-hosters look for what an upgrade contains,
+  # so it follows the image rather than the tag: it only appears once there is
+  # something to pull.
+  release:
+    needs: image
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Tags and history, to find the previous release and the commits since.
+          fetch-depth: 0
+      - run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+      # A pre-release tag (v1.2.0-rc.1) becomes a pre-release, which GitHub
+      # never marks as Latest, the same rule `:latest` follows. A re-run updates
+      # the existing release instead of failing on it.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
+              --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+          fi

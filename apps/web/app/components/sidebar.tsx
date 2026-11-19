@@ -170,13 +170,11 @@ const BoardItem = ({ board }: { board: Board }) => {
           />
           <BoardName name={board.name} active={isActive} />
           {board.published && (
-            <span className="ml-auto" title="Published">
-              <Globe className="size-icon shrink-0" />
+            <span className="shrink-0" title="Published">
+              <Globe className="size-icon" />
             </span>
           )}
-          <span className={cn("text-xs tabular-nums", !board.published && "ml-auto")}>
-            {board.count}
-          </span>
+          <span className="shrink-0 text-xs tabular-nums">{board.count}</span>
         </div>
       )}
     </NavLink>
@@ -272,22 +270,44 @@ const kernLetters = (whole: HTMLElement, els: HTMLElement[]) => {
  * left → right. Deselecting is plain: the whole name slides back on the label's
  * curve, in lockstep with the asterisk leaving.
  *
- * The motion is split across two layers so a truncated name holds together.
- * The container (which owns the clip and the "…") moves on the spring timed to
- * the last *visible* letter, and takes its colour then, so the ellipsis travels
- * and changes with the letters beside it. Each letter only adds its offset from
- * that: always ≥ 0, so nothing slides out past the clip's left edge, and the
- * first letter's on-screen path is exactly the spring — the asterisk's path.
+ * The motion is split across two layers so a clipped name holds together. The
+ * label moves on the spring timed to the last *visible* letter and takes its
+ * colour at that moment. Each letter only adds its offset from that: always ≥ 0,
+ * so nothing slides out past the clip's left edge, and the first letter's
+ * on-screen path is exactly the spring — the asterisk's path. The clip around
+ * the label stays put, and a long name fades out at its right edge.
  *
  * Letters are split only while selected, and kerned back to match the whole
  * text (see `kernLetters`), so the split doesn't change the spacing.
  */
 const BoardName = ({ name, active }: { name: string; active: boolean }) => {
+  const clipRef = useRef<HTMLSpanElement>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const wholeRef = useRef<HTMLSpanElement>(null);
   const wasActive = useRef(active);
   // Graphemes, not code units, so an emoji or accented letter moves as one.
   const letters = useMemo(() => Array.from(segmenter.segment(name), (s) => s.segment), [name]);
+
+  // Fade the right edge only when the name runs into it. The test counts the
+  // push even while unselected, so the fade never switches on halfway through a
+  // selection. A name that fits with less than the push to spare gets a faint
+  // fade on its last letters, which is fine because it nearly touches the edge.
+  // Re-measured on resize, font load and the weight change on select.
+  const [fades, setFades] = useState(false);
+  useLayoutEffect(() => {
+    const clip = clipRef.current;
+    const label = ref.current;
+    if (!clip || !label) return;
+    const measure = () => {
+      const room = clip.clientWidth - parseFloat(getComputedStyle(clip).paddingLeft);
+      setFades(label.offsetWidth + SHIFT > room);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(clip);
+    observer.observe(label);
+    return () => observer.disconnect();
+  }, []);
 
   // Declared before the motion effect so letters are in place before it measures.
   useLayoutEffect(() => {
@@ -309,7 +329,7 @@ const BoardName = ({ name, active }: { name: string; active: boolean }) => {
     const became = active && !wasActive.current;
     wasActive.current = active;
     // Only on a real selection, never on load: landing on a board isn't a push.
-    if (!became || !ref.current) return;
+    if (!became || !ref.current || !clipRef.current) return;
 
     const label = ref.current;
     const els = [...label.querySelectorAll<HTMLElement>("[data-letter]")];
@@ -317,8 +337,7 @@ const BoardName = ({ name, active }: { name: string; active: boolean }) => {
 
     // The wave spans only what can be seen: letters past the clip share the last
     // visible letter's timing, so a long name doesn't stretch it out.
-    const clipRight =
-      label.getBoundingClientRect().right - parseFloat(getComputedStyle(label).paddingRight);
+    const clipRight = clipRef.current.getBoundingClientRect().right;
     const visible = Math.max(
       1,
       els.filter((el) => el.getBoundingClientRect().left < clipRight).length,
@@ -361,34 +380,43 @@ const BoardName = ({ name, active }: { name: string; active: boolean }) => {
   }, [active]);
 
   return (
+    // The clip stays still while the name moves inside it, so the fade at its
+    // right edge doesn't travel with the push. `-ml-1 pl-1` gives the clip a hair
+    // of room on the left for the spring's sub-pixel settle.
     <span
-      ref={ref}
+      ref={clipRef}
       className={cn(
-        // `pr-3.5` keeps the shifted text clear of the count. `-ml-1 pl-1` gives the
-        // clip a hair of room on the left for the spring's sub-pixel settle.
-        "-ml-1 truncate pr-3.5 pl-1 motion-reduce:transition-none",
-        active
-          ? // On select the push is driven by the effect above, so no transition.
-            "text-primary translate-x-3.5 font-medium transition-none"
-          : "[transition:translate_240ms_cubic-bezier(0.23,1,0.32,1),color_150ms_ease-out]",
+        "-ml-1 min-w-0 flex-1 overflow-hidden pl-1",
+        fades && "mask-[linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]",
       )}
     >
-      {active ? (
-        <>
-          <span ref={wholeRef} className="sr-only">
-            {name}
-          </span>
-          <span aria-hidden>
-            {letters.map((letter, i) => (
-              <span key={i} data-letter className="inline-block whitespace-pre">
-                {letter}
-              </span>
-            ))}
-          </span>
-        </>
-      ) : (
-        name
-      )}
+      <span
+        ref={ref}
+        className={cn(
+          "inline-block align-top whitespace-nowrap motion-reduce:transition-none",
+          active
+            ? // On select the push is driven by the effect above, so no transition.
+              "text-primary translate-x-3.5 font-medium transition-none"
+            : "[transition:translate_240ms_cubic-bezier(0.23,1,0.32,1),color_150ms_ease-out]",
+        )}
+      >
+        {active ? (
+          <>
+            <span ref={wholeRef} className="sr-only">
+              {name}
+            </span>
+            <span aria-hidden>
+              {letters.map((letter, i) => (
+                <span key={i} data-letter className="inline-block whitespace-pre">
+                  {letter}
+                </span>
+              ))}
+            </span>
+          </>
+        ) : (
+          name
+        )}
+      </span>
     </span>
   );
 };

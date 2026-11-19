@@ -27,6 +27,11 @@ concurrency:
   group: publish-${{ github.ref }}
   cancel-in-progress: false
 
+# Read-only unless a job says otherwise. Only `image` (push to GHCR) and
+# `release` (create the GitHub Release) need to write, and they ask for it.
+permissions:
+  contents: read
+
 jobs:
   # Cheap checks on the tag itself, before spending CI time on it.
   verify:

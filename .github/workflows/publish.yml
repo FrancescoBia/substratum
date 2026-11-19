@@ -90,8 +90,13 @@ jobs:
           images: ghcr.io/francescobia/substratum
           # `{{raw}}` rather than `{{version}}`: it keeps the leading `v`, which
           # is what v0.1.0 was already published as.
+          #
+          # `v0.4` follows the newest v0.4.x, for anyone who wants fixes without
+          # being moved onto the next minor version. metadata-action never applies
+          # it to a pre-release.
           tags: |
             type=semver,pattern={{raw}}
+            type=semver,pattern=v{{major}}.{{minor}}
             type=ref,event=branch
           flavor: latest=auto
 

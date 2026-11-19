@@ -12,8 +12,8 @@
     "check:bucket": "node ./scripts/check-bucket.mjs",
     "migrate:storage": "node ./scripts/migrate-storage.mjs",
     "seed": "node ./scripts/seed.mjs",
-    "test:unit": "node --test \"test/*.test.ts\"",
-    "test:browser": "vitest run",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
     "test:e2e": "node ./scripts/reset-test-data.mjs && playwright test",
     "test:e2e:ui": "playwright test --ui",
     "shots": "node ./scripts/reset-test-data.mjs && playwright test --project=chromium --grep 'capture every view'"

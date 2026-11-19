@@ -1,13 +1,12 @@
-import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, before, describe, test } from "node:test";
 import { promisify } from "node:util";
-import { ffmpegPath, probe } from "../app/lib/ffmpeg.server.ts";
-import { sniffMedia, SNIFF_BYTES } from "../app/lib/media-sniff.ts";
-import { describeVideo } from "../app/lib/video-metadata.ts";
+import { afterAll, assert, beforeAll, describe, expect, test } from "vitest";
+import { ffmpegPath, probe } from "./ffmpeg.server";
+import { sniffMedia, SNIFF_BYTES } from "./media-sniff";
+import { describeVideo } from "./video-metadata";
 
 /**
  * What an upload is taken for, and what ingest makes of it. Clips are made on
@@ -36,7 +35,7 @@ async function makeClip(name: string, args: string[]) {
   clips[name] = path;
 }
 
-before(async () => {
+beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "substratum-media-"));
   await Promise.all([
     makeClip("h264.mp4", ["-c:v", "libx264", "-pix_fmt", "yuv420p"]),
@@ -61,7 +60,7 @@ before(async () => {
   ]);
 });
 
-after(async () => {
+afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
@@ -71,25 +70,25 @@ async function head(name: string) {
 
 describe("sniffMedia", () => {
   test("tells the accepted containers apart", async () => {
-    assert.deepEqual(sniffMedia(await head("h264.mp4")), { kind: "video", container: "mp4" });
-    assert.deepEqual(sniffMedia(await head("h264.mov")), { kind: "video", container: "mov" });
-    assert.deepEqual(sniffMedia(await head("vp9.webm")), { kind: "video", container: "webm" });
+    expect(sniffMedia(await head("h264.mp4"))).toStrictEqual({ kind: "video", container: "mp4" });
+    expect(sniffMedia(await head("h264.mov"))).toStrictEqual({ kind: "video", container: "mov" });
+    expect(sniffMedia(await head("vp9.webm"))).toStrictEqual({ kind: "video", container: "webm" });
   });
 
   test("names a video container it won't take", async () => {
-    assert.deepEqual(sniffMedia(await head("vp9.mkv")), {
+    expect(sniffMedia(await head("vp9.mkv"))).toStrictEqual({
       kind: "unsupported-video",
       container: "MKV",
     });
     const avi = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("AVI LIST")]);
-    assert.deepEqual(sniffMedia(avi), { kind: "unsupported-video", container: "AVI" });
+    expect(sniffMedia(avi)).toStrictEqual({ kind: "unsupported-video", container: "AVI" });
   });
 
   test("leaves stills to sharp, AVIF included", () => {
     const avif = Buffer.concat([Buffer.from([0, 0, 0, 0x1c]), Buffer.from("ftypavif")]);
-    assert.deepEqual(sniffMedia(avif), { kind: "image" });
-    assert.deepEqual(sniffMedia(Buffer.from([0x89, 0x50, 0x4e, 0x47])), { kind: "image" });
-    assert.deepEqual(sniffMedia(Buffer.alloc(0)), { kind: "image" });
+    expect(sniffMedia(avif)).toStrictEqual({ kind: "image" });
+    expect(sniffMedia(Buffer.from([0x89, 0x50, 0x4e, 0x47]))).toStrictEqual({ kind: "image" });
+    expect(sniffMedia(Buffer.alloc(0))).toStrictEqual({ kind: "image" });
   });
 });
 
@@ -101,30 +100,30 @@ describe("describeVideo", () => {
       ["vp9.webm", "webm"],
     ] as const) {
       const verdict = describeVideo(await probe(clips[name]), container);
-      assert.ok(verdict.ok, `${name} should be accepted`);
-      assert.equal(verdict.video.width, 320);
-      assert.equal(verdict.video.height, 240);
-      assert.ok(Math.abs((verdict.video.durationMs ?? 0) - 2000) < 100, name);
+      assert(verdict.ok, `${name} should be accepted`);
+      expect(verdict.video.width).toBe(320);
+      expect(verdict.video.height).toBe(240);
+      assert(Math.abs((verdict.video.durationMs ?? 0) - 2000) < 100, name);
     }
   });
 
   test("reports a rotated video at the size it is shown", async () => {
     const verdict = describeVideo(await probe(clips["rotated.mp4"]), "mp4");
-    assert.ok(verdict.ok);
-    assert.equal(verdict.video.width, 240);
-    assert.equal(verdict.video.height, 320);
+    assert(verdict.ok);
+    expect(verdict.video.width).toBe(240);
+    expect(verdict.video.height).toBe(320);
   });
 
   test("refuses HEVC, saying what to do instead", async () => {
     const verdict = describeVideo(await probe(clips["hevc.mp4"]), "mp4");
-    assert.ok(!verdict.ok);
-    assert.match(verdict.message, /HEVC/);
-    assert.match(verdict.message, /export it as H\.264/);
+    assert(!verdict.ok);
+    expect(verdict.message).toMatch(/HEVC/);
+    expect(verdict.message).toMatch(/export it as H\.264/);
   });
 
   test("refuses a file whose header and contents disagree", async () => {
     const verdict = describeVideo(await probe(clips["vp9.webm"]), "mp4");
-    assert.ok(!verdict.ok);
+    assert(!verdict.ok);
   });
 
   test("refuses a file with no video stream", () => {
@@ -135,7 +134,7 @@ describe("describeVideo", () => {
       },
       "mp4",
     );
-    assert.deepEqual(verdict, { ok: false, message: "That file has no video in it." });
+    expect(verdict).toStrictEqual({ ok: false, message: "That file has no video in it." });
   });
 
   test("takes cover art for what it is, not the video", () => {
@@ -149,9 +148,9 @@ describe("describeVideo", () => {
       },
       "mp4",
     );
-    assert.ok(verdict.ok);
-    assert.equal(verdict.video.codec, "h264");
+    assert(verdict.ok);
+    expect(verdict.video.codec).toBe("h264");
     // No duration anywhere in the container is recorded as unknown.
-    assert.equal(verdict.video.durationMs, null);
+    expect(verdict.video.durationMs).toBe(null);
   });
 });

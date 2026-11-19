@@ -18,7 +18,6 @@
     "migrate:storage": "pnpm --filter @repo/web migrate:storage",
     "seed": "pnpm --filter @repo/web seed",
     "test:unit": "pnpm --filter @repo/web test:unit",
-    "test:browser": "pnpm --filter @repo/web test:browser",
     "test:e2e": "pnpm --filter @repo/web test:e2e",
     "shots": "pnpm --filter @repo/web shots"
   },

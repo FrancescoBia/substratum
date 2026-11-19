@@ -1,12 +1,11 @@
-import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dirname, join, relative, resolve } from "node:path";
-import { after, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { afterAll, assert, describe, expect, test } from "vitest";
 import { ACCEPTED_FORMATS, ACCEPTED_VIDEO_FORMATS, FORMAT_CONTENT_TYPES } from "@repo/shared";
 import {
   deleteObjects,
@@ -18,7 +17,7 @@ import {
   putObjectFromFile,
   S3Error,
   type S3Config,
-} from "../app/lib/s3.server.ts";
+} from "./s3.server";
 
 /**
  * The S3 client is hand-rolled SigV4 against a live bucket, which is the one
@@ -132,7 +131,7 @@ async function withBucket(
 }
 
 const servers: Server[] = [];
-after(() => {
+afterAll(() => {
   for (const server of servers) server.close();
 });
 
@@ -226,9 +225,9 @@ function verifySignature(request: Recorded): string | null {
 
 /** Every request the stub saw verified, and there were the expected number. */
 function assertAllVerified(received: Recorded[], count: number) {
-  assert.equal(received.length, count, `expected ${count} request(s), saw ${received.length}`);
+  expect(received.length, `expected ${count} request(s), saw ${received.length}`).toBe(count);
   for (const request of received) {
-    assert.equal(request.signatureError, null, request.signatureError ?? "");
+    expect(request.signatureError, request.signatureError ?? "").toBe(null);
   }
 }
 
@@ -248,9 +247,9 @@ describe("request signing", () => {
     await putObject(config, "8f14e45f/original.jpg", bytes);
 
     assertAllVerified(received, 1);
-    assert.equal(received[0].method, "PUT");
-    assert.equal(received[0].path, "/library/8f14e45f/original.jpg");
-    assert.deepEqual(received[0].body, bytes);
+    expect(received[0].method).toBe("PUT");
+    expect(received[0].path).toBe("/library/8f14e45f/original.jpg");
+    expect(received[0].body).toStrictEqual(bytes);
   });
 
   test("keys needing RFC 3986 escapes still verify", async () => {
@@ -262,12 +261,9 @@ describe("request signing", () => {
     await putObject(config, key, Buffer.from("x"));
 
     assertAllVerified(received, 1);
-    assert.equal(
-      received[0].path,
-      "/library/%C3%BCn%C3%AFcode%20dir/a%2Bb%20%281%29%272%27%21.png",
-    );
+    expect(received[0].path).toBe("/library/%C3%BCn%C3%AFcode%20dir/a%2Bb%20%281%29%272%27%21.png");
     // The slash inside the key stays a path separator; nothing else survives raw.
-    assert.ok(!received[0].path.includes("+"));
+    assert(!received[0].path.includes("+"));
   });
 
   test("a listing's query arrives sorted and encoded", async () => {
@@ -276,7 +272,7 @@ describe("request signing", () => {
     await listObjectKeys(config, "8f14e45f/");
 
     assertAllVerified(received, 1);
-    assert.equal(received[0].query, "list-type=2&prefix=8f14e45f%2F");
+    expect(received[0].query).toBe("list-type=2&prefix=8f14e45f%2F");
   });
 
   test("content type comes from the key's extension", async () => {
@@ -291,7 +287,12 @@ describe("request signing", () => {
     await putObject(config, "id/original.avif", Buffer.from("c"));
     await putObject(config, "id/mystery.xyz", Buffer.from("d"));
 
-    assert.deepEqual(seen, ["image/jpeg", "image/webp", "image/avif", "application/octet-stream"]);
+    expect(seen).toStrictEqual([
+      "image/jpeg",
+      "image/webp",
+      "image/avif",
+      "application/octet-stream",
+    ]);
   });
 
   test("labels every accepted format the way the app serves it", async () => {
@@ -306,10 +307,7 @@ describe("request signing", () => {
       await putObject(config, `id/original.${format}`, Buffer.from(format));
     }
 
-    assert.deepEqual(
-      seen,
-      formats.map((format) => FORMAT_CONTENT_TYPES[format]),
-    );
+    expect(seen).toStrictEqual(formats.map((format) => FORMAT_CONTENT_TYPES[format]));
   });
 });
 
@@ -324,7 +322,7 @@ describe("storage scripts", () => {
    */
   for (const name of ["migrate-storage.mjs", "check-bucket.mjs"]) {
     test(`${name} imports nothing plain Node cannot load in the container`, async () => {
-      const script = fileURLToPath(new URL(`../scripts/${name}`, import.meta.url));
+      const script = fileURLToPath(new URL(`../../scripts/${name}`, import.meta.url));
       const pending = [script];
       const seen = new Set<string>();
       const offending: string[] = [];
@@ -345,7 +343,7 @@ describe("storage scripts", () => {
         }
       }
 
-      assert.deepEqual(offending, []);
+      expect(offending).toStrictEqual([]);
     });
   }
 });
@@ -355,7 +353,7 @@ describe("objects", () => {
     const stored = Buffer.from([0x00, 0xff, 0x10, 0x89, 0x50, 0x4e, 0x47]);
     const { config, received } = await bucket(() => ({ body: stored }));
 
-    assert.deepEqual(await getObject(config, "id/original.png"), stored);
+    expect(await getObject(config, "id/original.png")).toStrictEqual(stored);
     assertAllVerified(received, 1);
   });
 
@@ -370,12 +368,12 @@ describe("objects", () => {
       (e: unknown) => e,
     );
 
-    assert.ok(error instanceof S3Error);
-    assert.equal(error.status, 404);
-    assert.equal(error.code, "NoSuchKey");
-    assert.match(error.message, /key does not exist/);
+    assert(error instanceof S3Error);
+    expect(error.status).toBe(404);
+    expect(error.code).toBe("NoSuchKey");
+    expect(error.message).toMatch(/key does not exist/);
     // A 404 is the request being wrong, not the bucket being busy.
-    assert.equal(received.length, 1);
+    expect(received.length).toBe(1);
   });
 });
 
@@ -394,10 +392,10 @@ describe("streamed reads", () => {
 
     const opened = await openObject(config, "id/original.mp4", "bytes=2-5");
 
-    assert.equal(received[0].headers.range, "bytes=2-5");
-    assert.equal(await new Response(opened.body).text(), "cdef");
-    assert.equal(opened.size, 10);
-    assert.deepEqual(opened.range, { start: 2, end: 5 });
+    expect(received[0].headers.range).toBe("bytes=2-5");
+    expect(await new Response(opened.body).text()).toBe("cdef");
+    expect(opened.size).toBe(10);
+    expect(opened.range).toStrictEqual({ start: 2, end: 5 });
     assertAllVerified(received, 1);
   });
 
@@ -406,9 +404,9 @@ describe("streamed reads", () => {
 
     const opened = await openObject(config, "id/original.mp4", "bytes=2-5");
 
-    assert.equal(await new Response(opened.body).text(), "abcdefghij");
-    assert.equal(opened.size, 10);
-    assert.equal(opened.range, null);
+    expect(await new Response(opened.body).text()).toBe("abcdefghij");
+    expect(opened.size).toBe(10);
+    expect(opened.range).toBe(null);
   });
 
   test("a 503 before the body is retried", async () => {
@@ -417,8 +415,8 @@ describe("streamed reads", () => {
     );
 
     const opened = await openObject(config, "id/original.mp4");
-    assert.equal(await new Response(opened.body).text(), "bytes");
-    assert.equal(received.length, 2);
+    expect(await new Response(opened.body).text()).toBe("bytes");
+    expect(received.length).toBe(2);
   });
 
   test("an unsatisfiable range is a 416, and is not retried", async () => {
@@ -432,9 +430,9 @@ describe("streamed reads", () => {
       (e: unknown) => e,
     );
 
-    assert.ok(error instanceof S3Error);
-    assert.equal(error.status, 416);
-    assert.equal(received.length, 1);
+    assert(error instanceof S3Error);
+    expect(error.status).toBe(416);
+    expect(received.length).toBe(1);
   });
 
   test("a connection dropped mid-body fails the body rather than retrying", async () => {
@@ -448,8 +446,8 @@ describe("streamed reads", () => {
     }));
 
     const opened = await openObject(config, "id/original.mp4");
-    await assert.rejects(new Response(opened.body).arrayBuffer());
-    assert.equal(received.length, 1);
+    await expect(new Response(opened.body).arrayBuffer()).rejects.toThrow();
+    expect(received.length).toBe(1);
   });
 
   test("a bucket that goes quiet mid-body is abandoned", async () => {
@@ -460,8 +458,8 @@ describe("streamed reads", () => {
 
     const started = Date.now();
     const opened = await openObject(config, "id/original.mp4");
-    await assert.rejects(new Response(opened.body).arrayBuffer());
-    assert.ok(Date.now() - started < 5_000, "the stalled body should have been abandoned");
+    await expect(new Response(opened.body).arrayBuffer()).rejects.toThrow();
+    assert(Date.now() - started < 5_000, "the stalled body should have been abandoned");
   });
 
   test("a slow reader is not mistaken for a silent bucket", async () => {
@@ -471,7 +469,7 @@ describe("streamed reads", () => {
     // Longer than the budget, spent on this side: the bucket has nothing to do
     // with it, and the body must still arrive whole.
     await new Promise((resolve) => setTimeout(resolve, 300));
-    assert.equal(await new Response(opened.body).text(), "abcdefghij");
+    expect(await new Response(opened.body).text()).toBe("abcdefghij");
   });
 
   test("a HEAD reports the object's size", async () => {
@@ -480,8 +478,8 @@ describe("streamed reads", () => {
       headers: { "content-length": "1234" },
     }));
 
-    assert.deepEqual(await headObject(config, "id/original.mp4"), { size: 1234 });
-    assert.equal(received[0].method, "HEAD");
+    expect(await headObject(config, "id/original.mp4")).toStrictEqual({ size: 1234 });
+    expect(received[0].method).toBe("HEAD");
     assertAllVerified(received, 1);
   });
 });
@@ -498,10 +496,10 @@ describe("file uploads", () => {
       await putObjectFromFile(config, "id/original.mp4", path);
 
       // Sized, not chunked: S3 refuses a chunked PUT outright.
-      assert.equal(received[0].headers["content-length"], String(bytes.byteLength));
-      assert.equal(received[0].headers["transfer-encoding"], undefined);
-      assert.equal(received[0].headers["content-type"], "video/mp4");
-      assert.deepEqual(received[0].body, bytes);
+      expect(received[0].headers["content-length"]).toBe(String(bytes.byteLength));
+      expect(received[0].headers["transfer-encoding"]).toBe(undefined);
+      expect(received[0].headers["content-type"]).toBe("video/mp4");
+      expect(received[0].body).toStrictEqual(bytes);
       assertAllVerified(received, 1);
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -519,7 +517,7 @@ describe("file uploads", () => {
       );
       await putObjectFromFile(config, "id/original.webm", path);
 
-      assert.equal(received[1].body.toString(), "the whole file");
+      expect(received[1].body.toString()).toBe("the whole file");
       assertAllVerified(received, 2);
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -535,10 +533,14 @@ describe("listing", () => {
         : { body: listing(["id/c.webp"]) },
     );
 
-    assert.deepEqual(await listObjectKeys(config, "id/"), ["id/a.webp", "id/b.webp", "id/c.webp"]);
+    expect(await listObjectKeys(config, "id/")).toStrictEqual([
+      "id/a.webp",
+      "id/b.webp",
+      "id/c.webp",
+    ]);
     assertAllVerified(received, 2);
-    assert.ok(!received[0].query.includes("continuation-token"));
-    assert.match(received[1].query, /continuation-token=token-two/);
+    assert(!received[0].query.includes("continuation-token"));
+    expect(received[1].query).toMatch(/continuation-token=token-two/);
   });
 
   test("a token on an untruncated page does not send us round again", async () => {
@@ -547,8 +549,8 @@ describe("listing", () => {
       body: `<ListBucketResult><Contents><Key>id/a.webp</Key></Contents><IsTruncated>false</IsTruncated><NextContinuationToken>trap</NextContinuationToken></ListBucketResult>`,
     }));
 
-    assert.deepEqual(await listObjectKeys(config, "id/"), ["id/a.webp"]);
-    assert.equal(received.length, 1);
+    expect(await listObjectKeys(config, "id/")).toStrictEqual(["id/a.webp"]);
+    expect(received.length).toBe(1);
   });
 
   test("XML-escaped keys come back as their real names", async () => {
@@ -556,7 +558,7 @@ describe("listing", () => {
       body: listing(["id/tom &amp; jerry &lt;1&gt;.webp"]),
     }));
 
-    assert.deepEqual(await listObjectKeys(config, "id/"), ["id/tom & jerry <1>.webp"]);
+    expect(await listObjectKeys(config, "id/")).toStrictEqual(["id/tom & jerry <1>.webp"]);
   });
 });
 
@@ -571,12 +573,11 @@ describe("batch delete", () => {
     const counts = received.map(
       (request) => request.body.toString("utf8").match(/<Object>/g)?.length ?? 0,
     );
-    assert.deepEqual(counts, [1000, 1]);
-    assert.match(received[0].query, /^delete=$/);
+    expect(counts).toStrictEqual([1000, 1]);
+    expect(received[0].query).toMatch(/^delete=$/);
     // Content-MD5 is still what MinIO and older implementations check.
     for (const request of received) {
-      assert.equal(
-        request.headers["content-md5"],
+      expect(request.headers["content-md5"]).toBe(
         createHash("md5").update(request.body).digest("base64"),
       );
     }
@@ -592,12 +593,12 @@ describe("batch delete", () => {
       (e: unknown) => e,
     );
 
-    assert.ok(error instanceof S3Error);
-    assert.equal(error.code, "AccessDenied");
+    assert(error instanceof S3Error);
+    expect(error.code).toBe("AccessDenied");
     // The transport said 200; the operation did not succeed, so the error must
     // not claim a success status.
-    assert.equal(error.status, 502);
-    assert.match(error.message, /Batch delete failed/);
+    expect(error.status).toBe(502);
+    expect(error.message).toMatch(/Batch delete failed/);
   });
 });
 
@@ -619,7 +620,7 @@ describe("retries", () => {
     );
 
     await putObject(config, "id/original.jpg", Buffer.from("bytes"));
-    assert.equal(received.length, 2);
+    expect(received.length).toBe(2);
   });
 
   test("a 403 fails immediately rather than burning the budget", async () => {
@@ -633,9 +634,9 @@ describe("retries", () => {
       (e: unknown) => e,
     );
 
-    assert.ok(error instanceof S3Error);
-    assert.equal(error.code, "SignatureDoesNotMatch");
-    assert.equal(received.length, 1);
+    assert(error instanceof S3Error);
+    expect(error.code).toBe("SignatureDoesNotMatch");
+    expect(received.length).toBe(1);
   });
 
   test("a persistent 500 reports the bucket's own error after the last attempt", async () => {
@@ -649,10 +650,10 @@ describe("retries", () => {
       (e: unknown) => e,
     );
 
-    assert.ok(error instanceof S3Error);
-    assert.equal(error.code, "InternalError");
-    assert.match(error.message, /internal error/);
-    assert.equal(received.length, 3);
+    assert(error instanceof S3Error);
+    expect(error.code).toBe("InternalError");
+    expect(error.message).toMatch(/internal error/);
+    expect(received.length).toBe(3);
   });
 
   test("a dropped connection is retried", async () => {
@@ -661,7 +662,7 @@ describe("retries", () => {
     );
 
     await putObject(config, "id/original.jpg", Buffer.from("bytes"));
-    assert.equal(received.length, 2);
+    expect(received.length).toBe(2);
   });
 
   test("a bucket that accepts and then goes quiet times out rather than hanging", async () => {
@@ -675,8 +676,8 @@ describe("retries", () => {
     const started = Date.now();
     await putObject(config, "id/original.jpg", Buffer.from("bytes"));
 
-    assert.equal(received.length, 2);
-    assert.ok(
+    expect(received.length).toBe(2);
+    assert(
       Date.now() - started < 5_000,
       "the stalled attempt should have been abandoned and retried",
     );
@@ -694,11 +695,11 @@ describe("key prefix", () => {
     );
 
     await putObject(config, "id/thumb.webp", Buffer.from("x"));
-    assert.equal(received[0].path, "/library/instance-a/id/thumb.webp");
+    expect(received[0].path).toBe("/library/instance-a/id/thumb.webp");
 
     // Callers above this module never see the prefix, in either direction.
-    assert.deepEqual(await listObjectKeys(config, "id/"), ["id/thumb.webp", "id/medium.webp"]);
-    assert.match(received[1].query, /prefix=instance-a%2Fid%2F/);
+    expect(await listObjectKeys(config, "id/")).toStrictEqual(["id/thumb.webp", "id/medium.webp"]);
+    expect(received[1].query).toMatch(/prefix=instance-a%2Fid%2F/);
     assertAllVerified(received, 2);
   });
 });

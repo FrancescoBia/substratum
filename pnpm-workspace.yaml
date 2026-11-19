@@ -6,9 +6,14 @@ allowBuilds:
   better-sqlite3: true
   esbuild: true
 
-# Security pins for packages that ship in the Docker image. Drop each one once
-# its parent's own range picks up the fix.
+# Security pins. Drop each one once its parent's own range picks up the fix.
 overrides:
   # archiver@8 still asks for readdir-glob ^3, which pulls minimatch 10
   # (GHSA ReDoS). 4.0.0 is the same code on minimatch ^11.
   archiver>readdir-glob: ^4.0.0
+  # Dev tooling only. Each parent's latest release still pins the vulnerable
+  # major: storybook -> docgen plugin -> glob 13, shadcn -> ts-morph -> minimatch 10,
+  # drizzle-kit -> @esbuild-kit -> esbuild 0.18.
+  "@joshwooding/vite-plugin-react-docgen-typescript>glob": ^14.0.2
+  "@ts-morph/common>minimatch": ^11.0.1
+  "@esbuild-kit/core-utils>esbuild": ^0.25.0

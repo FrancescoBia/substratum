@@ -1,6 +1,7 @@
 services:
   app:
-    # Swap for the published image once releases exist:
+    # Builds from this checkout. To run a published release instead, replace
+    # `build: .` with the image (see "Choosing a version" in the README):
     #   image: ghcr.io/francescobia/substratum:latest
     build: .
     ports:

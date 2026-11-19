@@ -33,7 +33,8 @@ pnpm build
 - **e2e auth** goes through the real `/setup` endpoint (`e2e/auth.setup.ts`). Don't add dev-only login routes or auth bypasses.
 - **Video** is never transcoded. ffmpeg/ffprobe are required at startup.
 - **Versions** are the same in every `package.json` that has one. Change them only with `pnpm release:version <x.y.z>`. CI fails if they drift (`pnpm release:check`).
-- **Commits** follow Conventional Commits with an optional scope: `feat(web): …`, `fix: …`, `chore: …`.
+- **Commits** follow Conventional Commits with an optional scope: `feat(web): …`, `fix: …`, `chore: …` (also for PR titles).
+- **Comments** default to **no comments**. Add one only if the code requires additional context to be understood.
 
 ## Git & releases
 

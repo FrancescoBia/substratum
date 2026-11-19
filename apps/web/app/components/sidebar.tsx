@@ -3,7 +3,14 @@ import Logo from "@repo/ui/assets/logo/substratum_logo.svg?react";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "cn";
-import { CheckCircle2Icon, Globe, Inbox, LogOutIcon, PlusCircleIcon } from "lucide-react";
+import {
+  AsteriskIcon,
+  CheckCircle2Icon,
+  Globe,
+  Inbox,
+  LogOutIcon,
+  PlusCircleIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, useFetcher, useSubmit } from "react-router";
 import { SettingsDialog } from "~/components/settings-dialog";
@@ -133,20 +140,25 @@ const BoardItem = ({ board }: { board: Board }) => {
       to={`/boards/${board.id}`}
       className={({ isActive }) =>
         cn(
-          "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors my-px text-muted-foreground",
-          isActive ? "bg-accent text-primary font-medium" : "hover:bg-accent/50",
+          "flex w-full items-center gap-2 rounded-md pr-3 py-1.5 text-left text-sm transition-colors my-px text-muted-foreground",
+          isActive ? "bg-accent font-medium pl-2" : "hover:bg-accent/50 pl-3",
         )
       }
     >
-      <span className="truncate">{board.name}</span>
-      {board.published && (
-        <span className="ml-auto" title="Published">
-          <Globe className="size-icon shrink-0" />
-        </span>
+      {({ isActive }) => (
+        <>
+          {isActive && <AsteriskIcon className="size-icon -mr-1 text-primary" strokeWidth={2.5} />}
+          <span className={cn("truncate", isActive && "text-primary")}>{board.name}</span>
+          {board.published && (
+            <span className="ml-auto" title="Published">
+              <Globe className="size-icon shrink-0" />
+            </span>
+          )}
+          <span className={cn("text-xs tabular-nums", !board.published && "ml-auto")}>
+            {board.count}
+          </span>
+        </>
       )}
-      <span className={cn("text-xs tabular-nums", !board.published && "ml-auto")}>
-        {board.count}
-      </span>
     </NavLink>
   );
 };

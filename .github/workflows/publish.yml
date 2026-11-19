@@ -29,6 +29,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Full history, so the ancestry check below can see main.
+          fetch-depth: 0
+      # Releases come from main. Main takes direct pushes, so this isn't about
+      # review — it stops a tag on a feature branch from shipping unmerged work
+      # to everyone on `:latest`. Push main before (or together with) the tag:
+      # `git push --atomic origin main vX.Y.Z`.
+      - run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on main. Push main first, or tag a commit that is."
+            exit 1
+          fi
       # The tag must sit on the commit that bumped the version. A tag pushed onto
       # the commit before the bump would otherwise ship that commit as the new
       # version.

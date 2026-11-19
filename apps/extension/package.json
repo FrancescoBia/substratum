@@ -24,7 +24,7 @@
     "@wxt-dev/module-react": "^1.1.5",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
-    "web-ext": "^10.5.0",
-    "wxt": "^0.21.2"
+    "web-ext": "^10.8.0",
+    "wxt": "^0.21.5"
   }
 }

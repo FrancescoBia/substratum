@@ -231,6 +231,44 @@ const colorDelay = spread(14, 140);
 const segmenter = new Intl.Segmenter();
 
 /**
+ * Splitting a name into one `inline-block` per letter drops kerning: the font
+ * only kerns within a run of text, so in Geist a name can open up by a pixel or
+ * more ("AVATAR Wave To" by ~8.5px). This puts every letter back where the whole
+ * text has it, read from the screen-reader copy (laid out in the same font and
+ * weight, just clipped), with a static `margin-left` per letter. Nothing here
+ * animates.
+ *
+ * Positions are differences within each layout, so a running `translate` on the
+ * name cancels out, and each letter's own translate is taken off its position.
+ * (Not `offsetLeft`: it rounds to whole pixels, which is the size of the error.)
+ * Each margin is the change in total correction, snapped to the 1/64px layout
+ * grid, so rounding never adds up along a long name.
+ */
+const kernLetters = (whole: HTMLElement, els: HTMLElement[]) => {
+  const text = whole.firstChild;
+  if (!text || els.length < 2) return;
+  for (const el of els) el.style.marginLeft = "";
+  const range = document.createRange();
+  let index = 0;
+  const kerned = els.map((el) => {
+    const length = el.textContent?.length ?? 0;
+    range.setStart(text, index);
+    range.setEnd(text, (index += length));
+    return range.getBoundingClientRect().left;
+  });
+  const ownTranslate = (el: Element) => parseFloat(getComputedStyle(el).translate) || 0;
+  const split = els.map((el) => el.getBoundingClientRect().left - ownTranslate(el));
+  const snap = (px: number) => Math.round(px * 64) / 64;
+  let applied = 0;
+  els.forEach((el, i) => {
+    if (i === 0) return;
+    const total = snap(kerned[i] - kerned[0] - (split[i] - split[0]));
+    if (total !== applied) el.style.marginLeft = `${total - applied}px`;
+    applied = total;
+  });
+};
+
+/**
  * A board's name. On select it is pushed in from the left one letter at a time:
  * letter `i` follows the spring `moveDelay(i)` late, and turns to the accent
  * colour on its own delay, so both the push and the colour wash travel
@@ -244,15 +282,31 @@ const segmenter = new Intl.Segmenter();
  * that: always ≥ 0, so nothing slides out past the clip's left edge, and the
  * first letter's on-screen path is exactly the spring — the asterisk's path.
  *
- * Letters are split only while selected. Splitting breaks kerning between
- * glyphs, so resting names stay whole text; the swap happens mid-motion, where
- * a subpixel kerning change can't be seen.
+ * Letters are split only while selected, and kerned back to match the whole
+ * text (see `kernLetters`), so the split doesn't change the spacing.
  */
 const BoardName = ({ name, active }: { name: string; active: boolean }) => {
   const ref = useRef<HTMLSpanElement>(null);
+  const wholeRef = useRef<HTMLSpanElement>(null);
   const wasActive = useRef(active);
   // Graphemes, not code units, so an emoji or accented letter moves as one.
   const letters = useMemo(() => Array.from(segmenter.segment(name), (s) => s.segment), [name]);
+
+  // Declared before the motion effect so letters are in place before it measures.
+  useLayoutEffect(() => {
+    if (!active) return;
+    const kern = () => {
+      if (!ref.current || !wholeRef.current) return;
+      kernLetters(wholeRef.current, [
+        ...ref.current.querySelectorAll<HTMLElement>("[data-letter]"),
+      ]);
+    };
+    kern();
+    // On a page load the web font can arrive after hydration, and margins
+    // measured on the fallback font would be pixels off. Measure again then.
+    document.fonts.addEventListener("loadingdone", kern);
+    return () => document.fonts.removeEventListener("loadingdone", kern);
+  }, [active, letters]);
 
   useLayoutEffect(() => {
     const became = active && !wasActive.current;
@@ -324,7 +378,9 @@ const BoardName = ({ name, active }: { name: string; active: boolean }) => {
     >
       {active ? (
         <>
-          <span className="sr-only">{name}</span>
+          <span ref={wholeRef} className="sr-only">
+            {name}
+          </span>
           <span aria-hidden>
             {letters.map((letter, i) => (
               <span key={i} data-letter className="inline-block whitespace-pre">

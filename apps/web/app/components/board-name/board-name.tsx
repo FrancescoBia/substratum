@@ -116,12 +116,20 @@ const useEdgeFade = (
     const clip = clipRef.current;
     const label = labelRef.current;
     if (!clip || !label) return;
-    const measure = () => {
-      const room = clip.clientWidth - parseFloat(getComputedStyle(clip).paddingLeft);
-      setFades(label.offsetWidth + extra > room);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
+    // Sizes come from the observer, not `offsetWidth`/`clientWidth` (whole
+    // pixels, so a name on the threshold flickers) or `getBoundingClientRect`
+    // (scaled by the row's press, still easing out as the select re-measures).
+    // It reports both targets on its first run. The state update from it can
+    // land a frame after mount; only a freshly created long name shows that.
+    let room = 0; // the clip's content box: its width minus the left padding
+    let width = 0;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === clip) room = entry.contentBoxSize[0].inlineSize;
+        else width = entry.borderBoxSize[0].inlineSize;
+      }
+      setFades(width + extra > room);
+    });
     observer.observe(clip);
     observer.observe(label);
     return () => observer.disconnect();

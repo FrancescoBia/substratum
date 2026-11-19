@@ -9,5 +9,25 @@
         "name": "oxfmt"
       }
     }
-  ]
+  ],
+  "languages": {
+    "CSS": {
+      "language_servers": ["tailwindcss-intellisense-css"]
+    }
+  },
+  "lsp": {
+    "tailwindcss-language-server": {
+      "settings": {
+        "classFunctions": ["cva", "cx"],
+        "experimental": {
+          "configFile": {
+            "apps/web/app/app.css": "apps/web/**",
+            "apps/extension/entrypoints/options/style.css": "apps/extension/**",
+            "apps/storybook/.storybook/storybook.css": "apps/storybook/**",
+            "packages/ui/src/styles/globals.css": "packages/ui/**"
+          }
+        }
+      }
+    }
+  }
 }

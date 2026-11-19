@@ -15,30 +15,75 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# One publish per tag at a time. Two runs for the same tag would otherwise race
+# to push it (and `:latest`), and whichever finishes last wins, not whichever
+# was pushed last. That happened with v0.4.1, when the tag was re-pointed while
+# the first run was still going.
+#
+# Scoped to the tag rather than shared: GitHub keeps at most one pending run per
+# group and cancels the one before it, so a shared group would silently drop a
+# release whenever three tags arrived close together.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+# Read-only unless a job says otherwise. Only `image` (push to GHCR) and
+# `release` (create the GitHub Release) need to write, and they ask for it.
+permissions:
+  contents: read
+
 jobs:
+  # Cheap checks on the tag itself, before spending CI time on it.
+  verify:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # Full history, so the ancestry check below can see main.
+          fetch-depth: 0
+      # Releases come from main. Main takes direct pushes, so this isn't about
+      # review — it stops a tag on a feature branch from shipping unmerged work
+      # to everyone on `:latest`. Push main before (or together with) the tag:
+      # `git push --atomic origin main vX.Y.Z`.
+      - run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on main. Push main first, or tag a commit that is."
+            exit 1
+          fi
+      # The tag must sit on the commit that bumped the version. A tag pushed onto
+      # the commit before the bump would otherwise ship that commit as the new
+      # version.
+      - run: node scripts/version.mjs check "$GITHUB_REF_NAME"
+
   # Branch protection cannot cover this: a `v*` tag can be pushed to any commit,
   # on any branch, and main's rules never see it. So the release gate is a job —
   # the same CI a pull request runs, against the exact commit being tagged. A
   # green run from before the tag is not evidence about the tag.
   ci:
+    needs: verify
+    if: ${{ !failure() && !cancelled() }}
     uses: ./.github/workflows/ci.yml
 
   image:
-    needs: ci
+    needs: [verify, ci]
+    # `verify` is skipped on a manual run, and a skipped dependency would
+    # otherwise skip this job too.
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # QEMU so the amd64 runner can also produce the arm64 image.
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
       # The default docker driver cannot emit multi-platform manifests.
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       # GITHUB_TOKEN is enough with packages: write — no PAT to create or store.
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -50,17 +95,22 @@ jobs:
       # everyone. `latest=auto` applies `:latest` only to a semver release tag,
       # and never to a pre-release.
       - id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/francescobia/substratum
           # `{{raw}}` rather than `{{version}}`: it keeps the leading `v`, which
           # is what v0.1.0 was already published as.
+          #
+          # `v0.4` follows the newest v0.4.x, for anyone who wants fixes without
+          # being moved onto the next minor version. metadata-action never applies
+          # it to a pre-release.
           tags: |
             type=semver,pattern={{raw}}
+            type=semver,pattern=v{{major}}.{{minor}}
             type=ref,event=branch
           flavor: latest=auto
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -71,3 +121,33 @@ jobs:
           # slow enough to be worth caching between runs.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # The GitHub Release is where self-hosters look for what an upgrade contains,
+  # so it follows the image rather than the tag: it only appears once there is
+  # something to pull.
+  release:
+    needs: image
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # Tags and history, to find the previous release and the commits since.
+          fetch-depth: 0
+      - run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+      # A pre-release tag (v1.2.0-rc.1) becomes a pre-release, which GitHub
+      # never marks as Latest, the same rule `:latest` follows. A re-run updates
+      # the existing release instead of failing on it.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
+              --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+          fi

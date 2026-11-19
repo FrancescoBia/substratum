@@ -32,10 +32,11 @@ pnpm build
 - **Tags are hidden** behind `TAGS_ENABLED` in `apps/web/app/lib/features.ts`. Keep tag code working, but don't surface it in the UI.
 - **e2e auth** goes through the real `/setup` endpoint (`e2e/auth.setup.ts`). Don't add dev-only login routes or auth bypasses.
 - **Video** is never transcoded. ffmpeg/ffprobe are required at startup.
-- **Versions** are kept in sync across the root, `apps/extension`, `packages/ui` and `packages/shared`. Bump all of them together.
+- **Versions** are the same in every `package.json` that has one. Change them only with `pnpm release:version <x.y.z>`. CI fails if they drift (`pnpm release:check`).
 - **Commits** follow Conventional Commits with an optional scope: `feat(web): …`, `fix: …`, `chore: …`.
 
 ## Git & releases
 
 - Pushing directly to `main` is allowed. Please check with the developer before committing anything though.
 - Pushing a `v*` tag publishes the GHCR image that self-hosters pull as `:latest`. Never create or push tags unless explicitly asked.
+- To cut a release, follow `.claude/skills/release/SKILL.md` (`/release` in Claude Code). The publish workflow handles everything after the tag: it checks the tag, runs CI, pushes the image and creates the GitHub Release.

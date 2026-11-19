@@ -19,7 +19,10 @@
     "seed": "pnpm --filter @repo/web seed",
     "test:unit": "pnpm --filter @repo/web test:unit",
     "test:e2e": "pnpm --filter @repo/web test:e2e",
-    "shots": "pnpm --filter @repo/web shots"
+    "shots": "pnpm --filter @repo/web shots",
+    "release:version": "node scripts/version.mjs set",
+    "release:check": "node scripts/version.mjs check",
+    "release:notes": "node scripts/release-notes.mjs"
   },
   "devDependencies": {
     "oxfmt": "^0.67.0",

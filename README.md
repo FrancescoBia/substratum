@@ -253,11 +253,34 @@ When a proxy refuses an upload, the app says so rather than reporting a bare 413
 
 ### Upgrading
 
+Check the [release notes](https://github.com/FrancescoBia/substratum/releases) first, then
+[back up](#backups) the `data` volume and run:
+
 ```bash
 docker compose pull && docker compose up -d
 ```
 
-Database migrations run automatically on startup.
+Database migrations run automatically on startup. They only run forwards: once a
+newer version has migrated the database, an older image may refuse to start on it.
+Release notes flag every release that includes a migration.
+
+#### Choosing a version
+
+`:latest` moves to each new release. If you'd rather choose when to upgrade, set
+the `image:` line in your compose file to one of these instead:
+
+- A minor version, such as `ghcr.io/francescobia/substratum:v0.5`, follows the
+  newest v0.5.x. You get fixes, but not the next minor version. These tags start
+  with v0.5.
+- An exact release, such as `ghcr.io/francescobia/substratum:v0.4.1`, only
+  changes when you change it.
+
+#### Rolling back
+
+Stop the app, restore the `data` volume from the backup you took before upgrading,
+then set the `image:` line to the previous version and run `docker compose up -d`.
+If the release you're leaving didn't include a migration, you can skip restoring
+the backup.
 
 If you build the image yourself from this repo rather than pulling it, use:
 

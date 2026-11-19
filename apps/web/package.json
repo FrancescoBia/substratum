@@ -13,6 +13,7 @@
     "migrate:storage": "node ./scripts/migrate-storage.mjs",
     "seed": "node ./scripts/seed.mjs",
     "test:unit": "node --test \"test/*.test.ts\"",
+    "test:browser": "vitest run",
     "test:e2e": "node ./scripts/reset-test-data.mjs && playwright test",
     "test:e2e:ui": "playwright test --ui",
     "shots": "node ./scripts/reset-test-data.mjs && playwright test --project=chromium --grep 'capture every view'"
@@ -46,11 +47,15 @@
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitest/browser-playwright": "^5.1.0",
     "drizzle-kit": "^0.31.5",
     "fflate": "^0.8.3",
+    "playwright": "^1.62.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "vite": "^8.0.3",
-    "vite-plugin-svgr": "^5.2.0"
+    "vite-plugin-svgr": "^5.2.0",
+    "vitest": "^5.1.0",
+    "vitest-browser-react": "^2.3.0"
   }
 }

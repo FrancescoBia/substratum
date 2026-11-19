@@ -17,6 +17,7 @@ CI (`.github/workflows/ci.yml`) blocks on all of these, so run the relevant ones
 pnpm format:check   # blocking — run `pnpm format` to fix
 pnpm typecheck
 pnpm test:unit
+pnpm test:browser   # component tests needing real layout; Vitest browser mode, headless Chromium
 pnpm test:e2e       # needs ffmpeg/ffprobe on PATH; uses its own throwaway instance on :3100
 pnpm build
 ```

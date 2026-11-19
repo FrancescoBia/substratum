@@ -68,6 +68,9 @@ jobs:
       # and --with-deps pulls the system libraries the runner image lacks.
       - run: pnpm --filter @repo/web exec playwright install --with-deps chromium
       - uses: ./.github/actions/ffmpeg
+      # Component tests that need real layout. They share the Chromium installed
+      # above, which is why they run here rather than in `check`.
+      - run: pnpm test:browser
       - run: pnpm test:e2e
 
       # The CI reporter is `line`, so a failure leaves no HTML report — but

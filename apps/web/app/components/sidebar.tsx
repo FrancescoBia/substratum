@@ -6,6 +6,7 @@ import { cn } from "cn";
 import { CheckCircle2Icon, Globe, Inbox, LogOutIcon, PlusCircleIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, useFetcher, useSubmit } from "react-router";
+import { BoardName } from "~/components/board-name/board-name";
 import { SettingsDialog } from "~/components/settings-dialog";
 import { APP_VERSION } from "~/lib/version";
 
@@ -129,24 +130,33 @@ const Separator = () => (
 
 const BoardItem = ({ board }: { board: Board }) => {
   return (
-    <NavLink
-      to={`/boards/${board.id}`}
-      className={({ isActive }) =>
-        cn(
-          "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors my-px text-muted-foreground",
-          isActive ? "bg-accent text-primary font-medium" : "hover:bg-accent/50",
-        )
-      }
-    >
-      <span className="truncate">{board.name}</span>
-      {board.published && (
-        <span className="ml-auto" title="Published">
-          <Globe className="size-icon shrink-0" />
-        </span>
+    <NavLink to={`/boards/${board.id}`} className="py-px block group">
+      {({ isActive }) => (
+        <div
+          className={cn(
+            "relative isolate flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-muted-foreground",
+            "transition-[background-color,scale] duration-150 ease-out active:scale-[0.98] motion-reduce:active:scale-100",
+            !isActive && "group-hover:bg-accent/50",
+          )}
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "bg-accent absolute inset-0 -z-10 rounded-md motion-reduce:transition-none",
+              isActive
+                ? "opacity-100 [clip-path:inset(0_0_0_0_round_6px)] [transition:clip-path_var(--board-settle)]"
+                : "opacity-0 [clip-path:inset(0_100%_0_0_round_6px)] [transition:opacity_150ms_ease-out,clip-path_0ms_150ms]",
+            )}
+          />
+          <BoardName name={board.name} active={isActive} />
+          {board.published && (
+            <span className="shrink-0" title="Published">
+              <Globe className="size-icon" />
+            </span>
+          )}
+          <span className="shrink-0 text-xs tabular-nums">{board.count}</span>
+        </div>
       )}
-      <span className={cn("text-xs tabular-nums", !board.published && "ml-auto")}>
-        {board.count}
-      </span>
     </NavLink>
   );
 };

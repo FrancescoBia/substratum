@@ -136,18 +136,15 @@ const Separator = () => (
 
 const BoardItem = ({ board }: { board: Board }) => {
   return (
-    <NavLink
-      to={`/boards/${board.id}`}
-      className={({ isActive }) =>
-        cn(
-          "relative isolate my-px flex w-full items-center gap-2 rounded-md py-1.5 pr-3 pl-3 text-left text-sm text-muted-foreground",
-          "transition-[background-color,scale] duration-150 ease-out active:scale-[0.98] motion-reduce:active:scale-100",
-          !isActive && "hover:bg-accent/50",
-        )
-      }
-    >
+    <NavLink to={`/boards/${board.id}`} className="py-px block group">
       {({ isActive }) => (
-        <>
+        <div
+          className={cn(
+            "relative isolate flex w-full items-center gap-2 rounded-md py-1.5 pr-3 pl-3 text-left text-sm text-muted-foreground",
+            "transition-[background-color,scale] duration-150 ease-out active:scale-[0.98] motion-reduce:active:scale-100",
+            !isActive && "group-hover:bg-accent/50",
+          )}
+        >
           <span
             aria-hidden
             className={cn(
@@ -180,7 +177,7 @@ const BoardItem = ({ board }: { board: Board }) => {
           <span className={cn("text-xs tabular-nums", !board.published && "ml-auto")}>
             {board.count}
           </span>
-        </>
+        </div>
       )}
     </NavLink>
   );

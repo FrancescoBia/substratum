@@ -90,11 +90,14 @@ test.describe("Stream and upload", () => {
     expect(thumbnailBox.height / thumbnailBox.width).toBeCloseTo(declared, 1);
 
     await page.goto(`/boards/${boardId}`);
-    await expect(page.getByRole("button", { name: "Mosaic" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
     await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
+
+    // A Board sets the same preference from its settings menu.
+    await page.getByRole("button", { name: "Board settings" }).click();
+    await page.getByRole("menuitem", { name: "Display" }).hover();
+    await expect(page.getByRole("menuitemradio", { name: "Mosaic view" })).toBeChecked();
+    await page.getByRole("menuitemradio", { name: "Grid view" }).click();
+    await expect(page.locator('[data-layout="flat"]')).toBeVisible();
   });
 
   test("dropping files on the page uploads them", async ({ page }) => {
@@ -492,6 +495,21 @@ test.describe("Boards", () => {
     await expect(page.getByText(`${origin}/board/shareable`)).toBeVisible();
   });
 
+  test("renaming one from its settings menu", async ({ page, request }) => {
+    const boardId = await createBoard(request, "Old name");
+    await page.goto(`/boards/${boardId}`);
+
+    await page.getByRole("button", { name: "Board settings" }).click();
+    await page.getByRole("menuitem", { name: "Rename board" }).click();
+    const dialog = page.getByRole("dialog", { name: "Rename board" });
+    await expect(dialog.getByLabel("Board name")).toBeFocused();
+    await page.keyboard.type("New name");
+    await page.keyboard.press("Enter");
+
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("heading", { name: "New name" })).toBeVisible();
+  });
+
   test("deleting one keeps its images", async ({ page, request }) => {
     await uploadImages(request, 1);
     const boardId = await createBoard(request, "Temporary");
@@ -502,7 +520,8 @@ test.describe("Boards", () => {
 
     await page.goto(`/boards/${boardId}`);
     page.on("dialog", (dialog) => dialog.accept());
-    await page.locator("header").getByRole("button").last().click();
+    await page.getByRole("button", { name: "Board settings" }).click();
+    await page.getByRole("menuitem", { name: "Delete board" }).click();
 
     await expect(page.getByRole("heading", { name: "Stream" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Temporary/ })).toBeHidden();

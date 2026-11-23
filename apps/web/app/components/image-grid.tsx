@@ -9,7 +9,7 @@ import { TAGS_ENABLED } from "~/lib/features";
 import type { GridImage } from "~/lib/library.server";
 import type { loader as libraryLoader } from "~/routes/library";
 
-type GridLayout = "flat" | "mosaic";
+export type GridLayout = "flat" | "mosaic";
 
 const GRID_LAYOUT_STORAGE_KEY = "substratum-grid-layout";
 
@@ -47,6 +47,33 @@ function isClamped(image: GridImage) {
   return tileRatio(image) !== image.height / image.width;
 }
 
+/** The Owner's grid or mosaic preference, shared by every view and kept across visits. */
+export function useGridLayout() {
+  const [layout, setLayout] = useState<GridLayout>("flat");
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(GRID_LAYOUT_STORAGE_KEY) === "mosaic") {
+        setLayout("mosaic");
+      }
+    } catch {
+      // Storage can be unavailable in privacy-restricted browsers. The switch
+      // still works for the current page in that case.
+    }
+  }, []);
+
+  function changeLayout(nextLayout: GridLayout) {
+    setLayout(nextLayout);
+    try {
+      window.localStorage.setItem(GRID_LAYOUT_STORAGE_KEY, nextLayout);
+    } catch {
+      // Keep the in-memory preference when persistence is unavailable.
+    }
+  }
+
+  return [layout, changeLayout] as const;
+}
+
 /**
  * The library grid can either use uniform aspect-cropped tiles or a masonry-like
  * mosaic that preserves each thumbnail's proportions.
@@ -68,35 +95,20 @@ function isClamped(image: GridImage) {
 export function ImageGrid({
   images,
   allowLayoutSwitch = false,
+  layout: controlledLayout,
 }: {
   images: GridImage[];
   allowLayoutSwitch?: boolean;
+  /** Set when the view's own controls own the layout, which hides the built-in switch. */
+  layout?: GridLayout;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
   const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
-  const [layout, setLayout] = useState<GridLayout>("flat");
+  const [storedLayout, changeLayout] = useGridLayout();
+  const layout = controlledLayout ?? storedLayout;
+  const showLayoutSwitch = allowLayoutSwitch && controlledLayout === undefined;
   const tileMorphName = useTileMorphName();
-
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem(GRID_LAYOUT_STORAGE_KEY) === "mosaic") {
-        setLayout("mosaic");
-      }
-    } catch {
-      // Storage can be unavailable in privacy-restricted browsers. The switch
-      // still works for the current page in that case.
-    }
-  }, []);
-
-  function changeLayout(nextLayout: GridLayout) {
-    setLayout(nextLayout);
-    try {
-      window.localStorage.setItem(GRID_LAYOUT_STORAGE_KEY, nextLayout);
-    } catch {
-      // Keep the in-memory preference when persistence is unavailable.
-    }
-  }
 
   // A tile opens the viewer with nothing else on: the details column is
   // something the Owner turns on from in there, not a thing every look brings.
@@ -147,7 +159,7 @@ export function ImageGrid({
   // grid has no reason to take on.
   return (
     <section className={layout === "mosaic" ? "@container" : undefined}>
-      {allowLayoutSwitch && (
+      {showLayoutSwitch && (
         <div className="mb-3 flex justify-end">
           <div
             role="group"

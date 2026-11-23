@@ -1,19 +1,27 @@
 import { Button } from "@repo/ui/components/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import { ArrowUpRightIcon } from "lucide-react";
+import type { ComponentProps } from "react";
 import type { AvailableUpdate } from "~/lib/update-check.server";
 import { APP_VERSION } from "~/lib/version";
 
+const buttonBaseProps: ComponentProps<typeof Button> = { variant: "ghost", size: "xs" };
+
 export const AppVersion = ({ update }: { update?: AvailableUpdate | null }) => {
-  if (!update) return <h4 className="px-2 text-xs opacity-50">v{APP_VERSION}</h4>;
+  if (!update) {
+    return (
+      <Button {...buttonBaseProps} disabled>
+        v{APP_VERSION}
+      </Button>
+    );
+  }
 
   return (
     <Popover>
       <PopoverTrigger
         render={
           <Button
-            variant="ghost"
-            size="xs"
+            {...buttonBaseProps}
             aria-label={`v${APP_VERSION}, update available`}
             title="Update available"
           />

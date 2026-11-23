@@ -1,13 +1,22 @@
 import { Button } from "@repo/ui/components/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import Logo from "@repo/ui/assets/logo/substratum_logo.svg?react";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "cn";
-import { CheckCircle2Icon, Globe, Inbox, LogOutIcon, PlusCircleIcon } from "lucide-react";
-import { useState } from "react";
-import { Link, NavLink, useFetcher, useSubmit } from "react-router";
+import {
+  ArrowUpRightIcon,
+  CheckCircle2Icon,
+  Globe,
+  Inbox,
+  LogOutIcon,
+  PlusCircleIcon,
+} from "lucide-react";
+import { Suspense, useState } from "react";
+import { Await, Link, NavLink, useFetcher, useSubmit } from "react-router";
 import { BoardName } from "~/components/board-name/board-name";
 import { SettingsDialog } from "~/components/settings-dialog";
+import type { AvailableUpdate } from "~/lib/update-check.server";
 import { APP_VERSION } from "~/lib/version";
 
 type Board = { id: string; name: string; published: boolean; count: number };
@@ -16,10 +25,12 @@ type Tag = { id: string; name: string; count: number };
 export const Sidebar = ({
   boards,
   untriagedCount,
+  availableUpdate,
 }: {
   boards: Board[];
   tags: Tag[];
   untriagedCount: number;
+  availableUpdate: Promise<AvailableUpdate | null>;
 }) => {
   const [creating, setCreating] = useState(false);
   const createBoard = useFetcher();
@@ -115,10 +126,47 @@ export const Sidebar = ({
           <SettingsDialog />
 
           <span className="grow" />
-          <h4 className="text-xs opacity-50 mr-1">v{APP_VERSION}</h4>
+          <Suspense fallback={<AppVersion />}>
+            <Await resolve={availableUpdate} errorElement={<AppVersion />}>
+              {(update) => <AppVersion update={update} />}
+            </Await>
+          </Suspense>
         </div>
       </div>
     </aside>
+  );
+};
+
+const AppVersion = ({ update }: { update?: AvailableUpdate | null }) => {
+  if (!update) return <h4 className="px-2 text-xs opacity-50">v{APP_VERSION}</h4>;
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="xs"
+            aria-label={`v${APP_VERSION}, update available`}
+            title="Update available"
+          />
+        }
+      >
+        <span aria-hidden className="size-1.5 rounded-full bg-primary" />v{APP_VERSION}
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" className="w-auto space-y-1">
+        <p className="font-medium">v{update.version} is available</p>
+        <a
+          href={update.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        >
+          Release notes
+          <ArrowUpRightIcon className="size-3" />
+        </a>
+      </PopoverContent>
+    </Popover>
   );
 };
 

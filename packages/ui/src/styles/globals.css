@@ -70,7 +70,7 @@
   --card: var(--background);
   --card-foreground: var(--foreground);
   --popover: var(--background);
-  --popover-foreground: var(--foreground);
+  --popover-foreground: var(--muted-foreground);
   --primary: oklch(0.67 0.171 265);
   --primary-foreground: var(--background);
   --secondary: var(--muted);

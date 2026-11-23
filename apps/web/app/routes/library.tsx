@@ -7,6 +7,7 @@ import { UploadDropzone, type UploadDestination } from "~/components/upload-drop
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { getImageDetail, listBoards, listStream, listTags } from "~/lib/library.server";
+import { getAvailableUpdate } from "~/lib/update-check.server";
 import type { Route } from "./+types/library";
 import { TAGS_ENABLED } from "~/lib/features";
 
@@ -44,11 +45,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     untriagedCount: stream.filter((image) => image.untriaged).length,
     trashCount: trashRows.length,
     selected,
+    // Not awaited: it streams in, so a slow GitHub never holds up the page.
+    availableUpdate: getAvailableUpdate(),
   };
 }
 
 export default function Library({ loaderData }: Route.ComponentProps) {
-  const { boards, tags, untriagedCount } = loaderData;
+  const { boards, tags, untriagedCount, availableUpdate } = loaderData;
   const location = useLocation();
 
   // Which view the drop lands on, if it is one an Image can be filed into. The
@@ -65,7 +68,12 @@ export default function Library({ loaderData }: Route.ComponentProps) {
   return (
     <UploadDropzone destination={destination}>
       <div className="flex h-screen">
-        <Sidebar boards={boards} tags={tags} untriagedCount={untriagedCount} />
+        <Sidebar
+          boards={boards}
+          tags={tags}
+          untriagedCount={untriagedCount}
+          availableUpdate={availableUpdate}
+        />
 
         <main className="min-w-0 flex-1 overflow-y-auto">
           <Outlet />

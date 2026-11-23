@@ -4,11 +4,12 @@ import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "cn";
 import { CheckCircle2Icon, Globe, Inbox, LogOutIcon, PlusCircleIcon } from "lucide-react";
-import { useState } from "react";
-import { Link, NavLink, useFetcher, useSubmit } from "react-router";
+import { Suspense, useState } from "react";
+import { Await, Link, NavLink, useFetcher, useSubmit } from "react-router";
+import { AppVersion } from "~/components/app-version";
 import { BoardName } from "~/components/board-name/board-name";
 import { SettingsDialog } from "~/components/settings-dialog";
-import { APP_VERSION } from "~/lib/version";
+import type { AvailableUpdate } from "~/lib/update-check.server";
 
 type Board = { id: string; name: string; published: boolean; count: number };
 type Tag = { id: string; name: string; count: number };
@@ -16,10 +17,12 @@ type Tag = { id: string; name: string; count: number };
 export const Sidebar = ({
   boards,
   untriagedCount,
+  availableUpdate,
 }: {
   boards: Board[];
   tags: Tag[];
   untriagedCount: number;
+  availableUpdate: Promise<AvailableUpdate | null>;
 }) => {
   const [creating, setCreating] = useState(false);
   const createBoard = useFetcher();
@@ -115,7 +118,11 @@ export const Sidebar = ({
           <SettingsDialog />
 
           <span className="grow" />
-          <h4 className="text-xs opacity-50 mr-1">v{APP_VERSION}</h4>
+          <Suspense fallback={<AppVersion />}>
+            <Await resolve={availableUpdate} errorElement={<AppVersion />}>
+              {(update) => <AppVersion update={update} />}
+            </Await>
+          </Suspense>
         </div>
       </div>
     </aside>

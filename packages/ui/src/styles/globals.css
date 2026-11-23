@@ -100,7 +100,7 @@
     @apply border-border outline-ring/50 underline-offset-4;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-muted-foreground;
   }
   html {
     @apply font-sans;

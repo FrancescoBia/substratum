@@ -23,7 +23,7 @@ export function countLabel(items: Array<{ kind: "image" | "video" }>): string {
   const stills = items.length - videos;
 
   const parts: string[] = [];
-  if (stills > 0 || videos === 0) parts.push(`${stills} image${stills === 1 ? "" : "s"}`);
-  if (videos > 0) parts.push(`${videos} video${videos === 1 ? "" : "s"}`);
+  if (stills > 0 || videos === 0) parts.push(`${stills} Image${stills === 1 ? "" : "s"}`);
+  if (videos > 0) parts.push(`${videos} Video${videos === 1 ? "" : "s"}`);
   return parts.join(", ");
 }

@@ -285,8 +285,15 @@ export function ViewHeader({
   return (
     <header className="flex flex-wrap items-baseline justify-between gap-4 pb-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
+        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {subtitle && (
+          <p
+            className="text-muted-foreground text-[11px] mt-3.5 font-mono"
+            style={{ lineHeight: 1.55 }}
+          >
+            {subtitle}
+          </p>
+        )}
       </div>
       {children && <div className="flex items-center gap-2">{children}</div>}
     </header>

@@ -11,7 +11,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import { Input } from "@repo/ui/components/input";
@@ -79,11 +78,10 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
               </Button>
             }
           />
-          <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setRenaming(true)}>
               <Pencil /> Rename board
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
               onClick={() => {

@@ -15,7 +15,7 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * How many of each a view holds: "3 images", "1 video", "3 images, 1 video".
+ * How many of each a view holds: "3 Images", "1 Video", "3 Images, 1 Video".
  * A library with no videos reads exactly as it always did.
  */
 export function countLabel(items: Array<{ kind: "image" | "video" }>): string {

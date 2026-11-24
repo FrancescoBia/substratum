@@ -30,7 +30,7 @@ test.describe("Stream and upload", () => {
     await uploadImages(request, 3);
     await page.goto("/");
 
-    await expect(page.getByText("3 images")).toBeVisible();
+    await expect(page.getByText("3 Images")).toBeVisible();
     await expect(page.locator("main img")).toHaveCount(3);
 
     // Thumbnails must be served, not broken — a 404 would still render an <img>.
@@ -485,8 +485,9 @@ test.describe("Boards", () => {
   }) => {
     const boardId = await createBoard(request, "Shareable");
     await page.goto(`/boards/${boardId}`);
-    await page.getByRole("button", { name: "Publish" }).click();
+    await page.getByRole("button", { name: "Private" }).click();
     await page.getByRole("switch", { name: "Public URL" }).click();
+    await expect(page.getByRole("button", { name: "Public" })).toBeVisible();
 
     // The regression this guards: the link used to be built from a hardcoded
     // port, so on any other one it pointed at whatever else was listening.
@@ -501,7 +502,7 @@ test.describe("Boards", () => {
 
     await page.getByRole("switch", { name: "Public URL" }).click();
     await expect(link).toBeHidden();
-    await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Private" })).toBeVisible();
   });
 
   test("renaming one from its settings menu", async ({ page, request }) => {

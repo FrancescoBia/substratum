@@ -48,7 +48,7 @@ test("a video tile says it is one, and how long it runs", async ({ page, request
 
   await page.goto("/");
 
-  await expect(page.getByText("1 image, 1 video")).toBeVisible();
+  await expect(page.getByText("1 Image, 1 Video")).toBeVisible();
   await expect(page.locator("main a").filter({ hasText: "0:02" })).toHaveCount(1);
 });
 
@@ -128,7 +128,7 @@ test("a visitor to a published board sees videos play", async ({ browser, reques
     const page = await context.newPage();
     await page.goto(`/board/${slug}`);
 
-    await expect(page.getByText("1 video", { exact: true })).toBeVisible();
+    await expect(page.getByText("1 Video", { exact: true })).toBeVisible();
     await expect(page.locator("main a").filter({ hasText: "0:02" })).toHaveCount(1);
 
     await page.locator("main a[href*='view=']").hover();

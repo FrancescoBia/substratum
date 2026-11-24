@@ -1,13 +1,6 @@
-import { ExternalLinkIcon } from "lucide-react";
-import { Link, useLocation } from "react-router";
-import {
-  Lightbox,
-  LIGHTBOX_PARAM,
-  morphFromTile,
-  skipLightboxRevalidation,
-  useTileMorphName,
-} from "~/components/lightbox";
-import { VideoPreview } from "~/components/video-preview";
+import { getOwner } from "~/auth/session.server";
+import { EmptyState, ImageGrid, ViewHeader } from "~/components/image-grid";
+import { skipLightboxRevalidation } from "~/components/lightbox";
 import { instanceUrlFor } from "~/lib/config.server";
 import { getPublishedBoard, listPublicBoardImages } from "~/lib/library.server";
 import { countLabel } from "~/lib/media";
@@ -53,101 +46,30 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   // outside — unpublishing takes the page down, it doesn't leave a signpost.
   if (!board) throw new Response("Not found", { status: 404 });
 
-  const images = await listPublicBoardImages(board.id);
+  const [images, owner] = await Promise.all([listPublicBoardImages(board.id), getOwner()]);
   const origin = instanceUrlFor(request);
 
   return {
     board,
     images,
+    gridLayout: owner?.gridLayout ?? "flat",
     canonical: `${origin}/board/${board.slug}`,
     ogImage: images[0] ? `${origin}/img/${images[0].id}/medium` : null,
   };
 }
 
 export default function PublicBoard({ loaderData }: Route.ComponentProps) {
-  const { board, images } = loaderData;
-  const location = useLocation();
-  const tileMorphName = useTileMorphName();
-
-  function viewHref(id: string) {
-    const params = new URLSearchParams(location.search);
-    params.set(LIGHTBOX_PARAM, id);
-    return `${location.pathname}?${params}`;
-  }
+  const { board, images, gridLayout } = loaderData;
 
   return (
-    <main className="mx-auto max-w-7xl px-6 pb-24">
-      <header className="py-10">
-        <h1 className="text-3xl font-semibold tracking-tight">{board.name}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{countLabel(images)}</p>
-      </header>
+    <main className="mx-auto max-w-7xl px-6 pt-10 pb-24">
+      <ViewHeader title={board.name} subtitle={countLabel(images)} />
 
       {images.length === 0 ? (
-        <p className="text-muted-foreground rounded-xl border border-dashed p-12 text-center text-sm">
-          Nothing on this board yet.
-        </p>
+        <EmptyState title="Nothing on this board yet" />
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {images.map((image) => (
-            <figure key={image.id}>
-              {/* See `image-grid.tsx`: the tile expands into the viewer, and
-                  the nomination has to happen before the navigation. */}
-              <Link
-                to={viewHref(image.id)}
-                preventScrollReset
-                viewTransition
-                onClick={() => morphFromTile(image.id)}
-                aria-label={image.title ?? (image.kind === "video" ? "Video" : "Image")}
-                className="group relative block"
-              >
-                <img
-                  // See `image-grid.tsx`: the 400px `thumb` is too small for a
-                  // ~300 CSS px tile on a retina display.
-                  src={`/img/${image.id}/medium`}
-                  alt={image.title ?? ""}
-                  width={image.width}
-                  height={image.height}
-                  loading="lazy"
-                  data-lightbox-tile={image.id}
-                  style={{ viewTransitionName: tileMorphName(image.id) }}
-                  className="bg-muted aspect-4/5 w-full rounded-lg object-cover transition group-hover:brightness-90"
-                />
-                {image.kind === "video" && (
-                  <VideoPreview id={image.id} durationMs={image.durationMs} />
-                )}
-              </Link>
-              {/* Attribution only where there is something to attribute — an
-                  uploaded image has no source page. */}
-              {image.sourcePageUrl && (
-                <figcaption className="mt-1.5 truncate text-xs">
-                  <a
-                    href={image.sourcePageUrl}
-                    target="_blank"
-                    rel="noreferrer nofollow"
-                    className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 hover:underline"
-                  >
-                    {hostOf(image.sourcePageUrl)}
-                    <ExternalLinkIcon className="size-3 shrink-0" />
-                  </a>
-                </figcaption>
-              )}
-            </figure>
-          ))}
-        </div>
+        <ImageGrid images={images} layout={gridLayout} readOnly />
       )}
-
-      {/* Same viewer the Owner gets, minus anything private: the images on this
-          page are already served publicly, so this adds no new exposure. */}
-      <Lightbox
-        images={images.map((image) => ({
-          id: image.id,
-          kind: image.kind,
-          width: image.width,
-          height: image.height,
-          title: image.title,
-          sourcePageUrl: image.sourcePageUrl,
-        }))}
-      />
 
       <footer className="text-muted-foreground mt-16 border-t pt-6 text-xs">
         Collected with{" "}
@@ -157,12 +79,4 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
       </footer>
     </main>
   );
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
 }

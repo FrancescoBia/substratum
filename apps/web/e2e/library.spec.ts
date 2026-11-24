@@ -67,6 +67,12 @@ test.describe("Stream and upload", () => {
     await expect(layoutButton).toHaveAccessibleName("Grid type: Mosaic");
     await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
 
+    // Remembered on the server, so the very first paint is already the mosaic
+    // rather than the flat grid swapping over after hydration.
+    await expect
+      .poll(async () => (await request.get("/")).text())
+      .toContain('data-layout="mosaic"');
+
     // The regression this guards: the mosaic used to be CSS multi-column, which
     // fills a whole column before starting the next, so tile 2 rendered *below*
     // tile 1. No class assertion can see that — only geometry can.

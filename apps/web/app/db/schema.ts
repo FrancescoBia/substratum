@@ -9,6 +9,10 @@ export const owner = sqliteTable("owner", {
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
   createdAt: integer("created_at").notNull(),
+  /** Every grid follows it, published Boards included. */
+  gridLayout: text("grid_layout", { enum: ["flat", "mosaic"] })
+    .notNull()
+    .default("flat"),
 });
 
 /** Server-side sessions. The cookie carries only the session id. */

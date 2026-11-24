@@ -1,0 +1,1 @@
+ALTER TABLE `owner` ADD `grid_layout` text DEFAULT 'flat' NOT NULL;

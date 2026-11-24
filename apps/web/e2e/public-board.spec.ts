@@ -66,6 +66,31 @@ test("a published board is readable with no session at all", async ({ browser, r
   });
 });
 
+test("a published board follows the Owner's grid layout", async ({ browser, request }) => {
+  const { slug } = await publishBoard(request, "Dark UI", 2);
+
+  await asStranger(browser, async (page) => {
+    await page.goto(`/board/${slug}`);
+    await expect(page.locator('main [data-layout="flat"]')).toBeVisible();
+
+    await request.post("/preferences", { form: { gridLayout: "mosaic" } });
+
+    await page.reload();
+    await expect(page.locator('main [data-layout="mosaic"]')).toBeVisible();
+  });
+});
+
+test("a visitor gets no way into the Owner's details", async ({ browser, request }) => {
+  const { slug } = await publishBoard(request, "Dark UI", 1);
+
+  await asStranger(browser, async (page) => {
+    await page.goto(`/board/${slug}`);
+    await page.locator("main a").first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Details" })).toBeHidden();
+  });
+});
+
 test("a visitor can open an image at full size", async ({ browser, request }) => {
   const { slug, ids } = await publishBoard(request, "Dark UI", 2);
 

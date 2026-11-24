@@ -33,16 +33,19 @@ export function PublishPopover({
       <PopoverTrigger
         render={
           <Button variant="ghost" size="sm">
-            {published ? (
-              <>
-                <Globe /> Public
-              </>
-            ) : (
-              <>
-                <GlobeOffIcon />
+            {published ? <Globe /> : <GlobeOffIcon />}
+            {/*
+              Workaround to avoid the button width jumping between the two states.
+             (Particularly visible when other elements are stacked horizontally.)
+             */}
+            <span className="grid">
+              <span className={cn("col-start-1 row-start-1", !published && "invisible")}>
+                Public
+              </span>
+              <span className={cn("col-start-1 row-start-1", published && "invisible")}>
                 Private
-              </>
-            )}
+              </span>
+            </span>
           </Button>
         }
       />

@@ -46,3 +46,4 @@ pnpm build
 
 - **Always install Shadcn components using the official CLI commands** e.g. `pnpm dlx shadcn@latest add tooltip`. (I.e. never manually create the code of the component.)
 - **Import Lucide icons with the `...Icon` prefix** e.g. `GlobeIcon`, not `Globe`.
+- **Use `cn()` when you need to concatenate classes** e.g. `<div className={cn("bg-foreground", isActive ? "text-primary" : "text-foreground" )}>`.

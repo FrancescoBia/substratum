@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, InfoIcon, XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import {
@@ -377,12 +378,12 @@ function LightboxBody({
             preventScrollReset
             replace
             aria-pressed={detailsOpen}
-            className={`${CONTROL} h-9 px-3 text-sm ${detailsOpen ? "bg-white/15 text-white" : ""}`}
+            className={cn(CONTROL, "h-9 px-3 text-sm", detailsOpen && "bg-white/15 text-white")}
           >
             <InfoIcon className="size-4" /> Details
           </Link>
         )}
-        <DialogPrimitive.Close className={`${CONTROL} size-9`}>
+        <DialogPrimitive.Close className={cn(CONTROL, "size-9")}>
           <XIcon className="size-5" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -461,7 +462,7 @@ function LightboxBody({
                 ref={ref}
                 onClick={(event) => event.stopPropagation()}
                 style={style}
-                className={`${className} bg-black object-contain`}
+                className={cn(className, "bg-black object-contain")}
               />
             );
           }
@@ -495,7 +496,7 @@ function LightboxBody({
 
       <div className="flex min-h-14 items-center justify-center gap-4 px-4 py-3 text-xs text-white/60">
         {total > 1 && (
-          <button type="button" className={`${CONTROL} size-9`} onClick={() => onStep(-1)}>
+          <button type="button" className={cn(CONTROL, "size-9")} onClick={() => onStep(-1)}>
             <ChevronLeftIcon className="size-5" />
             <span className="sr-only">Previous image</span>
           </button>
@@ -521,7 +522,7 @@ function LightboxBody({
         </div>
 
         {total > 1 && (
-          <button type="button" className={`${CONTROL} size-9`} onClick={() => onStep(1)}>
+          <button type="button" className={cn(CONTROL, "size-9")} onClick={() => onStep(1)}>
             <ChevronRightIcon className="size-5" />
             <span className="sr-only">Next image</span>
           </button>

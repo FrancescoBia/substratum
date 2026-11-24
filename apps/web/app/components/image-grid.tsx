@@ -162,7 +162,7 @@ export function ImageGrid({ images, layout }: { images: GridImage[]; layout: Gri
             key={image.id}
             // `pb-[6%]` is the vertical gutter, and `GUTTER_TRACKS` is what pays
             // for it — 6% of the tile's width is exactly 6 row tracks.
-            className={layout === "mosaic" ? "group relative pb-[6%]" : "group relative"}
+            className={cn("group relative", layout === "mosaic" && "pb-[6%]")}
             style={layout === "mosaic" ? { gridRowEnd: `span ${tileSpan(image)}` } : undefined}
           >
             {/* `viewTransition` plus the nomination below expands this tile
@@ -202,11 +202,11 @@ export function ImageGrid({ images, layout }: { images: GridImage[]; layout: Gri
                 // In the mosaic the tile's height already *is* the image's
                 // proportions, so `object-cover` crops nothing — except on a tile
                 // whose ratio was clamped, where the top is the informative end.
-                className={`bg-muted w-full rounded-inherit outline-image object-cover transition group-hover:brightness-90 ${
-                  layout === "mosaic"
-                    ? `h-full ${isClamped(image) ? "object-top" : ""}`
-                    : "aspect-4/5"
-                }`}
+                className={cn(
+                  "bg-muted w-full rounded-inherit outline-image object-cover transition group-hover:brightness-90",
+                  layout === "mosaic" ? "h-full" : "aspect-4/5",
+                  layout === "mosaic" && isClamped(image) && "object-top",
+                )}
               />
               {image.kind === "video" && (
                 <VideoPreview

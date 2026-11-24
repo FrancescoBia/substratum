@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import { PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { formatDuration } from "~/lib/media";
@@ -67,9 +68,11 @@ export function VideoPreview({
           autoPlay
           aria-hidden
           onPlaying={() => setPlaying(true)}
-          className={`pointer-events-none absolute inset-0 size-full rounded-inherit outline-image object-cover transition-opacity duration-200 ${
-            playing ? "opacity-100" : "opacity-0"
-          } ${className}`}
+          className={cn(
+            "pointer-events-none absolute inset-0 size-full rounded-inherit outline-image object-cover transition-opacity duration-200",
+            playing ? "opacity-100" : "opacity-0",
+            className,
+          )}
         />
       )}
       <DurationBadge durationMs={durationMs} />
@@ -87,7 +90,10 @@ export function DurationBadge({
 }) {
   return (
     <span
-      className={`pointer-events-none absolute ${position} inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] leading-none font-medium text-white tabular-nums backdrop-blur-sm`}
+      className={cn(
+        "pointer-events-none absolute inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] leading-none font-medium text-white tabular-nums backdrop-blur-sm",
+        position,
+      )}
     >
       <PlayIcon className="size-2.5 fill-current" aria-hidden />
       {durationMs !== null && formatDuration(durationMs)}

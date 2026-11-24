@@ -242,7 +242,7 @@ export function LayoutButton({
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="Grid type"
+            aria-label={`Grid type: ${layout === "mosaic" ? "Mosaic" : "Grid"}`}
             onClick={() => onLayoutChange(layout === "mosaic" ? "flat" : "mosaic")}
           >
             {layout === "mosaic" ? <LayoutDashboardIcon /> : <LayoutGridIcon />}

@@ -54,7 +54,8 @@ test.describe("Stream and upload", () => {
     const boardId = await createBoard(request, "Layout test");
     await page.goto("/");
 
-    const layoutButton = page.getByRole("button", { name: "Grid type" });
+    const layoutButton = page.getByRole("button", { name: /^Grid type/ });
+    await expect(layoutButton).toHaveAccessibleName("Grid type: Grid");
     await expect(page.locator('[data-layout="flat"]')).toBeVisible();
 
     // File an image so the same preference can be checked in a Board view.
@@ -63,6 +64,7 @@ test.describe("Stream and upload", () => {
     await page.keyboard.press("Escape");
 
     await layoutButton.click();
+    await expect(layoutButton).toHaveAccessibleName("Grid type: Mosaic");
     await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
 
     // The regression this guards: the mosaic used to be CSS multi-column, which
@@ -91,6 +93,7 @@ test.describe("Stream and upload", () => {
 
     // A Board sets the same preference from the same header button.
     await layoutButton.click();
+    await expect(layoutButton).toHaveAccessibleName("Grid type: Grid");
     await expect(page.locator('[data-layout="flat"]')).toBeVisible();
   });
 

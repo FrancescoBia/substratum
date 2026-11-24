@@ -484,15 +484,30 @@ test.describe("Boards", () => {
     await expect(page.locator("main img")).toHaveCount(3);
   });
 
-  test("publishing shows a link to the address the app is served on", async ({ page, request }) => {
+  test("publishing shows a link to the address the app is served on", async ({
+    page,
+    context,
+    request,
+  }) => {
     const boardId = await createBoard(request, "Shareable");
     await page.goto(`/boards/${boardId}`);
     await page.getByRole("button", { name: "Publish" }).click();
+    await page.getByRole("switch", { name: "Public URL" }).click();
 
     // The regression this guards: the link used to be built from a hardcoded
     // port, so on any other one it pointed at whatever else was listening.
-    const origin = new URL(page.url()).origin;
-    await expect(page.getByText(`${origin}/board/shareable`)).toBeVisible();
+    const url = `${new URL(page.url()).origin}/board/shareable`;
+    const link = page.locator(`a[href="${url}"]`);
+    await expect(link).toBeVisible();
+
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByRole("button", { name: "Copy", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);
+
+    await page.getByRole("switch", { name: "Public URL" }).click();
+    await expect(link).toBeHidden();
+    await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
   });
 
   test("renaming one from its settings menu", async ({ page, request }) => {

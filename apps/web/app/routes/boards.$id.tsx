@@ -22,7 +22,6 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { eq } from "drizzle-orm";
 import {
-  Globe,
   LayoutDashboard,
   LayoutGrid,
   MoreHorizontal,
@@ -40,6 +39,7 @@ import {
   type GridLayout,
 } from "~/components/image-grid";
 import { skipLightboxRevalidation } from "~/components/lightbox";
+import { PublishPopover } from "~/components/publish-popover";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { instanceUrlFor } from "~/lib/config.server";
@@ -85,23 +85,7 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
   return (
     <div className="p-6">
       <ViewHeader title={board.name} subtitle={countLabel(images)}>
-        {board.published ? (
-          <edit.Form method="post" action="/boards">
-            <input type="hidden" name="intent" value="unpublish" />
-            <input type="hidden" name="boardId" value={board.id} />
-            <Button type="submit" variant="outline" size="sm">
-              <Globe className="size-4" /> Unpublish
-            </Button>
-          </edit.Form>
-        ) : (
-          <edit.Form method="post" action="/boards">
-            <input type="hidden" name="intent" value="publish" />
-            <input type="hidden" name="boardId" value={board.id} />
-            <Button type="submit" variant="outline" size="sm">
-              <Globe className="size-4" /> Publish
-            </Button>
-          </edit.Form>
-        )}
+        <PublishPopover boardId={board.id} published={board.published} publicUrl={publicUrl} />
 
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -179,17 +163,6 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
           </edit.Form>
         </DialogContent>
       </Dialog>
-
-      {/* The slug is frozen at first publish, so this link keeps working even
-          after the board is renamed. */}
-      {board.published && publicUrl && (
-        <p className="text-muted-foreground mb-6 text-sm">
-          Published at{" "}
-          <a href={`/board/${board.slug}`} target="_blank" rel="noreferrer" className="underline">
-            {publicUrl}
-          </a>
-        </p>
-      )}
 
       {images.length === 0 ? (
         <EmptyState title="This board is empty">

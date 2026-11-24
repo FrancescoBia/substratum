@@ -41,3 +41,7 @@ pnpm build
 - Pushing directly to `main` is allowed. Please check with the developer before committing anything though.
 - Pushing a `v*` tag publishes the GHCR image that self-hosters pull as `:latest`. Never create or push tags unless explicitly asked.
 - To cut a release, follow `.claude/skills/release/SKILL.md` (`/release` in Claude Code). The publish workflow handles everything after the tag: it checks the tag, runs CI, pushes the image and creates the GitHub Release.
+
+## Other rules
+
+- **Always install Shadcn components using the official CLI commands** e.g. `pnpm dlx shadcn@latest add tooltip`. (I.e. never manually create the code of the component.)

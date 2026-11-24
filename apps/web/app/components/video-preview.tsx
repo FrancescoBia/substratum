@@ -1,4 +1,4 @@
-import { Play } from "lucide-react";
+import { PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { formatDuration } from "~/lib/media";
 
@@ -89,7 +89,7 @@ export function DurationBadge({
     <span
       className={`pointer-events-none absolute ${position} inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] leading-none font-medium text-white tabular-nums backdrop-blur-sm`}
     >
-      <Play className="size-2.5 fill-current" aria-hidden />
+      <PlayIcon className="size-2.5 fill-current" aria-hidden />
       {durationMs !== null && formatDuration(durationMs)}
       <span className="sr-only">Video</span>
     </span>

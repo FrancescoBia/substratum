@@ -2,7 +2,7 @@ import { Badge } from "@repo/ui/components/badge";
 import { Button, buttonVariants } from "@repo/ui/components/button";
 import { Checkbox } from "@repo/ui/components/checkbox";
 import { Input } from "@repo/ui/components/input";
-import { ArrowRight, Check, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowRightIcon, CheckIcon, ExternalLinkIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { requireOwnerSession } from "~/auth/session.server";
@@ -118,7 +118,7 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
     return (
       <div className="flex h-full items-center justify-center p-6">
         <div className="text-center">
-          <Check className="text-muted-foreground mx-auto size-8" />
+          <CheckIcon className="text-muted-foreground mx-auto size-8" />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">
             {total === 0 ? "Nothing to triage" : "End of the queue"}
           </h1>
@@ -204,7 +204,7 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
                 className="text-muted-foreground inline-flex items-center gap-1 text-xs hover:underline"
               >
                 {hostOf(current.sourcePageUrl)}
-                <ExternalLink className="size-3" />
+                <ExternalLinkIcon className="size-3" />
               </a>
             </div>
           ) : (
@@ -289,13 +289,13 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
                 advance();
               }}
             >
-              <Trash2 className="size-4" />
+              <Trash2Icon className="size-4" />
             </Button>
             <Button variant="outline" size="sm" className="flex-1" onClick={advance}>
               Skip
             </Button>
             <Button size="sm" className="flex-1" onClick={advance}>
-              Next <ArrowRight className="size-4" />
+              Next <ArrowRightIcon className="size-4" />
             </Button>
           </div>
         </div>

@@ -9,15 +9,23 @@ import {
 } from "@repo/ui/components/dialog";
 import { useTheme } from "@repo/ui/components/theme-provider";
 import { cn } from "cn";
-import { ChevronRight, Download, Monitor, Moon, Settings, Sun, Trash2 } from "lucide-react";
+import {
+  ChevronRightIcon,
+  DownloadIcon,
+  MonitorIcon,
+  MoonIcon,
+  SettingsIcon,
+  SunIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useRouteLoaderData } from "react-router";
 import type { loader as libraryLoader } from "~/routes/library";
 
 const THEMES = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
+  { value: "light", label: "Light", icon: SunIcon },
+  { value: "dark", label: "Dark", icon: MoonIcon },
+  { value: "system", label: "System", icon: MonitorIcon },
 ] as const;
 
 const Section = ({
@@ -50,7 +58,7 @@ export const SettingsDialog = () => {
       <DialogTrigger
         render={<Button variant="ghost" size="xs" aria-label="Settings" title="Settings" />}
       >
-        <Settings className="size-icon" /> Settings
+        <SettingsIcon className="size-icon" /> Settings
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-lg">
@@ -85,7 +93,7 @@ export const SettingsDialog = () => {
               download
               className={buttonVariants({ variant: "secondary", size: "sm" })}
             >
-              <Download className="size-4" /> Export all
+              <DownloadIcon className="size-4" /> Export all
             </a>
           </Section>
 
@@ -102,8 +110,8 @@ export const SettingsDialog = () => {
               onClick={() => setOpen(false)}
               className={buttonVariants({ variant: "secondary", size: "sm" })}
             >
-              <Trash2 className="size-4" /> Open Trash
-              <ChevronRight className="size-4" />
+              <Trash2Icon className="size-4" /> Open Trash
+              <ChevronRightIcon className="size-4" />
             </Link>
           </Section>
         </div>

@@ -3,7 +3,13 @@ import { Label } from "@repo/ui/components/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import { Switch } from "@repo/ui/components/switch";
 import { cn } from "cn";
-import { Check, Copy, Globe, GlobeOffIcon, SquareArrowOutUpRightIcon } from "lucide-react";
+import {
+  CheckIcon,
+  CopyIcon,
+  GlobeIcon,
+  GlobeOffIcon,
+  SquareArrowOutUpRightIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
 
@@ -33,7 +39,7 @@ export function PublishPopover({
       <PopoverTrigger
         render={
           <Button variant="ghost" size="sm">
-            {published ? <Globe /> : <GlobeOffIcon />}
+            {published ? <GlobeIcon /> : <GlobeOffIcon />}
             {/*
               Workaround to avoid the button width jumping between the two states.
              (Particularly visible when other elements are stacked horizontally.)
@@ -116,7 +122,7 @@ function PublicUrl({ url }: { url: string }) {
         // Wide enough for "Copied", so the URL's truncation doesn't jump.
         className="min-w-17 justify-start"
       >
-        {copied ? <Check /> : <Copy />}
+        {copied ? <CheckIcon /> : <CopyIcon />}
         {copied ? "Copied" : "Copy"}
       </Button>
     </div>

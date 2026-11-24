@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ExternalLink, Info, X } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, InfoIcon, XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import {
   useCallback,
@@ -379,11 +379,11 @@ function LightboxBody({
             aria-pressed={detailsOpen}
             className={`${CONTROL} h-9 px-3 text-sm ${detailsOpen ? "bg-white/15 text-white" : ""}`}
           >
-            <Info className="size-4" /> Details
+            <InfoIcon className="size-4" /> Details
           </Link>
         )}
         <DialogPrimitive.Close className={`${CONTROL} size-9`}>
-          <X className="size-5" />
+          <XIcon className="size-5" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
       </div>
@@ -496,7 +496,7 @@ function LightboxBody({
       <div className="flex min-h-14 items-center justify-center gap-4 px-4 py-3 text-xs text-white/60">
         {total > 1 && (
           <button type="button" className={`${CONTROL} size-9`} onClick={() => onStep(-1)}>
-            <ChevronLeft className="size-5" />
+            <ChevronLeftIcon className="size-5" />
             <span className="sr-only">Previous image</span>
           </button>
         )}
@@ -515,14 +515,14 @@ function LightboxBody({
               className="inline-flex min-w-0 items-center gap-1 truncate hover:text-white hover:underline"
             >
               <span className="truncate">{image.title || hostOf(image.sourcePageUrl)}</span>
-              <ExternalLink className="size-3 shrink-0" />
+              <ExternalLinkIcon className="size-3 shrink-0" />
             </a>
           )}
         </div>
 
         {total > 1 && (
           <button type="button" className={`${CONTROL} size-9`} onClick={() => onStep(1)}>
-            <ChevronRight className="size-5" />
+            <ChevronRightIcon className="size-5" />
             <span className="sr-only">Next image</span>
           </button>
         )}

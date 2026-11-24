@@ -1,5 +1,5 @@
 import { Button } from "@repo/ui/components/button";
-import { RotateCcw, X } from "lucide-react";
+import { RotateCcwIcon, XIcon } from "lucide-react";
 import { useFetcher } from "react-router";
 import { EmptyState, ViewHeader } from "~/components/image-grid";
 import { DurationBadge } from "~/components/video-preview";
@@ -66,7 +66,7 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
                     )
                   }
                 >
-                  <RotateCcw className="size-3" /> Restore
+                  <RotateCcwIcon className="size-3" /> Restore
                 </Button>
                 <Button
                   size="sm"
@@ -82,7 +82,7 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
                     }
                   }}
                 >
-                  <X className="size-3" />
+                  <XIcon className="size-3" />
                 </Button>
               </div>
             </div>

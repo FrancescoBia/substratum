@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLinkIcon } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import {
   Lightbox,
@@ -127,7 +127,7 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
                     className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 hover:underline"
                   >
                     {hostOf(image.sourcePageUrl)}
-                    <ExternalLink className="size-3 shrink-0" />
+                    <ExternalLinkIcon className="size-3 shrink-0" />
                   </a>
                 </figcaption>
               )}

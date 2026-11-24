@@ -4,7 +4,7 @@ import { Checkbox } from "@repo/ui/components/checkbox";
 import { Input } from "@repo/ui/components/input";
 import { Separator } from "@repo/ui/components/separator";
 import { Textarea } from "@repo/ui/components/textarea";
-import { ExternalLink, RotateCcw, Trash2, X } from "lucide-react";
+import { ExternalLinkIcon, RotateCcwIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import type { ImageDetail } from "~/lib/library.server";
@@ -64,7 +64,7 @@ export function DetailPanelBody({
       <div className="flex items-start justify-between gap-2">
         <h2 className="truncate font-medium">{image.displayTitle || "Untitled"}</h2>
         <Button variant="ghost" size="icon-sm" className="-mt-1 -mr-1" onClick={onClose}>
-          <X className="size-4" />
+          <XIcon className="size-4" />
           <span className="sr-only">Close details</span>
         </Button>
       </div>
@@ -157,7 +157,7 @@ export function DetailPanelBody({
                 title={`Open ${hostOf(image.sourcePageUrl)}`}
                 className={buttonVariants({ variant: "ghost", size: "icon" })}
               >
-                <ExternalLink className="size-4" />
+                <ExternalLinkIcon className="size-4" />
                 <span className="sr-only">Open source page</span>
               </a>
             )}
@@ -285,7 +285,7 @@ export function DetailPanelBody({
           className="w-fit"
           onClick={() => send({ intent: "restore" })}
         >
-          <RotateCcw className="size-4" /> Restore
+          <RotateCcwIcon className="size-4" /> Restore
         </Button>
       ) : (
         <Button
@@ -297,7 +297,7 @@ export function DetailPanelBody({
             onClose();
           }}
         >
-          <Trash2 className="size-4" /> Move to Trash
+          <Trash2Icon className="size-4" /> Move to Trash
         </Button>
       )}
     </div>

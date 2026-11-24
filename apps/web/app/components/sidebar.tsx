@@ -3,7 +3,7 @@ import Logo from "@repo/ui/assets/logo/substratum_logo.svg?react";
 import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "cn";
-import { CheckCircle2Icon, Globe, Inbox, LogOutIcon, PlusCircleIcon } from "lucide-react";
+import { CheckCircle2Icon, GlobeIcon, InboxIcon, LogOutIcon, PlusCircleIcon } from "lucide-react";
 import { Suspense, useState } from "react";
 import { Await, Link, NavLink, useFetcher, useSubmit } from "react-router";
 import { AppVersion } from "~/components/app-version";
@@ -48,7 +48,7 @@ export const Sidebar = ({
             title="Triage"
             className="flex gap-2 items-center text-primary"
           >
-            <Inbox className="size-icon" />
+            <InboxIcon className="size-icon" />
             <h4 className="text-xs font-medium tabular-nums">{untriagedCount}</h4>
           </NavLink>
         )}
@@ -158,7 +158,7 @@ const BoardItem = ({ board }: { board: Board }) => {
           <BoardName name={board.name} active={isActive} />
           {board.published && (
             <span className="shrink-0" title="Published">
-              <Globe className="size-icon" />
+              <GlobeIcon className="size-icon" />
             </span>
           )}
           <span className="shrink-0 text-xs tabular-nums">{board.count}</span>

@@ -45,3 +45,4 @@ pnpm build
 ## Other rules
 
 - **Always install Shadcn components using the official CLI commands** e.g. `pnpm dlx shadcn@latest add tooltip`. (I.e. never manually create the code of the component.)
+- **Import Lucide icons with the `...Icon` prefix** e.g. `GlobeIcon`, not `Globe`.

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { BoldIcon, LayoutDashboard } from "lucide-react";
+import { BoldIcon, LayoutDashboardIcon } from "lucide-react";
 
 import { Toggle } from "@repo/ui/components/toggle";
 
@@ -33,7 +33,7 @@ export const WithText: Story = {
     "aria-label": undefined,
     children: (
       <>
-        <LayoutDashboard /> Mosaic
+        <LayoutDashboardIcon /> Mosaic
       </>
     ),
   },

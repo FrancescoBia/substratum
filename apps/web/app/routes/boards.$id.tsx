@@ -15,7 +15,7 @@ import {
 } from "@repo/ui/components/dropdown-menu";
 import { Input } from "@repo/ui/components/input";
 import { eq } from "drizzle-orm";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import {
@@ -74,13 +74,13 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
           <DropdownMenuTrigger
             render={
               <Button variant="ghost" size="icon-sm" aria-label="Board settings">
-                <MoreHorizontal />
+                <MoreHorizontalIcon />
               </Button>
             }
           />
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setRenaming(true)}>
-              <Pencil /> Rename board
+              <PencilIcon /> Rename board
             </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"
@@ -94,7 +94,7 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
                 );
               }}
             >
-              <Trash2 /> Delete board
+              <Trash2Icon /> Delete board
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -30,7 +30,7 @@ test.describe("Stream and upload", () => {
     await uploadImages(request, 3);
     await page.goto("/");
 
-    await expect(page.getByText("3 images")).toBeVisible();
+    await expect(page.getByText("3 Images")).toBeVisible();
     await expect(page.locator("main img")).toHaveCount(3);
 
     // Thumbnails must be served, not broken — a 404 would still render an <img>.
@@ -54,9 +54,8 @@ test.describe("Stream and upload", () => {
     const boardId = await createBoard(request, "Layout test");
     await page.goto("/");
 
-    const flatButton = page.getByRole("button", { name: "Flat grid" });
-    const mosaicButton = page.getByRole("button", { name: "Mosaic" });
-    await expect(flatButton).toHaveAttribute("aria-pressed", "true");
+    const layoutButton = page.getByRole("button", { name: /^Grid type/ });
+    await expect(layoutButton).toHaveAccessibleName("Grid type: Grid");
     await expect(page.locator('[data-layout="flat"]')).toBeVisible();
 
     // File an image so the same preference can be checked in a Board view.
@@ -64,8 +63,8 @@ test.describe("Stream and upload", () => {
     await page.getByRole("dialog").getByRole("checkbox").first().click();
     await page.keyboard.press("Escape");
 
-    await mosaicButton.click();
-    await expect(mosaicButton).toHaveAttribute("aria-pressed", "true");
+    await layoutButton.click();
+    await expect(layoutButton).toHaveAccessibleName("Grid type: Mosaic");
     await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
 
     // The regression this guards: the mosaic used to be CSS multi-column, which
@@ -90,11 +89,12 @@ test.describe("Stream and upload", () => {
     expect(thumbnailBox.height / thumbnailBox.width).toBeCloseTo(declared, 1);
 
     await page.goto(`/boards/${boardId}`);
-    await expect(page.getByRole("button", { name: "Mosaic" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
     await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
+
+    // A Board sets the same preference from the same header button.
+    await layoutButton.click();
+    await expect(layoutButton).toHaveAccessibleName("Grid type: Grid");
+    await expect(page.locator('[data-layout="flat"]')).toBeVisible();
   });
 
   test("dropping files on the page uploads them", async ({ page }) => {
@@ -481,15 +481,46 @@ test.describe("Boards", () => {
     await expect(page.locator("main img")).toHaveCount(3);
   });
 
-  test("publishing shows a link to the address the app is served on", async ({ page, request }) => {
+  test("publishing shows a link to the address the app is served on", async ({
+    page,
+    context,
+    request,
+  }) => {
     const boardId = await createBoard(request, "Shareable");
     await page.goto(`/boards/${boardId}`);
-    await page.getByRole("button", { name: "Publish" }).click();
+    await page.getByRole("button", { name: "Private" }).click();
+    await page.getByRole("switch", { name: "Public URL" }).click();
+    await expect(page.getByRole("button", { name: "Public" })).toBeVisible();
 
     // The regression this guards: the link used to be built from a hardcoded
     // port, so on any other one it pointed at whatever else was listening.
-    const origin = new URL(page.url()).origin;
-    await expect(page.getByText(`${origin}/board/shareable`)).toBeVisible();
+    const url = `${new URL(page.url()).origin}/board/shareable`;
+    const link = page.locator(`a[href="${url}"]`);
+    await expect(link).toBeVisible();
+
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByRole("button", { name: "Copy", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);
+
+    await page.getByRole("switch", { name: "Public URL" }).click();
+    await expect(link).toBeHidden();
+    await expect(page.getByRole("button", { name: "Private" })).toBeVisible();
+  });
+
+  test("renaming one from its settings menu", async ({ page, request }) => {
+    const boardId = await createBoard(request, "Old name");
+    await page.goto(`/boards/${boardId}`);
+
+    await page.getByRole("button", { name: "Board settings" }).click();
+    await page.getByRole("menuitem", { name: "Rename board" }).click();
+    const dialog = page.getByRole("dialog", { name: "Rename board" });
+    await expect(dialog.getByLabel("Board name")).toBeFocused();
+    await page.keyboard.type("New name");
+    await page.keyboard.press("Enter");
+
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("heading", { name: "New name" })).toBeVisible();
   });
 
   test("deleting one keeps its images", async ({ page, request }) => {
@@ -502,7 +533,8 @@ test.describe("Boards", () => {
 
     await page.goto(`/boards/${boardId}`);
     page.on("dialog", (dialog) => dialog.accept());
-    await page.locator("header").getByRole("button").last().click();
+    await page.getByRole("button", { name: "Board settings" }).click();
+    await page.getByRole("menuitem", { name: "Delete board" }).click();
 
     await expect(page.getByRole("heading", { name: "Stream" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Temporary/ })).toBeHidden();

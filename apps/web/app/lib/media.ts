@@ -15,7 +15,7 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * How many of each a view holds: "3 images", "1 video", "3 images, 1 video".
+ * How many of each a view holds: "3 Images", "1 Video", "3 Images, 1 Video".
  * A library with no videos reads exactly as it always did.
  */
 export function countLabel(items: Array<{ kind: "image" | "video" }>): string {
@@ -23,7 +23,7 @@ export function countLabel(items: Array<{ kind: "image" | "video" }>): string {
   const stills = items.length - videos;
 
   const parts: string[] = [];
-  if (stills > 0 || videos === 0) parts.push(`${stills} image${stills === 1 ? "" : "s"}`);
-  if (videos > 0) parts.push(`${videos} video${videos === 1 ? "" : "s"}`);
+  if (stills > 0 || videos === 0) parts.push(`${stills} Image${stills === 1 ? "" : "s"}`);
+  if (videos > 0) parts.push(`${videos} Video${videos === 1 ? "" : "s"}`);
   return parts.join(", ");
 }

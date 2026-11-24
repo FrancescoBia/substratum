@@ -1,4 +1,10 @@
-import { EmptyState, ImageGrid, ViewHeader } from "~/components/image-grid";
+import {
+  EmptyState,
+  ImageGrid,
+  LayoutButton,
+  useGridLayout,
+  ViewHeader,
+} from "~/components/image-grid";
 import { skipLightboxRevalidation } from "~/components/lightbox";
 import { UploadButton } from "~/components/upload-button";
 import { requireOwnerSession } from "~/auth/session.server";
@@ -21,6 +27,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function Stream({ loaderData }: Route.ComponentProps) {
   const { images } = loaderData;
+  const [layout, setLayout] = useGridLayout();
 
   return (
     <div className="p-6">
@@ -28,6 +35,7 @@ export default function Stream({ loaderData }: Route.ComponentProps) {
         title="Stream"
         subtitle={images.length === 0 ? "Nothing saved yet" : countLabel(images)}
       >
+        <LayoutButton layout={layout} onLayoutChange={setLayout} />
         <UploadButton />
       </ViewHeader>
 
@@ -38,7 +46,7 @@ export default function Stream({ loaderData }: Route.ComponentProps) {
           here.
         </EmptyState>
       ) : (
-        <ImageGrid images={images} allowLayoutSwitch />
+        <ImageGrid images={images} layout={layout} />
       )}
     </div>
   );

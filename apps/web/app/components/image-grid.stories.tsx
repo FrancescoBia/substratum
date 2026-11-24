@@ -43,7 +43,7 @@ const meta = {
   component: ImageGrid,
   decorators: [withRouter],
   parameters: { layout: "padded" },
-  args: { images, allowLayoutSwitch: true },
+  args: { images, layout: "flat" },
 } satisfies Meta<typeof ImageGrid>;
 
 export default meta;

@@ -1,11 +1,32 @@
 import { Button } from "@repo/ui/components/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@repo/ui/components/dropdown-menu";
 import { Input } from "@repo/ui/components/input";
 import { eq } from "drizzle-orm";
-import { Globe, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
 import { useFetcher } from "react-router";
-import { EmptyState, ImageGrid, ViewHeader } from "~/components/image-grid";
+import {
+  EmptyState,
+  ImageGrid,
+  LayoutButton,
+  useGridLayout,
+  ViewHeader,
+} from "~/components/image-grid";
 import { skipLightboxRevalidation } from "~/components/lightbox";
+import { PublishPopover } from "~/components/publish-popover";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
 import { instanceUrlFor } from "~/lib/config.server";
@@ -38,84 +59,82 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
   const { board, images, instanceUrl } = loaderData;
   const edit = useFetcher();
   const [renaming, setRenaming] = useState(false);
+  const renameInput = useRef<HTMLInputElement>(null);
+  const [layout, setLayout] = useGridLayout();
 
   const publicUrl = board.slug ? `${instanceUrl}/board/${board.slug}` : null;
 
   return (
     <div className="p-6">
-      <ViewHeader title={renaming ? "" : board.name} subtitle={countLabel(images)}>
-        {board.published ? (
-          <edit.Form method="post" action="/boards">
-            <input type="hidden" name="intent" value="unpublish" />
-            <input type="hidden" name="boardId" value={board.id} />
-            <Button type="submit" variant="outline" size="sm">
-              <Globe className="size-4" /> Unpublish
-            </Button>
-          </edit.Form>
-        ) : (
-          <edit.Form method="post" action="/boards">
-            <input type="hidden" name="intent" value="publish" />
-            <input type="hidden" name="boardId" value={board.id} />
-            <Button type="submit" variant="outline" size="sm">
-              <Globe className="size-4" /> Publish
-            </Button>
-          </edit.Form>
-        )}
+      <ViewHeader title={board.name} subtitle={countLabel(images)}>
+        <LayoutButton layout={layout} onLayoutChange={setLayout} />
+        <PublishPopover boardId={board.id} published={board.published} publicUrl={publicUrl} />
 
-        <Button variant="ghost" size="sm" onClick={() => setRenaming((value) => !value)}>
-          Rename
-        </Button>
-
-        <edit.Form
-          method="post"
-          action="/boards"
-          onSubmit={(event) => {
-            if (!confirm(`Delete the board "${board.name}"? The images stay in your Stream.`)) {
-              event.preventDefault();
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="icon-sm" aria-label="Board settings">
+                <MoreHorizontal />
+              </Button>
             }
-          }}
-        >
-          <input type="hidden" name="intent" value="delete" />
-          <input type="hidden" name="boardId" value={board.id} />
-          <Button type="submit" variant="ghost" size="sm" className="text-destructive">
-            <Trash2 className="size-4" />
-          </Button>
-        </edit.Form>
+          />
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setRenaming(true)}>
+              <Pencil /> Rename board
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                if (!confirm(`Delete the board "${board.name}"? The images stay in your Stream.`)) {
+                  return;
+                }
+                edit.submit(
+                  { intent: "delete", boardId: board.id },
+                  { method: "post", action: "/boards" },
+                );
+              }}
+            >
+              <Trash2 /> Delete board
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </ViewHeader>
 
-      {renaming && (
-        <edit.Form
-          method="post"
-          action="/boards"
-          className="mb-6 flex max-w-sm gap-2"
-          onSubmit={() => setRenaming(false)}
-        >
-          <input type="hidden" name="intent" value="rename" />
-          <input type="hidden" name="boardId" value={board.id} />
-          <Input name="name" defaultValue={board.name} autoFocus />
-          <Button type="submit" size="sm">
-            Save
-          </Button>
-        </edit.Form>
-      )}
-
-      {/* The slug is frozen at first publish, so this link keeps working even
-          after the board is renamed. */}
-      {board.published && publicUrl && (
-        <p className="text-muted-foreground mb-6 text-sm">
-          Published at{" "}
-          <a href={`/board/${board.slug}`} target="_blank" rel="noreferrer" className="underline">
-            {publicUrl}
-          </a>
-        </p>
-      )}
+      <Dialog open={renaming} onOpenChange={setRenaming}>
+        <DialogContent initialFocus={renameInput}>
+          <DialogHeader>
+            <DialogTitle>Rename board</DialogTitle>
+          </DialogHeader>
+          <edit.Form
+            method="post"
+            action="/boards"
+            className="grid gap-4"
+            onSubmit={() => setRenaming(false)}
+          >
+            <input type="hidden" name="intent" value="rename" />
+            <input type="hidden" name="boardId" value={board.id} />
+            <Input
+              ref={renameInput}
+              name="name"
+              aria-label="Board name"
+              defaultValue={board.name}
+              required
+              onFocus={(event) => event.currentTarget.select()}
+            />
+            <DialogFooter>
+              <DialogClose render={<Button variant="outline">Cancel</Button>} />
+              <Button type="submit">Save</Button>
+            </DialogFooter>
+          </edit.Form>
+        </DialogContent>
+      </Dialog>
 
       {images.length === 0 ? (
         <EmptyState title="This board is empty">
           Open anything in your Stream and tick this board in its details.
         </EmptyState>
       ) : (
-        <ImageGrid images={images} allowLayoutSwitch />
+        <ImageGrid images={images} layout={layout} />
       )}
     </div>
   );

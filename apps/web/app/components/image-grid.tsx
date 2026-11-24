@@ -1,5 +1,6 @@
 import { Button } from "@repo/ui/components/button";
-import { LayoutDashboard, LayoutGrid } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/components/tooltip";
+import { LayoutDashboardIcon, LayoutGridIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useRouteLoaderData } from "react-router";
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
@@ -9,7 +10,7 @@ import { TAGS_ENABLED } from "~/lib/features";
 import type { GridImage } from "~/lib/library.server";
 import type { loader as libraryLoader } from "~/routes/library";
 
-type GridLayout = "flat" | "mosaic";
+export type GridLayout = "flat" | "mosaic";
 
 const GRID_LAYOUT_STORAGE_KEY = "substratum-grid-layout";
 
@@ -47,36 +48,9 @@ function isClamped(image: GridImage) {
   return tileRatio(image) !== image.height / image.width;
 }
 
-/**
- * The library grid can either use uniform aspect-cropped tiles or a masonry-like
- * mosaic that preserves each thumbnail's proportions.
- *
- * A tile opens the Image full size; the corner control opens its detail panel.
- * Both are URL changes (`?view=` and `?image=`), so either state is shareable,
- * reload-stable, and closable with the back button.
- *
- * The mosaic is plain CSS Grid rather than multi-column, so tiles fill left to
- * right and DOM order is visual order — which is what lets the lightbox's ← and →
- * walk the tiles in the order the eye reads them. Each tile buys its height in row
- * tracks from its own aspect ratio; nothing is measured, so this server-renders.
- *
- * Should pagination arrive: every loaded page must render into *one* grid element.
- * Appending tiles is safe — sparse auto-placement never moves what is already
- * placed — but a grid per page would restart the packing and leave a ragged seam
- * at each page boundary.
- */
-export function ImageGrid({
-  images,
-  allowLayoutSwitch = false,
-}: {
-  images: GridImage[];
-  allowLayoutSwitch?: boolean;
-}) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
+/** The Owner's grid or mosaic preference, shared by every view and kept across visits. */
+export function useGridLayout() {
   const [layout, setLayout] = useState<GridLayout>("flat");
-  const tileMorphName = useTileMorphName();
 
   useEffect(() => {
     try {
@@ -97,6 +71,33 @@ export function ImageGrid({
       // Keep the in-memory preference when persistence is unavailable.
     }
   }
+
+  return [layout, changeLayout] as const;
+}
+
+/**
+ * The library grid can either use uniform aspect-cropped tiles or a masonry-like
+ * mosaic that preserves each thumbnail's proportions.
+ *
+ * A tile opens the Image full size; the corner control opens its detail panel.
+ * Both are URL changes (`?view=` and `?image=`), so either state is shareable,
+ * reload-stable, and closable with the back button.
+ *
+ * The mosaic is plain CSS Grid rather than multi-column, so tiles fill left to
+ * right and DOM order is visual order — which is what lets the lightbox's ← and →
+ * walk the tiles in the order the eye reads them. Each tile buys its height in row
+ * tracks from its own aspect ratio; nothing is measured, so this server-renders.
+ *
+ * Should pagination arrive: every loaded page must render into *one* grid element.
+ * Appending tiles is safe — sparse auto-placement never moves what is already
+ * placed — but a grid per page would restart the packing and leave a ragged seam
+ * at each page boundary.
+ */
+export function ImageGrid({ images, layout }: { images: GridImage[]; layout: GridLayout }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
+  const tileMorphName = useTileMorphName();
 
   // A tile opens the viewer with nothing else on: the details column is
   // something the Owner turns on from in there, not a thing every look brings.
@@ -147,41 +148,6 @@ export function ImageGrid({
   // grid has no reason to take on.
   return (
     <section className={layout === "mosaic" ? "@container" : undefined}>
-      {allowLayoutSwitch && (
-        <div className="mb-3 flex justify-end">
-          <div
-            role="group"
-            aria-label="Image layout"
-            className="bg-muted flex items-center gap-0.5 rounded-lg p-0.5"
-          >
-            <Button
-              type="button"
-              variant={layout === "flat" ? "secondary" : "ghost"}
-              size="icon-sm"
-              aria-pressed={layout === "flat"}
-              onClick={() => changeLayout("flat")}
-              title="Flat grid"
-              className={layout === "flat" ? "bg-background shadow-sm hover:bg-background" : ""}
-            >
-              <LayoutGrid />
-              <span className="sr-only">Flat grid</span>
-            </Button>
-            <Button
-              type="button"
-              variant={layout === "mosaic" ? "secondary" : "ghost"}
-              size="icon-sm"
-              aria-pressed={layout === "mosaic"}
-              onClick={() => changeLayout("mosaic")}
-              title="Mosaic"
-              className={layout === "mosaic" ? "bg-background shadow-sm hover:bg-background" : ""}
-            >
-              <LayoutDashboard />
-              <span className="sr-only">Mosaic</span>
-            </Button>
-          </div>
-        </div>
-      )}
-
       <div
         data-layout={layout}
         className={
@@ -262,6 +228,32 @@ export function ImageGrid({
   );
 }
 
+export function LayoutButton({
+  layout,
+  onLayoutChange,
+}: {
+  layout: GridLayout;
+  onLayoutChange: (layout: GridLayout) => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Grid type: ${layout === "mosaic" ? "Mosaic" : "Grid"}`}
+            onClick={() => onLayoutChange(layout === "mosaic" ? "flat" : "mosaic")}
+          >
+            {layout === "mosaic" ? <LayoutDashboardIcon /> : <LayoutGridIcon />}
+          </Button>
+        }
+      />
+      <TooltipContent>Grid type</TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function EmptyState({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed p-12 text-center">
@@ -285,8 +277,15 @@ export function ViewHeader({
   return (
     <header className="flex flex-wrap items-baseline justify-between gap-4 pb-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
+        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {subtitle && (
+          <p
+            className="text-muted-foreground text-[11px] mt-3.5 font-mono"
+            style={{ lineHeight: 1.55 }}
+          >
+            {subtitle}
+          </p>
+        )}
       </div>
       {children && <div className="flex items-center gap-2">{children}</div>}
     </header>

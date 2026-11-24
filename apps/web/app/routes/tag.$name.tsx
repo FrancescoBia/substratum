@@ -1,4 +1,10 @@
-import { EmptyState, ImageGrid, ViewHeader } from "~/components/image-grid";
+import {
+  EmptyState,
+  ImageGrid,
+  LayoutButton,
+  useGridLayout,
+  ViewHeader,
+} from "~/components/image-grid";
 import { skipLightboxRevalidation } from "~/components/lightbox";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listTagImages } from "~/lib/library.server";
@@ -23,14 +29,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 export default function TagView({ loaderData }: Route.ComponentProps) {
   const { name, images } = loaderData;
+  const [layout, setLayout] = useGridLayout();
 
   return (
     <div className="p-6">
-      <ViewHeader title={`#${name}`} subtitle={countLabel(images)} />
+      <ViewHeader title={`#${name}`} subtitle={countLabel(images)}>
+        <LayoutButton layout={layout} onLayoutChange={setLayout} />
+      </ViewHeader>
       {images.length === 0 ? (
         <EmptyState title="Nothing tagged this yet" />
       ) : (
-        <ImageGrid images={images} allowLayoutSwitch />
+        <ImageGrid images={images} layout={layout} />
       )}
     </div>
   );

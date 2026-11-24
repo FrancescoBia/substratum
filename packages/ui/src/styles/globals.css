@@ -115,3 +115,11 @@
 @utility size-icon {
   @apply size-3.5;
 }
+
+@utility rounded-inherit {
+  border-radius: inherit;
+}
+
+@utility outline-image {
+  @apply outline-1 -outline-offset-1 outline-black/3 dark:outline-white/15;
+}

@@ -67,7 +67,7 @@ export function VideoPreview({
           autoPlay
           aria-hidden
           onPlaying={() => setPlaying(true)}
-          className={`pointer-events-none absolute inset-0 size-full rounded-lg object-cover transition-opacity duration-200 ${
+          className={`pointer-events-none absolute inset-0 size-full rounded-inherit outline-image object-cover transition-opacity duration-200 ${
             playing ? "opacity-100" : "opacity-0"
           } ${className}`}
         />

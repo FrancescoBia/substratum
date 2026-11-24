@@ -1,5 +1,6 @@
 import { Button } from "@repo/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/components/tooltip";
+import { cn } from "cn";
 import { LayoutDashboardIcon, LayoutGridIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useRouteLoaderData } from "react-router";
@@ -173,7 +174,10 @@ export function ImageGrid({ images, layout }: { images: GridImage[]; layout: Gri
               preventScrollReset
               viewTransition
               onClick={() => morphFromTile(image.id)}
-              className={layout === "mosaic" ? "relative block h-full" : "relative block"}
+              className={cn(
+                "relative block rounded-lg overflow-hidden",
+                layout === "mosaic" && "h-full",
+              )}
               aria-label={
                 image.title ?? (image.kind === "video" ? "Uploaded video" : "Uploaded image")
               }
@@ -198,7 +202,7 @@ export function ImageGrid({ images, layout }: { images: GridImage[]; layout: Gri
                 // In the mosaic the tile's height already *is* the image's
                 // proportions, so `object-cover` crops nothing — except on a tile
                 // whose ratio was clamped, where the top is the informative end.
-                className={`bg-muted w-full rounded-lg object-cover transition group-hover:brightness-90 ${
+                className={`bg-muted w-full rounded-inherit outline-image object-cover transition group-hover:brightness-90 ${
                   layout === "mosaic"
                     ? `h-full ${isClamped(image) ? "object-top" : ""}`
                     : "aspect-4/5"

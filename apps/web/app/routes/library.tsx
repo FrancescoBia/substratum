@@ -40,6 +40,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   return {
     email: owner.email,
+    gridLayout: owner.gridLayout,
     boards,
     tags,
     untriagedCount: stream.filter((image) => image.untriaged).length,

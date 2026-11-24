@@ -25,6 +25,7 @@ export default [
   route("upload", "routes/upload.ts"),
   route("export", "routes/export.ts"),
   route("boards", "routes/boards.ts"),
+  route("preferences", "routes/preferences.ts"),
   route("image/:id", "routes/image.$id.ts"),
   route("img/:id/:variant", "routes/img.$id.$variant.ts"),
 

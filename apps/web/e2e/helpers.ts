@@ -177,6 +177,8 @@ export async function resetLibrary(request: APIRequestContext) {
       maxRedirects: 0,
     });
   }
+
+  await request.post("/preferences", { form: { gridLayout: "flat" } });
 }
 
 /**

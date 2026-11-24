@@ -2,8 +2,7 @@ import { Button } from "@repo/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/components/tooltip";
 import { cn } from "cn";
 import { LayoutDashboardIcon, LayoutGridIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useRouteLoaderData } from "react-router";
+import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router";
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
 import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox";
 import { VideoPreview } from "~/components/video-preview";
@@ -13,7 +12,8 @@ import type { loader as libraryLoader } from "~/routes/library";
 
 export type GridLayout = "flat" | "mosaic";
 
-const GRID_LAYOUT_STORAGE_KEY = "substratum-grid-layout";
+/** Public Boards have no triage state, so the flag is optional here. */
+type TileImage = Omit<GridImage, "untriaged"> & { untriaged?: boolean };
 
 /**
  * Row tracks a tile spans per unit of aspect ratio. One track is 1% of a column's
@@ -35,42 +35,36 @@ const MIN_TILE_RATIO = 0.25;
 const MAX_TILE_RATIO = 2.5;
 
 /** A tile's shape as the mosaic will actually draw it, which is not always its own. */
-function tileRatio(image: GridImage) {
+function tileRatio(image: TileImage) {
   return Math.min(Math.max(image.height / image.width, MIN_TILE_RATIO), MAX_TILE_RATIO);
 }
 
 /** The row tracks a tile occupies, its own gutter included. */
-function tileSpan(image: GridImage) {
+function tileSpan(image: TileImage) {
   return Math.round(tileRatio(image) * TRACKS_PER_COLUMN) + GUTTER_TRACKS;
 }
 
 /** True when the shape was too extreme to draw honestly, so the thumbnail crops. */
-function isClamped(image: GridImage) {
+function isClamped(image: TileImage) {
   return tileRatio(image) !== image.height / image.width;
 }
 
-/** The Owner's grid or mosaic preference, shared by every view and kept across visits. */
+/**
+ * The Owner's grid or mosaic preference. It lives on the Owner row rather than in
+ * the browser so the server renders the right layout from the first paint, and so
+ * published Boards can follow it too.
+ */
 export function useGridLayout() {
-  const [layout, setLayout] = useState<GridLayout>("flat");
+  const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
+  // One shared key, so every view agrees while a change is still in flight.
+  const fetcher = useFetcher({ key: "grid-layout" });
 
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem(GRID_LAYOUT_STORAGE_KEY) === "mosaic") {
-        setLayout("mosaic");
-      }
-    } catch {
-      // Storage can be unavailable in privacy-restricted browsers. The switch
-      // still works for the current page in that case.
-    }
-  }, []);
+  const pending = fetcher.formData?.get("gridLayout");
+  const layout: GridLayout =
+    pending === "flat" || pending === "mosaic" ? pending : (library?.gridLayout ?? "flat");
 
   function changeLayout(nextLayout: GridLayout) {
-    setLayout(nextLayout);
-    try {
-      window.localStorage.setItem(GRID_LAYOUT_STORAGE_KEY, nextLayout);
-    } catch {
-      // Keep the in-memory preference when persistence is unavailable.
-    }
+    fetcher.submit({ gridLayout: nextLayout }, { method: "post", action: "/preferences" });
   }
 
   return [layout, changeLayout] as const;
@@ -94,7 +88,16 @@ export function useGridLayout() {
  * placed — but a grid per page would restart the packing and leave a ragged seam
  * at each page boundary.
  */
-export function ImageGrid({ images, layout }: { images: GridImage[]; layout: GridLayout }) {
+export function ImageGrid({
+  images,
+  layout,
+  readOnly = false,
+}: {
+  images: TileImage[];
+  layout: GridLayout;
+  /** For visitors to a published Board: no way into the Owner's detail panel. */
+  readOnly?: boolean;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
@@ -227,7 +230,7 @@ export function ImageGrid({ images, layout }: { images: GridImage[]; layout: Gri
         ))}
       </div>
 
-      <Lightbox images={images} detailsHref={detailsHref} panel={panel} />
+      <Lightbox images={images} detailsHref={readOnly ? undefined : detailsHref} panel={panel} />
     </section>
   );
 }

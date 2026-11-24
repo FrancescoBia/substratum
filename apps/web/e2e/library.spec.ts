@@ -54,9 +54,7 @@ test.describe("Stream and upload", () => {
     const boardId = await createBoard(request, "Layout test");
     await page.goto("/");
 
-    const flatButton = page.getByRole("button", { name: "Flat grid" });
-    const mosaicButton = page.getByRole("button", { name: "Mosaic" });
-    await expect(flatButton).toHaveAttribute("aria-pressed", "true");
+    const layoutButton = page.getByRole("button", { name: "Grid type" });
     await expect(page.locator('[data-layout="flat"]')).toBeVisible();
 
     // File an image so the same preference can be checked in a Board view.
@@ -64,8 +62,7 @@ test.describe("Stream and upload", () => {
     await page.getByRole("dialog").getByRole("checkbox").first().click();
     await page.keyboard.press("Escape");
 
-    await mosaicButton.click();
-    await expect(mosaicButton).toHaveAttribute("aria-pressed", "true");
+    await layoutButton.click();
     await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
 
     // The regression this guards: the mosaic used to be CSS multi-column, which
@@ -92,11 +89,8 @@ test.describe("Stream and upload", () => {
     await page.goto(`/boards/${boardId}`);
     await expect(page.locator('[data-layout="mosaic"]')).toBeVisible();
 
-    // A Board sets the same preference from its settings menu.
-    await page.getByRole("button", { name: "Board settings" }).click();
-    await page.getByRole("menuitem", { name: "Display" }).hover();
-    await expect(page.getByRole("menuitemradio", { name: "Mosaic view" })).toBeChecked();
-    await page.getByRole("menuitemradio", { name: "Grid view" }).click();
+    // A Board sets the same preference from the same header button.
+    await layoutButton.click();
     await expect(page.locator('[data-layout="flat"]')).toBeVisible();
   });
 

@@ -11,32 +11,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import { Input } from "@repo/ui/components/input";
 import { eq } from "drizzle-orm";
-import {
-  LayoutDashboard,
-  LayoutGrid,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  type LucideIcon,
-} from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { useFetcher } from "react-router";
 import {
   EmptyState,
   ImageGrid,
+  LayoutButton,
   useGridLayout,
   ViewHeader,
-  type GridLayout,
 } from "~/components/image-grid";
 import { skipLightboxRevalidation } from "~/components/lightbox";
 import { PublishPopover } from "~/components/publish-popover";
@@ -68,11 +56,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   };
 }
 
-const LAYOUT_OPTIONS: { value: GridLayout; label: string; icon: LucideIcon }[] = [
-  { value: "flat", label: "Grid view", icon: LayoutGrid },
-  { value: "mosaic", label: "Mosaic view", icon: LayoutDashboard },
-];
-
 export default function BoardView({ loaderData }: Route.ComponentProps) {
   const { board, images, instanceUrl } = loaderData;
   const edit = useFetcher();
@@ -85,6 +68,7 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
   return (
     <div className="p-6">
       <ViewHeader title={board.name} subtitle={countLabel(images)}>
+        <LayoutButton layout={layout} onLayoutChange={setLayout} />
         <PublishPopover boardId={board.id} published={board.published} publicUrl={publicUrl} />
 
         <DropdownMenu>
@@ -99,23 +83,6 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
             <DropdownMenuItem onClick={() => setRenaming(true)}>
               <Pencil /> Rename board
             </DropdownMenuItem>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <LayoutGrid /> Display
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-40">
-                <DropdownMenuRadioGroup
-                  value={layout}
-                  onValueChange={(value: GridLayout) => setLayout(value)}
-                >
-                  {LAYOUT_OPTIONS.map(({ value, label, icon: Icon }) => (
-                    <DropdownMenuRadioItem key={value} value={value}>
-                      <Icon /> {label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

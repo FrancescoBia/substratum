@@ -1,5 +1,6 @@
 import { Button } from "@repo/ui/components/button";
-import { LayoutDashboard, LayoutGrid } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/components/tooltip";
+import { LayoutDashboardIcon, LayoutGridIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useRouteLoaderData } from "react-router";
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
@@ -92,22 +93,10 @@ export function useGridLayout() {
  * placed — but a grid per page would restart the packing and leave a ragged seam
  * at each page boundary.
  */
-export function ImageGrid({
-  images,
-  allowLayoutSwitch = false,
-  layout: controlledLayout,
-}: {
-  images: GridImage[];
-  allowLayoutSwitch?: boolean;
-  /** Set when the view's own controls own the layout, which hides the built-in switch. */
-  layout?: GridLayout;
-}) {
+export function ImageGrid({ images, layout }: { images: GridImage[]; layout: GridLayout }) {
   const location = useLocation();
   const navigate = useNavigate();
   const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
-  const [storedLayout, changeLayout] = useGridLayout();
-  const layout = controlledLayout ?? storedLayout;
-  const showLayoutSwitch = allowLayoutSwitch && controlledLayout === undefined;
   const tileMorphName = useTileMorphName();
 
   // A tile opens the viewer with nothing else on: the details column is
@@ -159,41 +148,6 @@ export function ImageGrid({
   // grid has no reason to take on.
   return (
     <section className={layout === "mosaic" ? "@container" : undefined}>
-      {showLayoutSwitch && (
-        <div className="mb-3 flex justify-end">
-          <div
-            role="group"
-            aria-label="Image layout"
-            className="bg-muted flex items-center gap-0.5 rounded-lg p-0.5"
-          >
-            <Button
-              type="button"
-              variant={layout === "flat" ? "secondary" : "ghost"}
-              size="icon-sm"
-              aria-pressed={layout === "flat"}
-              onClick={() => changeLayout("flat")}
-              title="Flat grid"
-              className={layout === "flat" ? "bg-background shadow-sm hover:bg-background" : ""}
-            >
-              <LayoutGrid />
-              <span className="sr-only">Flat grid</span>
-            </Button>
-            <Button
-              type="button"
-              variant={layout === "mosaic" ? "secondary" : "ghost"}
-              size="icon-sm"
-              aria-pressed={layout === "mosaic"}
-              onClick={() => changeLayout("mosaic")}
-              title="Mosaic"
-              className={layout === "mosaic" ? "bg-background shadow-sm hover:bg-background" : ""}
-            >
-              <LayoutDashboard />
-              <span className="sr-only">Mosaic</span>
-            </Button>
-          </div>
-        </div>
-      )}
-
       <div
         data-layout={layout}
         className={
@@ -271,6 +225,32 @@ export function ImageGrid({
 
       <Lightbox images={images} detailsHref={detailsHref} panel={panel} />
     </section>
+  );
+}
+
+export function LayoutButton({
+  layout,
+  onLayoutChange,
+}: {
+  layout: GridLayout;
+  onLayoutChange: (layout: GridLayout) => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Grid type"
+            onClick={() => onLayoutChange(layout === "mosaic" ? "flat" : "mosaic")}
+          >
+            {layout === "mosaic" ? <LayoutDashboardIcon /> : <LayoutGridIcon />}
+          </Button>
+        }
+      />
+      <TooltipContent>Grid type</TooltipContent>
+    </Tooltip>
   );
 }
 

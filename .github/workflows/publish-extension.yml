@@ -69,7 +69,7 @@ jobs:
         run: |
           zip="substratum-extension-${TAG#v}.zip"
           if ! gh release download "$TAG" --pattern "$zip" --dir "$RUNNER_TEMP"; then
-            echo "::error::No $zip on the $TAG GitHub Release. Releases before the zip was attached need publish.yml re-run for the tag."
+            echo "::error::No $zip on the $TAG GitHub Release. Only releases published after the zip was added to publish.yml have one; cut a new release to submit."
             exit 1
           fi
           echo "CHROME_ZIP=$RUNNER_TEMP/$zip" >> "$GITHUB_ENV"

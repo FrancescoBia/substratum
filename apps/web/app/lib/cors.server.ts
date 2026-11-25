@@ -11,8 +11,7 @@ import { extensionId } from "./config.server";
  */
 export function extensionCorsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("Origin");
-  if (!origin?.startsWith("chrome-extension://")) return {};
-  if (extensionId && origin !== `chrome-extension://${extensionId}`) return {};
+  if (origin !== `chrome-extension://${extensionId}`) return {};
 
   return {
     "Access-Control-Allow-Origin": origin,

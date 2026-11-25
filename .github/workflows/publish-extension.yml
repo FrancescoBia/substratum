@@ -74,6 +74,16 @@ jobs:
           fi
           echo "CHROME_ZIP=$RUNNER_TEMP/$zip" >> "$GITHUB_ENV"
 
+      # The manifest's `key` gives unpacked installs the store's ID. The store
+      # assigns that ID itself and doesn't accept a `key` in an upload, so it
+      # comes out here; nothing else in the zip changes.
+      - run: |
+          cd "$(mktemp -d)"
+          unzip -q "$CHROME_ZIP" manifest.json
+          jq 'del(.key)' manifest.json > stripped.json
+          mv stripped.json manifest.json
+          zip -q "$CHROME_ZIP" manifest.json
+
       - working-directory: apps/extension
         env:
           CHROME_API_VERSION: v2

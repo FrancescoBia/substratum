@@ -33,5 +33,10 @@ export default defineConfig({
     action: {
       default_title: "Substratum — click to see through overlays on this site",
     },
+    // The Chrome Web Store listing's public key. It gives every build, unpacked
+    // ones included, the store's ID, which is the only one an instance accepts
+    // by default (SUBSTRATUM_EXTENSION_ID). publish-extension.yml strips it
+    // before uploading, since the store assigns its own.
+    key: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs1yshY5iaQYLXF1kRhN30YKSsnzhe+sUPb6eylDIsmnW8rcs0nlIm0EWDlmeUi/jyiy+CUfRteEe0yvjSqWQ3YoAR+3A49IZWci793eoIvBVe0GmDCDX4Kkq6CuO3kTDX6vjzyNM6N72GqLDA7izQIlfJuYfFoMSjREr4W19k1+GQyWDJqZo5PqM2R5T6gAR+Uh9tR1pWQWq41VI6Nuri+c1q07dUvOZ+0nYd7FotJm6Ki3JVmbxLIrT732HeCA+PxcUhvYwH/O26CkUH8xx//rzAxen5+x8wFd9gq62OQjqi7QpW9VtPN/54xaJ7xr2PniLcaCd74pqhY74DeJeLwIDAQAB",
   },
 });

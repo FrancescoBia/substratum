@@ -344,7 +344,8 @@ bucket can't drag `pnpm test:e2e` into it.
 | Command            | Does                                                                                                        |
 | ------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`         | Run the web app in dev mode                                                                                 |
-| `pnpm seed`        | Fill a running instance with sample images and boards (`--url http://localhost:<port>` if it isn't on 5173) |
+| `pnpm dev:sandbox` | Run a disposable, seeded instance on :5174 with known credentials (see below)                               |
+| `pnpm seed`        | Fill a running instance with sample images, videos and boards (`--url http://localhost:<port>` if not 5173) |
 | `pnpm test:unit`   | Run the Vitest suite: colocated `*.test.ts` in Node, `*.browser.test.tsx` in headless Chromium              |
 | `pnpm test:e2e`    | Run every Playwright spec against a throwaway instance                                                      |
 | `pnpm shots`       | Regenerate just the screenshots in `apps/web/screenshots/`                                                  |
@@ -356,11 +357,17 @@ bucket can't drag `pnpm test:e2e` into it.
 
 ### Seeing the app without clicking through setup
 
-The app is behind a login, which makes casual review awkward. Two ways round it,
-neither of which adds a bypass to the app itself:
+The app is behind a login, which makes casual review awkward. Three ways round it,
+none of which adds a bypass to the app itself:
 
+- **`pnpm dev:sandbox`** runs the dev server on http://localhost:5174 against its
+  own data directory (`apps/web/.sandbox-data`, never `apps/web/data`), wipes it,
+  and seeds it through the real `/setup` endpoint. Sign in as
+  `sandbox@substratum.test` / `sandbox-password`. You get three boards of images and
+  videos (one of them published) plus some unsorted media. `--keep` restarts it
+  without wiping. It ignores `.env`, so it never touches a bucket.
 - **`pnpm seed`** against a fresh instance creates an owner, prints the generated
-  password, and uploads sample images. On an instance that already has an owner it
+  password, and uploads sample images and videos into boards. On an instance that already has an owner it
   needs `SUBSTRATUM_SEED_EMAIL` and `SUBSTRATUM_SEED_PASSWORD` — it will never guess.
 - **`pnpm shots`** spins up a throwaway instance, authenticates over HTTP, and
   writes a PNG of every view. Reviewing the UI is then a folder of images.

@@ -12,6 +12,9 @@ build/
 # Local instance data (SQLite file + stored images)
 data/
 
+# `pnpm dev:sandbox`: disposable seeded instance
+.sandbox-data/
+
 # Playwright: throwaway instance, saved session, reports, generated screenshots
 .playwright-data/
 **/e2e/.auth/

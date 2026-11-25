@@ -30,6 +30,7 @@ pnpm build
 - **Server-only code** uses the `*.server.ts` suffix. Config comes only from env vars with working defaults (see `apps/web/app/lib/config.server.ts`). Never add a required config file.
 - **`@repo/ui`** has no build step and resolves through its `exports` map, not tsconfig paths. After `shadcn add`, change `import { cn } from "cn"` to `@repo/ui/lib/utils`, drop the `cn` dependency the CLI adds, and remove `"use client"` (see `packages/ui/README.md`).
 - **Tags are hidden** behind `TAGS_ENABLED` in `apps/web/app/lib/features.ts`. Keep tag code working, but don't surface it in the UI.
+- **Trying the UI yourself:** run `pnpm dev:sandbox` (the `sandbox` entry in `.claude/launch.json`, port 5174) and sign in as `sandbox@substratum.test` / `sandbox-password`. It's a wiped and reseeded instance with boards, images and videos, kept apart from `apps/web/data`.
 - **e2e auth** goes through the real `/setup` endpoint (`e2e/auth.setup.ts`). Don't add dev-only login routes or auth bypasses.
 - **Video** is never transcoded. ffmpeg/ffprobe are required at startup.
 - **Versions** are the same in every `package.json` that has one. Change them only with `pnpm release:version <x.y.z>`. CI fails if they drift (`pnpm release:check`).

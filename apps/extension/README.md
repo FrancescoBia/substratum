@@ -106,7 +106,24 @@ signed-in email when it works.
 Requests are deliberately kept "simple" — form-encoded body, no custom headers —
 so the browser sends no CORS preflight. React Router doesn't route `OPTIONS`, so
 avoiding preflight avoids needing a server to answer it. The instance echoes CORS
-headers only to `chrome-extension://` origins.
+headers only to this extension's own origin, so no other extension in the same
+browser can read its responses. That alone wouldn't stop a simple request from
+running, so `/api/capture` also refuses any other extension's origin with a 403
+before it reads the session.
+
+### One ID everywhere
+
+The instance accepts one extension ID: the Chrome Web Store listing's,
+`ddccplpcigefckbilighclpnaacpaodn`. An unpacked extension would normally get an ID
+derived from the folder it was loaded from, so the manifest carries the listing's
+public key as `key` ([`wxt.config.ts`](wxt.config.ts)). That gives every build
+the store's ID, whether it comes from the store, a GitHub Release zip or
+`pnpm dev`. Chrome can't have two extensions with the same ID, so loading the
+unpacked build replaces the store version in that browser.
+
+A fork built with a different key gets a different ID. Its instance needs
+`SUBSTRATUM_EXTENSION_ID` set to that ID; see
+[`config.server.ts`](../web/app/lib/config.server.ts).
 
 ### What it won't save
 
@@ -210,7 +227,8 @@ The extension shares the repo's version and ships with every release (see the
   load a released build without a checkout.
 - **Chrome Web Store, by hand.** Most releases don't change the extension, and
   the store refuses a new upload while the previous one is in review. When a
-  release does change it, submit that release's zip:
+  release does change it, submit that release's zip. The workflow removes the
+  manifest's `key` first, because the store assigns the ID itself:
 
   ```bash
   gh workflow run publish-extension.yml -f tag=vX.Y.Z
@@ -232,9 +250,10 @@ instances.
 1. **The first upload is manual.** Register as a Chrome Web Store developer,
    upload a release zip in the dashboard, and fill in the listing: screenshots,
    privacy disclosure, permission justifications (the table above covers them).
-2. **Pin the extension ID.** The instance accepts capture calls from any
-   `chrome-extension://` origin until `SUBSTRATUM_EXTENSION_ID` is set. Set it to
-   the ID the store assigned. See [`cors.server.ts`](../web/app/lib/cors.server.ts).
+2. **Key and ID.** Copy the public key from the item's **Package** page into
+   `key` in [`wxt.config.ts`](wxt.config.ts), and its ID into the default in
+   [`config.server.ts`](../web/app/lib/config.server.ts). See
+   [One ID everywhere](#one-id-everywhere). Already done for the current listing.
 3. **API access.** Create a Google Cloud service account, enable the Chrome Web
    Store API for its project, and add the service account's email to the
    publisher in the dashboard's account settings. Then create a `chrome-web-store`

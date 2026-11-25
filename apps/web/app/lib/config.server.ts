@@ -88,11 +88,13 @@ function firstHeaderValue(request: Request, name: string): string | null {
 }
 
 /**
- * Pin the published extension's ID here (via env) once it exists, so only that
- * extension may call the capture API. Until then any chrome-extension origin is
- * accepted, which is fine for local development but should not ship as-is.
+ * The only extension allowed to make credentialed calls to the API. Defaults to
+ * the Chrome Web Store listing's ID, which unpacked builds share through the
+ * manifest's `key` (apps/extension/wxt.config.ts). Override it only for a fork
+ * built with a different key.
  */
-export const extensionId = process.env.SUBSTRATUM_EXTENSION_ID ?? null;
+export const extensionId =
+  process.env.SUBSTRATUM_EXTENSION_ID || "ddccplpcigefckbilighclpnaacpaodn";
 
 /** How long a trashed Image stays recoverable before it is purged for good. */
 export const trashRetentionDays = numberFromEnv("SUBSTRATUM_TRASH_RETENTION_DAYS", 30);

@@ -91,7 +91,7 @@ export function DurationBadge({
   return (
     <span
       className={cn(
-        "pointer-events-none absolute inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] leading-none font-medium text-white tabular-nums backdrop-blur-sm",
+        "pointer-events-none absolute inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-xs leading-none font-medium text-white tabular-nums backdrop-blur-sm",
         position,
       )}
     >

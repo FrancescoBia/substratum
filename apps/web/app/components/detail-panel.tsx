@@ -202,7 +202,7 @@ export function DetailPanelBody({
             />
             <span>{board.name}</span>
             {board.published && (
-              <Badge variant="outline" className="ml-auto text-[10px]">
+              <Badge variant="outline" className="ml-auto text-xs">
                 published
               </Badge>
             )}

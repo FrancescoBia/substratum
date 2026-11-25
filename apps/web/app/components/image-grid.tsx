@@ -287,7 +287,7 @@ export function ViewHeader({
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         {subtitle && (
           <p
-            className="text-muted-foreground text-[11px] mt-3.5 font-mono"
+            className="text-muted-foreground text-xs mt-3.5 font-mono"
             style={{ lineHeight: 1.55 }}
           >
             {subtitle}

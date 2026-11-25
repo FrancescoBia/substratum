@@ -228,7 +228,7 @@ export default function Triage({ loaderData }: Route.ComponentProps) {
                 />
                 <span>{board.name}</span>
                 {index < 9 && (
-                  <kbd className="bg-muted text-muted-foreground ml-auto rounded px-1.5 text-[10px]">
+                  <kbd className="bg-muted text-muted-foreground ml-auto rounded px-1.5 text-xs">
                     {index + 1}
                   </kbd>
                 )}

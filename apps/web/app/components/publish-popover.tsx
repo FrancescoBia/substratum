@@ -55,9 +55,9 @@ export function PublishPopover({
           </Button>
         }
       />
-      <PopoverContent align="end" className="w-72 rounded-md p-0.5 text-[13px]">
+      <PopoverContent align="end" className="w-72 rounded-md p-0.5 text-sm">
         <div className="px-2 py-1.5">
-          <Label className="h-5 justify-between gap-1.5 text-[13px]">
+          <Label className="h-5 justify-between gap-1.5 text-sm">
             Public URL
             <Switch size="sm" checked={isPublic} onCheckedChange={setPublic} />
           </Label>

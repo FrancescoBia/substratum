@@ -19,3 +19,16 @@ export function extensionCorsHeaders(request: Request): Record<string, string> {
     Vary: "Origin",
   };
 }
+
+/**
+ * A request from some other extension. Withholding the CORS headers only stops
+ * it reading the answer: a simple POST still arrives and would still run, so a
+ * route with side effects turns these away first. Requests that carry no
+ * extension origin (a script, curl) are not affected.
+ */
+export function isOtherExtension(request: Request): boolean {
+  const origin = request.headers.get("Origin");
+  return (
+    !!origin?.startsWith("chrome-extension://") && origin !== `chrome-extension://${extensionId}`
+  );
+}

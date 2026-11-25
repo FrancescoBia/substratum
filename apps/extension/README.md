@@ -107,7 +107,9 @@ Requests are deliberately kept "simple" — form-encoded body, no custom headers
 so the browser sends no CORS preflight. React Router doesn't route `OPTIONS`, so
 avoiding preflight avoids needing a server to answer it. The instance echoes CORS
 headers only to this extension's own origin, so no other extension in the same
-browser can read its responses.
+browser can read its responses. That alone wouldn't stop a simple request from
+running, so `/api/capture` also refuses any other extension's origin with a 403
+before it reads the session.
 
 ### One ID everywhere
 

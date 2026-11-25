@@ -17,11 +17,16 @@ async function loadCors(extensionId?: string) {
   vi.stubEnv("SUBSTRATUM_SKIP_ENV_FILE", "1");
   vi.stubEnv("S3_BUCKET", "");
   vi.stubEnv("SUBSTRATUM_EXTENSION_ID", extensionId ?? "");
-  const { extensionCorsHeaders } = await import("./cors.server");
-  return (origin: string) =>
-    extensionCorsHeaders(
-      new Request("http://instance/api/capture", { headers: { Origin: origin } }),
-    );
+  const cors = await import("./cors.server");
+  const request = (origin: string | null) =>
+    new Request("http://instance/api/capture", {
+      method: "POST",
+      headers: origin ? { Origin: origin } : {},
+    });
+  return {
+    headers: (origin: string) => cors.extensionCorsHeaders(request(origin)),
+    isOther: (origin: string | null) => cors.isOtherExtension(request(origin)),
+  };
 }
 
 afterEach(async () => {
@@ -32,20 +37,40 @@ afterEach(async () => {
 
 describe("extensionCorsHeaders", () => {
   test("accepts only the store extension by default", async () => {
-    const cors = await loadCors();
-    expect(cors(`chrome-extension://${STORE_ID}`)).toMatchObject({
+    const { headers } = await loadCors();
+    expect(headers(`chrome-extension://${STORE_ID}`)).toMatchObject({
       "Access-Control-Allow-Origin": `chrome-extension://${STORE_ID}`,
       "Access-Control-Allow-Credentials": "true",
     });
-    expect(cors(`chrome-extension://${OTHER_ID}`)).toEqual({});
-    expect(cors("https://example.com")).toEqual({});
+    expect(headers(`chrome-extension://${OTHER_ID}`)).toEqual({});
+    expect(headers("https://example.com")).toEqual({});
   });
 
   test("SUBSTRATUM_EXTENSION_ID replaces the store ID", async () => {
-    const cors = await loadCors(OTHER_ID);
-    expect(cors(`chrome-extension://${OTHER_ID}`)).toMatchObject({
+    const { headers } = await loadCors(OTHER_ID);
+    expect(headers(`chrome-extension://${OTHER_ID}`)).toMatchObject({
       "Access-Control-Allow-Origin": `chrome-extension://${OTHER_ID}`,
     });
-    expect(cors(`chrome-extension://${STORE_ID}`)).toEqual({});
+    expect(headers(`chrome-extension://${STORE_ID}`)).toEqual({});
+  });
+});
+
+describe("isOtherExtension", () => {
+  test("flags only extensions that aren't the allowed one", async () => {
+    const { isOther } = await loadCors();
+    expect(isOther(`chrome-extension://${OTHER_ID}`)).toBe(true);
+    expect(isOther(`chrome-extension://${STORE_ID}`)).toBe(false);
+  });
+
+  test("leaves requests without an extension origin alone", async () => {
+    const { isOther } = await loadCors();
+    expect(isOther(null)).toBe(false);
+    expect(isOther("https://example.com")).toBe(false);
+  });
+
+  test("follows SUBSTRATUM_EXTENSION_ID", async () => {
+    const { isOther } = await loadCors(OTHER_ID);
+    expect(isOther(`chrome-extension://${OTHER_ID}`)).toBe(false);
+    expect(isOther(`chrome-extension://${STORE_ID}`)).toBe(true);
   });
 });

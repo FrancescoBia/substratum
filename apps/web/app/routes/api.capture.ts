@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import type { CaptureResponse } from "@repo/shared";
 import { getOwnerFromSession } from "~/auth/session.server";
-import { extensionCorsHeaders } from "~/lib/cors.server";
+import { extensionCorsHeaders, isOtherExtension } from "~/lib/cors.server";
 import { ingestFile } from "~/lib/ingest.server";
 import { downloadSource } from "~/lib/source-download.server";
 import { spoolPath } from "~/lib/upload.server";
@@ -34,6 +34,8 @@ const HEARTBEAT_MS = 10_000;
  * the verdict is ready — see `streamVerdict`.
  */
 export async function action({ request }: Route.ActionArgs) {
+  if (isOtherExtension(request)) return new Response(null, { status: 403 });
+
   const headers = extensionCorsHeaders(request);
 
   const respond = (body: CaptureResponse, status = 200) => Response.json(body, { status, headers });

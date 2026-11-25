@@ -1,0 +1,85 @@
+# Submits a released extension build to the Chrome Web Store.
+#
+# Manual on purpose. Every release bumps the extension's version along with the
+# rest of the repo, so most releases carry an extension identical to the last
+# one, and the store refuses a new upload while the previous one is still in
+# review. Run this when a release actually changed the extension:
+#
+#   gh workflow run publish-extension.yml -f tag=vX.Y.Z
+#
+# It uploads the zip already attached to that GitHub Release rather than
+# building one, so the store gets exactly what passed CI under that tag.
+#
+# Credentials live in the `chrome-web-store` environment (see the extension
+# README): variables CHROME_EXTENSION_ID, CHROME_PUBLISHER_ID and
+# CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL, and the secret
+# CHROME_SERVICE_ACCOUNT_PRIVATE_KEY.
+name: publish-extension
+# The tag in the title is how the release skill finds what was last submitted.
+run-name: "Chrome Web Store: ${{ inputs.tag }}${{ inputs.dry_run && ' (dry run)' || '' }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to submit, e.g. v0.6.0
+        required: true
+        type: string
+      dry_run:
+        description: Check the credentials only, without uploading or submitting
+        type: boolean
+        default: false
+
+concurrency:
+  group: publish-extension
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    environment: chrome-web-store
+    steps:
+      # The store's version is digits and dots only, so WXT ships v1.2.0-rc.1
+      # as 1.2.0. Submitting it would take 1.2.0 from the real release.
+      - env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$TAG' is not a release tag like v1.2.3. Pre-releases can't go to the Chrome Web Store."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      # Only for `wxt submit`, at the version the lockfile pins.
+      - run: pnpm install --frozen-lockfile
+
+      # The GitHub Release only appears once publish.yml's CI and image jobs
+      # have passed, so its existence is the check that this tag is releasable.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          zip="substratum-extension-${TAG#v}.zip"
+          if ! gh release download "$TAG" --pattern "$zip" --dir "$RUNNER_TEMP"; then
+            echo "::error::No $zip on the $TAG GitHub Release. Releases before the zip was attached need publish.yml re-run for the tag."
+            exit 1
+          fi
+          echo "CHROME_ZIP=$RUNNER_TEMP/$zip" >> "$GITHUB_ENV"
+
+      - working-directory: apps/extension
+        env:
+          CHROME_API_VERSION: v2
+          CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ vars.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: pnpm exec wxt submit --dry-run "$DRY_RUN"

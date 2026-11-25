@@ -11,7 +11,7 @@ Substratum is two pieces: a **web app** you host yourself, and a **Chrome extens
 > capture, upload, boards, tags, triage, trash, export, published boards, and
 > image storage on either local disk or an S3-compatible bucket. The container
 > image is published to GHCR, but the extension isn't on the Chrome Web Store,
-> so it has to be loaded unpacked.
+> so it has to be loaded unpacked — each GitHub Release has a zip of it.
 
 ## How it works
 

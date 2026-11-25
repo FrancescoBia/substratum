@@ -10,7 +10,9 @@ Pushing a `v*` tag is the release. `.github/workflows/publish.yml` then does the
 1. **verify**: the tag's commit must be on `main`, and the tag must equal the version in every `package.json` (`scripts/version.mjs check`).
 2. **ci**: the full CI suite, run against the tagged commit.
 3. **image**: builds amd64 and arm64 images and pushes `:vX.Y.Z`, `:vX.Y` and `:latest` to GHCR. A pre-release tag such as `v1.2.0-rc.1` gets only its own tag.
-4. **release**: creates the GitHub Release with notes from `scripts/release-notes.mjs`.
+4. **release**: creates the GitHub Release with notes from `scripts/release-notes.mjs`, and attaches the extension zip (`substratum-extension-X.Y.Z.zip`).
+
+The Chrome Web Store is a separate, manual step afterwards (step 6), because most releases don't change the extension.
 
 Your job is everything before the tag, and checking the result afterwards. Don't recreate the CI steps by hand.
 
@@ -84,7 +86,33 @@ gh release view vX.Y.Z
 docker buildx imagetools inspect ghcr.io/francescobia/substratum:vX.Y.Z   # if Docker is running
 ```
 
-The image list should show `linux/amd64` and `linux/arm64`. Report the release URL to the developer.
+The image list should show `linux/amd64` and `linux/arm64`, and the release should list `substratum-extension-X.Y.Z.zip` as an asset. Report the release URL to the developer.
+
+## 6. Offer the Chrome Web Store submission
+
+Skip this for a pre-release: the store can't tell `v1.2.0-rc.1` from `v1.2.0`, and the workflow refuses it.
+
+Check whether the extension changed since it was last submitted. The last submitted tag is in the title of the newest successful run that isn't a dry run:
+
+```bash
+gh run list --workflow publish-extension.yml --status success --json displayTitle --jq '[.[] | select(.displayTitle | contains("dry run") | not)][0].displayTitle'
+```
+
+If there's none, nothing has been submitted yet, and the first submission is done by hand (see the extension README). Otherwise:
+
+```bash
+git diff --stat vLAST vX.Y.Z -- apps/extension packages/shared packages/ui
+```
+
+If nothing changed (a version bump in `package.json` doesn't count), say so and stop. Otherwise show the developer what changed and ask whether to submit. Submitting pushes an update to every store user within hours, while self-hosters upgrade their servers whenever they like, so check the changes still work against older instances. Only on an explicit yes:
+
+```bash
+gh workflow run publish-extension.yml -f tag=vX.Y.Z
+gh run list --workflow publish-extension.yml --limit 1 --json databaseId,url
+gh run watch <id> --exit-status
+```
+
+A successful run means the build was submitted for review, not that it's live. If it fails because a previous submission is still in review, tell the developer: they can wait, or cancel the pending review in the dashboard and run it again.
 
 ## If the publish fails
 
@@ -101,5 +129,4 @@ Never use `--force` on a tag that already has a published image.
 
 ## Out of scope for now
 
-- The Chrome extension isn't released. It's loaded unpacked from a checkout.
 - Releases from branches other than `main`, which the verify job rejects.

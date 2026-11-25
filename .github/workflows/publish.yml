@@ -137,17 +137,31 @@ jobs:
           # Tags and history, to find the previous release and the commits since.
           fetch-depth: 0
       - run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+
+      # The extension zip rides along on every release, changed or not: it's
+      # what an unpacked install loads, and what publish-extension.yml sends to
+      # the Chrome Web Store, so the store only ever gets a released build.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/extension zip
+
       # A pre-release tag (v1.2.0-rc.1) becomes a pre-release, which GitHub
       # never marks as Latest, the same rule `:latest` follows. A re-run updates
       # the existing release instead of failing on it.
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          zip="apps/extension/.output/substratum-extension-${GITHUB_REF_NAME#v}.zip"
           flags=()
           [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+            gh release upload "$GITHUB_REF_NAME" "$zip" --clobber
           else
             gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
-              --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+              --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}" "$zip"
           fi

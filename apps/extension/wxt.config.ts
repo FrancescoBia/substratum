@@ -9,6 +9,12 @@ export default defineConfig({
   vite: () => ({
     plugins: [tailwindcss()],
   }),
+  // The zip is attached to each GitHub Release, so it's named for whoever
+  // downloads it. `packageVersion` keeps a pre-release suffix that the
+  // manifest's `version` has to drop.
+  zip: {
+    artifactTemplate: "substratum-extension-{{packageVersion}}.zip",
+  },
   manifest: {
     name: "Substratum",
     description: "Right-click any image or video to save it to your Substratum library.",

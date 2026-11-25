@@ -9,7 +9,7 @@ for hosting.
 
 > [!NOTE]
 > Not on the Chrome Web Store yet, so it has to be loaded unpacked. See
-> [Loading it](#loading-it).
+> [Loading it](#loading-it), or [Releasing](#releasing) for how it gets there.
 
 ## How it works
 
@@ -192,20 +192,63 @@ pnpm --dir apps/extension build
 ```
 
 Then `chrome://extensions` → enable **Developer mode** → **Load unpacked** →
-select `apps/extension/.output/chrome-mv3`. Open the extension's options, enter
+select `apps/extension/.output/chrome-mv3`. Without a checkout, download
+`substratum-extension-X.Y.Z.zip` from a [GitHub Release](https://github.com/francescobia/substratum/releases),
+unzip it, and load that folder instead. Open the extension's options, enter
 your instance URL, click **Pair instance**, and accept the permission prompt.
 
 The options page opens as an embedded dialog rather than a tab. If the permission
 prompt doesn't appear there, open the options page in its own tab and retry.
 
-## Before publishing
+## Releasing
 
-- **Pin the extension ID.** The instance accepts capture calls from any
-  `chrome-extension://` origin until `SUBSTRATUM_EXTENSION_ID` is set. It's
-  chicken-and-egg with the store: publish, take the assigned ID, set the env var,
-  rebuild. See [`cors.server.ts`](../web/app/lib/cors.server.ts).
-- Chrome Web Store listing — screenshots, privacy disclosure, submission. Icons
-  and `wxt zip` are already in place.
+The extension shares the repo's version and ships with every release (see the
+`/release` skill). There are two channels:
+
+- **GitHub Releases, automatically.** `publish.yml` attaches
+  `substratum-extension-X.Y.Z.zip` to every release, so an unpacked install can
+  load a released build without a checkout.
+- **Chrome Web Store, by hand.** Most releases don't change the extension, and
+  the store refuses a new upload while the previous one is in review. When a
+  release does change it, submit that release's zip:
+
+  ```bash
+  gh workflow run publish-extension.yml -f tag=vX.Y.Z
+  ```
+
+  Add `-f dry_run=true` to check the credentials without uploading. A
+  successful run means the build is submitted for review, not that it's live.
+
+Pre-releases never go to the store. A store version is digits and dots only, so
+WXT ships `1.2.0-rc.1` as `1.2.0` (keeping the full string as `version_name`),
+which would use up `1.2.0` before the real release.
+
+The store updates everyone within hours, while self-hosters upgrade their
+instances whenever they like. A store release has to keep working against older
+instances.
+
+### One-time setup
+
+1. **The first upload is manual.** Register as a Chrome Web Store developer,
+   upload a release zip in the dashboard, and fill in the listing: screenshots,
+   privacy disclosure, permission justifications (the table above covers them).
+2. **Pin the extension ID.** The instance accepts capture calls from any
+   `chrome-extension://` origin until `SUBSTRATUM_EXTENSION_ID` is set. Set it to
+   the ID the store assigned. See [`cors.server.ts`](../web/app/lib/cors.server.ts).
+3. **API access.** Create a Google Cloud service account, enable the Chrome Web
+   Store API for its project, and add the service account's email to the
+   publisher in the dashboard's account settings. Then create a `chrome-web-store`
+   environment in the repo's GitHub settings with:
+
+   | Name                                  | Kind     | Value                               |
+   | ------------------------------------- | -------- | ----------------------------------- |
+   | `CHROME_EXTENSION_ID`                 | variable | the item ID                         |
+   | `CHROME_PUBLISHER_ID`                 | variable | the publisher ID from the dashboard |
+   | `CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL` | variable | the service account's email         |
+   | `CHROME_SERVICE_ACCOUNT_PRIVATE_KEY`  | secret   | the private key from its JSON key   |
+
+   `pnpm --dir apps/extension exec wxt submit init` walks through the same
+   values interactively. Run the workflow with `dry_run` to confirm them.
 
 ## License
 

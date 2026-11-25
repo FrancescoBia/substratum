@@ -40,6 +40,7 @@ pnpm build
 
 - Pushing directly to `main` is allowed. Please check with the developer before committing anything though.
 - Pushing a `v*` tag publishes the GHCR image that self-hosters pull as `:latest`. Never create or push tags unless explicitly asked.
+- The Chrome Web Store submission is a manual `workflow_dispatch` (`publish-extension.yml`). It sends a user-facing update to every store user, so never run it unless asked; the release skill offers it when the extension changed.
 - To cut a release, follow `.claude/skills/release/SKILL.md` (`/release` in Claude Code). The publish workflow handles everything after the tag: it checks the tag, runs CI, pushes the image and creates the GitHub Release.
 
 ## Other rules

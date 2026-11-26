@@ -220,16 +220,17 @@ export function Lightbox({
     intendedId.current = openId;
   }, [openId]);
 
-  // Wraps around: at the last image, → returns to the first. Stepping `replace`s
-  // rather than pushes, so however far you walk, one Escape or one Back returns
-  // to the grid instead of unwinding the whole visit.
+  // Stops at either end rather than wrapping round. Stepping `replace`s rather
+  // than pushes, so however far you walk, one Escape or one Back returns to the
+  // grid instead of unwinding the whole visit.
   const step = useCallback(
     (delta: number) => {
-      if (images.length < 2) return;
       const from = images.findIndex((image) => image.id === intendedId.current);
       if (from === -1) return;
 
-      const next = images[(from + delta + images.length) % images.length];
+      const to = from + delta;
+      if (to < 0 || to >= images.length) return;
+      const next = images[to];
       intendedId.current = next.id;
 
       // The panel follows the viewer: if it is open, it has to be open on the
@@ -241,7 +242,6 @@ export function Lightbox({
       navigate(`${location.pathname}?${params}`, {
         replace: true,
         preventScrollReset: true,
-        state: { lightboxStep: Math.sign(delta) },
       });
     },
     [images, location.pathname, location.search, navigate],
@@ -335,16 +335,14 @@ function LightboxBody({
   // The tile hands the name over for exactly as long as its Image is the one on
   // screen here, so the two are never both wearing it. See `morphFromTile`.
   const morphId = useMorphTarget();
-  const location = useLocation();
   const image = images[index];
   const total = images.length;
-  const position = useStripPosition(index, total, location.state);
 
   // Every mounted slot, so the spring can place them without a render.
   const slots = useRef(new Map<number, HTMLElement>());
   const stage = useRef<HTMLDivElement>(null);
   const blur = useRef<SVGFEGaussianBlurElement>(null);
-  const settledAt = useStripSpring(position, (at, velocity, frame) => {
+  const settledAt = useStripSpring(index, (at, velocity, frame) => {
     // Blur first: it reads the stage's width, which is free while nothing
     // has been written yet this frame and a forced layout after.
     blurStrip(stage.current, blur.current, velocity, frame);
@@ -368,7 +366,7 @@ function LightboxBody({
   // `medium` and adding the candidates afterwards gets the same bytes in the
   // end: an `<img>` keeps painting what it has until the replacement has
   // decoded, so the upgrade is invisible whenever it happens.
-  const srcSet = settledAt === position ? fullSizeSrcSet(image) : undefined;
+  const srcSet = settledAt === index ? fullSizeSrcSet(image) : undefined;
 
   return (
     <>
@@ -432,9 +430,9 @@ function LightboxBody({
         className="relative min-h-0 flex-1 overflow-hidden [--gap:0.75rem] [--peek:1.5rem] @container-size sm:[--gap:1.5rem] sm:[--peek:3.5rem]"
         onClick={onClose}
       >
-        {stripWindow(position, total).map((slot) => {
-          const offset = slot - position;
-          const slotImage = images[mod(slot, total)];
+        {stripWindow(index, total).map((slot) => {
+          const offset = slot - index;
+          const slotImage = images[slot];
           const isCurrent = offset === 0;
           const isNeighbour = Math.abs(offset) === 1;
 
@@ -515,7 +513,12 @@ function LightboxBody({
       <div className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 px-3 py-3 sm:px-4 sm:py-5">
         <div>
           {total > 1 && (
-            <button type="button" className={cn(CONTROL, "size-9")} onClick={() => onStep(-1)}>
+            <button
+              type="button"
+              className={cn(CONTROL, "size-9 disabled:pointer-events-none disabled:opacity-30")}
+              disabled={index === 0}
+              onClick={() => onStep(-1)}
+            >
               <ArrowLeftIcon className="size-4" />
               <span className="sr-only">Previous image</span>
             </button>
@@ -526,7 +529,12 @@ function LightboxBody({
 
         <div className="flex justify-end">
           {total > 1 && (
-            <button type="button" className={cn(CONTROL, "size-9")} onClick={() => onStep(1)}>
+            <button
+              type="button"
+              className={cn(CONTROL, "size-9 disabled:pointer-events-none disabled:opacity-30")}
+              disabled={index === total - 1}
+              onClick={() => onStep(1)}
+            >
               <ArrowRightIcon className="size-4" />
               <span className="sr-only">Next image</span>
             </button>
@@ -538,59 +546,25 @@ function LightboxBody({
 }
 
 /**
- * The viewer is a strip of images running off both edges: the one being viewed
- * in the middle, a sliver of its neighbours at the edges, and one more on each
- * side just out of sight, so a step always has something to slide in.
+ * The viewer is a strip of images: the one being viewed in the middle, a sliver
+ * of its neighbours at the edges, and more beyond them just out of sight, so a
+ * step always has something to slide in. The first and last Images simply have
+ * nothing on their outer side.
  *
- * Slots are numbered along an *unwrapped* strip — `position` keeps counting
- * past the last image rather than wrapping to 0 — and React keys each `<img>`
- * by that number. So stepping keeps every image that is still in the window
- * mounted, and `useStripSpring` slides them along. Wrapping the number instead
- * would make a short gallery's neighbours fly across the screen to the other
- * side, and would not let one Image appear twice, which a gallery of two
- * needs: its one other Image is both the previous and the next.
+ * React keys each `<img>` by its index, so stepping keeps every image that is
+ * still in the window mounted, and `useStripSpring` slides them along.
  *
- * Four either side, though only one shows: the strip can trail `position` by
- * up to `MAX_LAG` while it catches up, and whatever it is passing over still
- * has to be there to be seen.
+ * Four either side, though only one shows: the strip can trail the open Image by
+ * up to `MAX_LAG` while it catches up, and whatever it is passing over still has
+ * to be there to be seen.
  */
 const STRIP_REACH = 4;
 
-function mod(n: number, m: number) {
-  return ((n % m) + m) % m;
-}
-
-function stripWindow(position: number, total: number): number[] {
-  if (total < 2) return [position];
+function stripWindow(index: number, total: number): number[] {
   const slots: number[] = [];
-  for (let slot = position - STRIP_REACH; slot <= position + STRIP_REACH; slot++) slots.push(slot);
+  const last = Math.min(index + STRIP_REACH, total - 1);
+  for (let slot = Math.max(index - STRIP_REACH, 0); slot <= last; slot++) slots.push(slot);
   return slots;
-}
-
-/**
- * Where on the unwrapped strip the open Image sits. It starts at its own index
- * and from then on moves by the shortest way round to wherever `?view=` went,
- * so arrows held down — which can land a few places at once — still slide the
- * right way. A gallery small enough for both ways round to be equally short
- * goes the way the step was aimed, which `step` leaves in the location state.
- */
-function useStripPosition(index: number, total: number, locationState: unknown): number {
-  const [strip, setStrip] = useState({ index, position: index });
-  if (strip.index === index) return strip.position;
-
-  const forward = mod(index - strip.index, total);
-  const backward = forward - total;
-  const aimedBack =
-    typeof locationState === "object" &&
-    locationState !== null &&
-    "lightboxStep" in locationState &&
-    locationState.lightboxStep === -1;
-  const shortest =
-    forward < -backward || (forward === -backward && !aimedBack) ? forward : backward;
-
-  const position = strip.position + shortest;
-  setStrip({ index, position });
-  return position;
 }
 
 /**
@@ -792,8 +766,8 @@ function placeStrip(slots: Map<number, HTMLElement>, at: number, images: Lightbo
   const below = Math.floor(at);
   const between = at - below;
   const openHeight = mix(
-    fittedHeight(images[mod(below, images.length)]),
-    fittedHeight(images[mod(below + 1, images.length)]),
+    fittedHeight(images[Math.max(below, 0)]),
+    fittedHeight(images[Math.min(below + 1, images.length - 1)]),
     between,
   );
 

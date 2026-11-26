@@ -43,7 +43,7 @@ async function sampleStep(trigger: () => unknown) {
     const frame = slots().map((el) => ({
       time: now - start,
       slot: Number(el.getAttribute("src")!.split("/")[2].charCodeAt(0) - 97),
-      target: parseFloat(el.style.getPropertyValue("--dim")),
+      target: parseFloat(getComputedStyle(el).getPropertyValue("--dim")),
       painted: parseFloat(getComputedStyle(el).opacity),
     }));
     samples.push(...frame);

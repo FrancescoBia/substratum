@@ -28,6 +28,16 @@
   --lightbox-ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/**
+ * What sits behind an off-centre image in the viewer, so a white image still
+ * reads as a shape in light mode, and a black one in dark. The image is dimmed
+ * on top of it, so only a third of this shows through (see `SIDE_DIM` in
+ * `lightbox.tsx`).
+ */
+:root {
+  --lightbox-side-backing: --alpha(var(--color-foreground) / 15%);
+}
+
 ::view-transition-group(*) {
   animation-duration: var(--lightbox-duration);
   animation-timing-function: var(--lightbox-ease);

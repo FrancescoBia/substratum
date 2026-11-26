@@ -456,27 +456,23 @@ function LightboxBody({
               slots.current.delete(slot);
             };
           };
-          const style = {
-            ...slotSize(slotImage),
-            viewTransitionName: isCurrent && morphId === slotImage.id ? MORPH_NAME : undefined,
-          };
+          const viewTransitionName = isCurrent && morphId === slotImage.id ? MORPH_NAME : undefined;
           const assetClassName = cn(
-            "absolute top-0 left-0 rounded-md transition-opacity outline-image in-data-moving:transition-none",
+            "size-full rounded-md transition-opacity outline-image in-data-moving:transition-none",
             isNeighbour && pointedSlot === slot ? "opacity-100" : "opacity-(--dim)",
             !isCurrent && (isNeighbour ? "cursor-pointer" : "pointer-events-none"),
           );
 
           // Only the open slot plays. A video passing by, or waiting at the
           // edge, is its `medium` still — the same frame its poster is.
-          if (isCurrent && slotImage.kind === "video") {
-            return (
+          const asset =
+            isCurrent && slotImage.kind === "video" ? (
               // Plays straight away, muted and looping — a motion reference is
               // something to watch, not to press play on. The sound is still
               // in the file, and the controls can turn it on. The poster is the
               // `medium` the tile already has cached, so the morph has a frame
               // to land on while the clip starts.
               <video
-                key={slot}
                 src={`/img/${slotImage.id}/original`}
                 poster={`/img/${slotImage.id}/medium`}
                 autoPlay
@@ -486,44 +482,52 @@ function LightboxBody({
                 controls
                 aria-label={slotImage.title ?? "Video"}
                 data-current=""
-                ref={ref}
                 onClick={(event) => event.stopPropagation()}
-                style={style}
+                style={{ viewTransitionName }}
                 className={cn(assetClassName, "bg-black object-contain")}
               />
+            ) : (
+              <img
+                src={`/img/${slotImage.id}/medium`}
+                srcSet={isCurrent ? srcSet : undefined}
+                sizes="100vw"
+                alt={isCurrent ? (slotImage.title ?? "") : ""}
+                aria-hidden={isCurrent ? undefined : true}
+                data-current={isCurrent ? "" : undefined}
+                draggable={isCurrent}
+                // Slots mount mid-glide, as the strip brings them within reach.
+                // Decoding them off to the side keeps that from holding up a
+                // frame; the open one stays synchronous so the morph from the
+                // tile never captures it undecoded.
+                decoding={isCurrent ? undefined : "async"}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (isNeighbour) onStep(offset);
+                }}
+                onPointerMove={(event) => {
+                  if (!isNeighbour || event.pointerType === "touch" || pointedSlot === slot) return;
+                  setPointed({ index, slot });
+                }}
+                onPointerLeave={() => {
+                  if (pointedSlot === slot) setPointed(null);
+                }}
+                style={{ viewTransitionName }}
+                className={assetClassName}
+              />
             );
-          }
 
+          // The shade sits under the dimmed image rather than on it, since
+          // `opacity` would fade a background along with the image — and a
+          // white image dimmed over a white page is still white.
           return (
-            <img
+            <div
               key={slot}
-              src={`/img/${slotImage.id}/medium`}
-              srcSet={isCurrent ? srcSet : undefined}
-              sizes="100vw"
-              alt={isCurrent ? (slotImage.title ?? "") : ""}
-              aria-hidden={isCurrent ? undefined : true}
-              data-current={isCurrent ? "" : undefined}
-              draggable={isCurrent}
-              // Slots mount mid-glide, as the strip brings them within reach.
-              // Decoding them off to the side keeps that from holding up a
-              // frame; the open one stays synchronous so the morph from the
-              // tile never captures it undecoded.
-              decoding={isCurrent ? undefined : "async"}
               ref={ref}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (isNeighbour) onStep(offset);
-              }}
-              onPointerMove={(event) => {
-                if (!isNeighbour || event.pointerType === "touch" || pointedSlot === slot) return;
-                setPointed({ index, slot });
-              }}
-              onPointerLeave={() => {
-                if (pointedSlot === slot) setPointed(null);
-              }}
-              style={style}
-              className={assetClassName}
-            />
+              style={slotSize(slotImage)}
+              className="absolute top-0 left-0 rounded-md bg-(--lightbox-side-backing)/(--aside)"
+            >
+              {asset}
+            </div>
           );
         })}
       </div>
@@ -762,6 +766,9 @@ function mix(from: string, to: string, amount: number): string {
   return `calc(${from} * ${1 - amount} + ${to} * ${amount})`;
 }
 
+/** How much of an off-centre image the page shows through. */
+const SIDE_DIM = 0.3;
+
 /**
  * Places every slot for the strip being at `at`, which is fractional while it
  * moves: each image is a straight-line blend of the two whole slots it is
@@ -800,7 +807,8 @@ function placeStrip(slots: Map<number, HTMLElement>, at: number, images: Lightbo
     element.style.translate = `${x} calc(50cqh + ${openHeight} / 2 - 100%)`;
     element.style.scale = `${1 - 0.5 * aside}`;
     element.style.transformOrigin = `${50 - 50 * side}% 100%`;
-    element.style.setProperty("--dim", `${1 - 0.3 * aside}`);
+    element.style.setProperty("--dim", `${1 - SIDE_DIM * aside}`);
+    element.style.setProperty("--aside", `${aside * 100}%`);
   }
 }
 

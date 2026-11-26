@@ -25,7 +25,7 @@ import {
   useGridLayout,
   ViewHeader,
 } from "~/components/image-grid";
-import { skipLightboxRevalidation } from "~/components/lightbox/lightbox";
+import { skipLightboxRevalidation } from "~/components/lightbox/routing";
 import { PublishPopover } from "~/components/publish-popover";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";

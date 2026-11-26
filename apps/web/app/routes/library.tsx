@@ -1,7 +1,7 @@
 import { isNotNull } from "drizzle-orm";
 import { Outlet, useLocation } from "react-router";
 import { DETAIL_PARAM } from "~/components/detail-panel";
-import { skipLightboxRevalidation } from "~/components/lightbox/lightbox";
+import { skipLightboxRevalidation } from "~/components/lightbox/routing";
 import { Sidebar } from "~/components/sidebar";
 import { UploadDropzone, type UploadDestination } from "~/components/upload-dropzone";
 import { requireOwnerSession } from "~/auth/session.server";

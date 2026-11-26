@@ -5,7 +5,7 @@ import {
   useGridLayout,
   ViewHeader,
 } from "~/components/image-grid";
-import { skipLightboxRevalidation } from "~/components/lightbox/lightbox";
+import { skipLightboxRevalidation } from "~/components/lightbox/routing";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listTagImages } from "~/lib/library.server";
 import { countLabel } from "~/lib/media";

@@ -1,16 +1,13 @@
 import { cn } from "cn";
 import { ArrowLeftIcon, ArrowRightIcon, InfoIcon, XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { DETAIL_PARAM } from "~/components/detail-panel";
-import { fullSizeSrcSet } from "~/lib/image-variants";
 import { formatBytes, formatDuration } from "~/lib/media";
-import { isTileOnScreen, MORPH_NAME, morphFromTile, useMorphTarget } from "./morph";
-import { blurStrip, MotionBlurFilter } from "./motion-blur";
+import { isTileOnScreen, morphFromTile } from "./morph";
 import { LIGHTBOX_PARAM } from "./routing";
-import { placeStrip, slotSize, stripWindow } from "./strip-geometry";
-import { useStripSpring } from "./use-strip-spring";
+import { Strip } from "./strip";
 
 export type LightboxImage = {
   id: string;
@@ -50,6 +47,60 @@ export function Lightbox({
    */
   panel?: React.ReactNode;
 }) {
+  const { index, image, step, close } = useLightboxNavigation(images);
+
+  return (
+    <DialogPrimitive.Root open={image !== null} onOpenChange={(open) => !open && close()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Backdrop className="bg-background fixed inset-0 z-50 duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        <DialogPrimitive.Popup
+          // No `zoom-in`: that is a transform on an ancestor of the morphing
+          // image, so the browser would capture the image's "after" frame at
+          // 95% and snap it to full size when the transition ends. The expand
+          // *is* this surface's entrance animation now.
+          className="fixed inset-0 z-50 flex outline-none duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+        >
+          <DialogPrimitive.Title className="sr-only">
+            {image?.title || (image?.kind === "video" ? "Video" : "Image")}
+          </DialogPrimitive.Title>
+
+          {image && (
+            <div className="relative flex min-h-0 flex-1">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <LightboxBody
+                  images={images}
+                  index={index}
+                  context={context}
+                  detailsHref={detailsHref}
+                  detailsOpen={panel != null}
+                  onStep={step}
+                  onClose={close}
+                />
+              </div>
+
+              {/* Beside the Image from `sm` up, over it below that — a phone has
+                  no room for both, so there the panel shows its own preview. */}
+              {panel && (
+                <aside
+                  aria-label="Image details"
+                  className="bg-popover text-popover-foreground absolute inset-0 z-10 overflow-y-auto sm:relative sm:inset-auto sm:z-auto sm:w-105 sm:shrink-0 sm:border-l"
+                >
+                  {panel}
+                </aside>
+              )}
+            </div>
+          )}
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+/**
+ * Which Image the URL has open, and the two ways to move from it: `step` along
+ * the set with ← and →, and `close` back to the grid.
+ */
+function useLightboxNavigation(images: LightboxImage[]) {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -131,51 +182,7 @@ export function Lightbox({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [index, step]);
 
-  return (
-    <DialogPrimitive.Root open={image !== null} onOpenChange={(open) => !open && close()}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="bg-background fixed inset-0 z-50 duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
-        <DialogPrimitive.Popup
-          // No `zoom-in`: that is a transform on an ancestor of the morphing
-          // image, so the browser would capture the image's "after" frame at
-          // 95% and snap it to full size when the transition ends. The expand
-          // *is* this surface's entrance animation now.
-          className="fixed inset-0 z-50 flex outline-none duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
-        >
-          <DialogPrimitive.Title className="sr-only">
-            {image?.title || (image?.kind === "video" ? "Video" : "Image")}
-          </DialogPrimitive.Title>
-
-          {image && (
-            <div className="relative flex min-h-0 flex-1">
-              <div className="flex min-w-0 flex-1 flex-col">
-                <LightboxBody
-                  images={images}
-                  index={index}
-                  context={context}
-                  detailsHref={detailsHref}
-                  detailsOpen={panel !== undefined && panel !== null}
-                  onStep={step}
-                  onClose={close}
-                />
-              </div>
-
-              {/* Beside the Image from `sm` up, over it below that — a phone has
-                  no room for both, so there the panel shows its own preview. */}
-              {panel && (
-                <aside
-                  aria-label="Image details"
-                  className="bg-popover text-popover-foreground absolute inset-0 z-10 overflow-y-auto sm:relative sm:inset-auto sm:z-auto sm:w-105 sm:shrink-0 sm:border-l"
-                >
-                  {panel}
-                </aside>
-              )}
-            </div>
-          )}
-        </DialogPrimitive.Popup>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
-  );
+  return { index, image, step, close };
 }
 
 function LightboxBody({
@@ -195,56 +202,8 @@ function LightboxBody({
   onStep: (delta: number) => void;
   onClose: () => void;
 }) {
-  // The tile hands the name over for exactly as long as its Image is the one on
-  // screen here, so the two are never both wearing it. See `morphFromTile`.
-  const morphId = useMorphTarget();
   const image = images[index];
   const total = images.length;
-
-  // Every mounted slot, so the spring can place them without a render.
-  const slots = useRef(new Map<number, HTMLElement>());
-  const stage = useRef<HTMLDivElement>(null);
-  const blur = useRef<SVGFEGaussianBlurElement>(null);
-  const settledAt = useStripSpring(index, (at, velocity, frame) => {
-    if (stage.current) {
-      // Blur first: it reads the stage's width, which is free while nothing
-      // has been written yet this frame and a forced layout after.
-      blurStrip(stage.current, blur.current, velocity, frame);
-      // The spring sets each slot's opacity every frame. A CSS transition on
-      // top of that restarts every frame, barely moves, and then catches up
-      // all at once when the strip stops, so it is off while the strip moves.
-      stage.current.toggleAttribute("data-moving", velocity !== 0);
-    }
-    placeStrip(slots.current, at, images);
-  });
-
-  // The `medium` derivative is capped at 1200px on its longest edge, which is
-  // softer than "full size" on a large or retina display. Offering the original
-  // as a second candidate lets the browser reach for the real bytes only when
-  // the layout actually needs them, rather than pushing a multi-megabyte file at
-  // a phone. It is the only way to the original now that nothing links to it.
-  //
-  // Held back until the strip has come to rest on this Image, though, for two
-  // reasons. `original` is a different URL from the `medium` the tile already
-  // has in cache, so offering both from the start means this element has
-  // nothing to paint until the larger file lands — and that empty frame is
-  // exactly what the tile expands into. And walking quickly makes every Image
-  // passed over the open one for a moment: upgrading each of them would fetch
-  // and decode a run of multi-megabyte files in the middle of the glide, which
-  // is precisely the work that makes it drop frames. Starting at the cached
-  // `medium` and adding the candidates afterwards gets the same bytes in the
-  // end: an `<img>` keeps painting what it has until the replacement has
-  // decoded, so the upgrade is invisible whenever it happens.
-  const srcSet = settledAt === index ? fullSizeSrcSet(image) : undefined;
-
-  // The neighbour the pointer has moved onto, which lifts a little and leans
-  // in towards the open image. Not CSS `:hover`: the strip slides images under a cursor that is standing
-  // still, and Chrome only re-checks `:hover` on the next mouse move, so an
-  // image would brighten or dim on its own, often after the strip has
-  // stopped. Only a real pointer move sets this, and it is tied to the index
-  // it was set at, so every step clears it.
-  const [pointed, setPointed] = useState<{ index: number; slot: number } | null>(null);
-  const pointedSlot = pointed?.index === index ? pointed.slot : null;
 
   return (
     <>
@@ -279,163 +238,43 @@ function LightboxBody({
         </div>
       </div>
 
-      {/* Clicking the surround closes; clicking an image does not, so a
-          mis-aimed click on a tall image doesn't dismiss what you came to see.
-          The neighbours step instead — they are the only part of them showing.
-
-          `container-type: size` is what lets every slot be laid out in CSS
-          alone: a slot's width and offset are fractions of this box, and the
-          image's own size, which is not known until it loads, never enters
-          into it. */}
-      <MotionBlurFilter ref={blur} />
-
-      <div
-        ref={stage}
-        className="relative min-h-0 flex-1 overflow-hidden [--gap:0.75rem] [--peek:1.5rem] @container-size sm:[--gap:2.5rem] sm:[--peek:3.5rem]"
-        onClick={onClose}
-      >
-        {stripWindow(index, total).map((slot) => {
-          const offset = slot - index;
-          const slotImage = images[slot];
-          const isCurrent = offset === 0;
-          const isNeighbour = Math.abs(offset) === 1;
-
-          const ref = (element: HTMLElement | null) => {
-            if (!element) return;
-            slots.current.set(slot, element);
-            return () => {
-              slots.current.delete(slot);
-            };
-          };
-          const viewTransitionName = isCurrent && morphId === slotImage.id ? MORPH_NAME : undefined;
-          const isPointed = isNeighbour && pointedSlot === slot;
-          const assetClassName = cn(
-            "size-full rounded-md transition-opacity duration-400 ease-(--lightbox-ease) outline-image in-data-moving:transition-none",
-            isPointed ? "opacity-[calc(var(--dim)+0.1)]" : "opacity-(--dim)",
-            !isCurrent && (isNeighbour ? "cursor-pointer" : "pointer-events-none"),
-          );
-
-          // Only the open slot plays. A video passing by, or waiting at the
-          // edge, is its `medium` still — the same frame its poster is.
-          const asset =
-            isCurrent && slotImage.kind === "video" ? (
-              // Plays straight away, muted and looping — a motion reference is
-              // something to watch, not to press play on. The sound is still
-              // in the file, and the controls can turn it on. The poster is the
-              // `medium` the tile already has cached, so the morph has a frame
-              // to land on while the clip starts.
-              <video
-                src={`/img/${slotImage.id}/original`}
-                poster={`/img/${slotImage.id}/medium`}
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-                aria-label={slotImage.title ?? "Video"}
-                data-current=""
-                onClick={(event) => event.stopPropagation()}
-                style={{ viewTransitionName }}
-                className={cn(assetClassName, "bg-black object-contain")}
-              />
-            ) : (
-              <img
-                src={`/img/${slotImage.id}/medium`}
-                srcSet={isCurrent ? srcSet : undefined}
-                sizes="100vw"
-                alt={isCurrent ? (slotImage.title ?? "") : ""}
-                aria-hidden={isCurrent ? undefined : true}
-                data-current={isCurrent ? "" : undefined}
-                draggable={isCurrent}
-                // Slots mount mid-glide, as the strip brings them within reach.
-                // Decoding them off to the side keeps that from holding up a
-                // frame; the open one stays synchronous so the morph from the
-                // tile never captures it undecoded.
-                decoding={isCurrent ? undefined : "async"}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (isNeighbour) onStep(offset);
-                }}
-                onPointerMove={(event) => {
-                  if (!isNeighbour || event.pointerType === "touch" || pointedSlot === slot) return;
-                  setPointed({ index, slot });
-                }}
-                onPointerLeave={() => {
-                  if (pointedSlot === slot) setPointed(null);
-                }}
-                style={{ viewTransitionName }}
-                className={assetClassName}
-              />
-            );
-
-          // The shade sits under the dimmed image rather than on it, since
-          // `opacity` would fade a background along with the image — and a
-          // white image dimmed over a white page is still white.
-          //
-          // The lean is a `transform`, which the browser applies on top of the
-          // `translate` the spring writes — and only `transform` transitions,
-          // so the spring still moves the slot without lag. It covers 60% of
-          // `--gap`, so a neighbour never reaches even the widest open image;
-          // the 1.2 is that doubled, because the slot's half-size scale
-          // halves a `transform` on screen.
-          return (
-            <div
-              key={slot}
-              ref={ref}
-              style={{
-                ...slotSize(slotImage),
-                viewTransitionName: isNeighbour
-                  ? offset < 0
-                    ? "lightbox-prev"
-                    : "lightbox-next"
-                  : undefined,
-              }}
-              className={cn(
-                "absolute top-0 left-0 rounded-md bg-(--lightbox-side-backing)/(--aside) transition-[transform] duration-400 ease-(--lightbox-ease)",
-                isPointed &&
-                  (offset < 0
-                    ? "motion-safe:transform-[translateX(calc(var(--gap)*1.2))]"
-                    : "motion-safe:transform-[translateX(calc(var(--gap)*-1.2))]"),
-              )}
-            >
-              {asset}
-            </div>
-          );
-        })}
-      </div>
+      <Strip images={images} index={index} onStep={onStep} onClose={onClose} />
 
       <div className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 px-3 py-3 sm:px-4 sm:py-5">
         <div>
-          {total > 1 && (
-            <button
-              type="button"
-              className={cn(CONTROL, "size-9 disabled:pointer-events-none disabled:opacity-30")}
-              disabled={index === 0}
-              onClick={() => onStep(-1)}
-            >
-              <ArrowLeftIcon className="size-4" />
-              <span className="sr-only">Previous image</span>
-            </button>
-          )}
+          {total > 1 && <StepButton direction={-1} disabled={index === 0} onStep={onStep} />}
         </div>
 
         <ImageFacts image={image} />
 
         <div className="flex justify-end">
-          {total > 1 && (
-            <button
-              type="button"
-              className={cn(CONTROL, "size-9 disabled:pointer-events-none disabled:opacity-30")}
-              disabled={index === total - 1}
-              onClick={() => onStep(1)}
-            >
-              <ArrowRightIcon className="size-4" />
-              <span className="sr-only">Next image</span>
-            </button>
-          )}
+          {total > 1 && <StepButton direction={1} disabled={index === total - 1} onStep={onStep} />}
         </div>
       </div>
     </>
+  );
+}
+
+function StepButton({
+  direction,
+  disabled,
+  onStep,
+}: {
+  direction: -1 | 1;
+  disabled: boolean;
+  onStep: (delta: number) => void;
+}) {
+  const Icon = direction < 0 ? ArrowLeftIcon : ArrowRightIcon;
+  return (
+    <button
+      type="button"
+      className={cn(CONTROL, "size-9 disabled:pointer-events-none disabled:opacity-30")}
+      disabled={disabled}
+      onClick={() => onStep(direction)}
+    >
+      <Icon className="size-4" />
+      <span className="sr-only">{direction < 0 ? "Previous image" : "Next image"}</span>
+    </button>
   );
 }
 

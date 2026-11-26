@@ -447,13 +447,11 @@ function LightboxBody({
             ...slotSize(slotImage),
             viewTransitionName: isCurrent && morphId === slotImage.id ? MORPH_NAME : undefined,
           };
-          const className = `absolute top-0 left-0 rounded-md opacity-(--dim) transition-opacity ${
-            isCurrent
-              ? ""
-              : isNeighbour
-                ? "cursor-pointer hover:opacity-100"
-                : "pointer-events-none"
-          }`;
+          const assetClassName = cn(
+            "absolute top-0 left-0 rounded-md opacity-(--dim) transition-opacity outline-image",
+            !isCurrent &&
+              (isNeighbour ? "cursor-pointer hover:opacity-100" : "pointer-events-none"),
+          );
 
           // Only the open slot plays. A video passing by, or waiting at the
           // edge, is its `medium` still — the same frame its poster is.
@@ -478,7 +476,7 @@ function LightboxBody({
                 ref={ref}
                 onClick={(event) => event.stopPropagation()}
                 style={style}
-                className={cn(className, "bg-black object-contain")}
+                className={cn(assetClassName, "bg-black object-contain")}
               />
             );
           }
@@ -504,7 +502,7 @@ function LightboxBody({
                 if (isNeighbour) onStep(offset);
               }}
               style={style}
-              className={className}
+              className={assetClassName}
             />
           );
         })}

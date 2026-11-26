@@ -8,7 +8,7 @@ import { ExternalLinkIcon, RotateCcwIcon, Trash2Icon, XIcon } from "lucide-react
 import { useState } from "react";
 import { useFetcher } from "react-router";
 import type { ImageDetail } from "~/lib/library.server";
-import { formatDuration } from "~/lib/media";
+import { formatBytes, formatDuration } from "~/lib/media";
 import { TAGS_ENABLED } from "~/lib/features";
 
 /**
@@ -320,10 +320,4 @@ function hostOf(url: string): string {
   } catch {
     return url;
   }
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }

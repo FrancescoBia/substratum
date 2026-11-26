@@ -14,6 +14,8 @@ export type GridImage = {
   height: number;
   /** Null for a still, and for a video whose container never said. */
   durationMs: number | null;
+  format: string;
+  byteSize: number;
   title: string | null;
   sourcePageUrl: string | null;
   untriaged: boolean;
@@ -47,6 +49,8 @@ function toGridImages(
     width: number;
     height: number;
     durationMs: number | null;
+    format: string;
+    byteSize: number;
     title: string | null;
     sourcePageTitle: string | null;
     sourcePageUrl: string | null;
@@ -59,6 +63,8 @@ function toGridImages(
     width: row.width,
     height: row.height,
     durationMs: row.durationMs,
+    format: row.format,
+    byteSize: row.byteSize,
     title: displayTitle(row),
     sourcePageUrl: row.sourcePageUrl,
     untriaged: !organized.has(row.id),
@@ -71,6 +77,8 @@ const gridColumns = {
   width: schema.images.width,
   height: schema.images.height,
   durationMs: schema.images.durationMs,
+  format: schema.images.format,
+  byteSize: schema.images.byteSize,
   title: schema.images.title,
   sourcePageTitle: schema.images.sourcePageTitle,
   sourcePageUrl: schema.images.sourcePageUrl,
@@ -234,6 +242,8 @@ export async function listPublicBoardImages(boardId: string) {
       width: schema.images.width,
       height: schema.images.height,
       durationMs: schema.images.durationMs,
+      format: schema.images.format,
+      byteSize: schema.images.byteSize,
       sourcePageUrl: schema.images.sourcePageUrl,
       title: schema.images.title,
       sourcePageTitle: schema.images.sourcePageTitle,

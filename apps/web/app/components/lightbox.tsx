@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, InfoIcon, XIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, InfoIcon, XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import {
   useCallback,
@@ -19,6 +19,7 @@ import {
 } from "react-router";
 import { DETAIL_PARAM } from "~/components/detail-panel";
 import { fullSizeSrcSet } from "~/lib/image-variants";
+import { formatBytes, formatDuration } from "~/lib/media";
 
 /**
  * The search param that holds the Image being viewed full size. Like `?image=`
@@ -117,6 +118,9 @@ export type LightboxImage = {
   kind: "image" | "video";
   width: number;
   height: number;
+  durationMs: number | null;
+  format: string;
+  byteSize: number;
   title: string | null;
   sourcePageUrl: string | null;
 };
@@ -158,19 +162,22 @@ export function lightboxHref(search: string, pathname: string, id: string): stri
 }
 
 const CONTROL =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg text-white/70 outline-none transition hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white/70";
+  "text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex items-center justify-center gap-1.5 rounded-full outline-none transition focus-visible:ring-2";
 
 /**
- * The full-size viewer: one Image over a dark scrim, above whatever grid opened
+ * The full-size viewer: one Image on a plain surface, above whatever grid opened
  * it. The grid supplies the whole list it is showing, so ← and → walk the same
  * set in the same order the tiles are in.
  */
 export function Lightbox({
   images,
+  context,
   detailsHref,
   panel,
 }: {
   images: LightboxImage[];
+  /** Where the images are — a Board's name, `Stream` — shown top left. */
+  context?: string;
   /** When set, a "Details" control appears — the Owner's way to the panel. */
   detailsHref?: (id: string) => string;
   /**
@@ -264,13 +271,7 @@ export function Lightbox({
   return (
     <DialogPrimitive.Root open={image !== null} onOpenChange={(open) => !open && close()}>
       <DialogPrimitive.Portal>
-        {/* Less black than a scrim usually is, because the blur is doing half
-            the work of separating the Image from the page: at full opacity
-            there would be nothing behind it left to blur. The blur fades with
-            the element — an opacity below 1 blends the filtered backdrop back
-            towards the sharp one — so the page softens rather than snapping
-            out of focus, and no keyframe is needed to say so. */}
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        <DialogPrimitive.Backdrop className="bg-background fixed inset-0 z-50 duration-(--lightbox-duration) ease-(--lightbox-ease) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup
           // No `zoom-in`: that is a transform on an ancestor of the morphing
           // image, so the browser would capture the image's "after" frame at
@@ -288,6 +289,7 @@ export function Lightbox({
                 <LightboxBody
                   images={images}
                   index={index}
+                  context={context}
                   detailsHref={detailsHref}
                   detailsOpen={panel !== undefined && panel !== null}
                   onStep={step}
@@ -316,6 +318,7 @@ export function Lightbox({
 function LightboxBody({
   images,
   index,
+  context,
   detailsHref,
   detailsOpen,
   onStep,
@@ -323,6 +326,7 @@ function LightboxBody({
 }: {
   images: LightboxImage[];
   index: number;
+  context?: string;
   detailsHref?: (id: string) => string;
   detailsOpen: boolean;
   onStep: (delta: number) => void;
@@ -368,25 +372,35 @@ function LightboxBody({
 
   return (
     <>
-      <div className="flex items-center justify-end gap-1 p-3">
-        {/* A toggle, not a way out: the panel opens beside the Image and this
-            closes it again. Never open on its own — the viewer is for looking,
-            and the Owner asks for the editing surface when they want it. */}
-        {detailsHref && (
-          <Link
-            to={detailsHref(image.id)}
-            preventScrollReset
-            replace
-            aria-pressed={detailsOpen}
-            className={cn(CONTROL, "h-9 px-3 text-sm", detailsOpen && "bg-white/15 text-white")}
-          >
-            <InfoIcon className="size-4" /> Details
-          </Link>
-        )}
-        <DialogPrimitive.Close className={cn(CONTROL, "size-9")}>
-          <XIcon className="size-5" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-3 pr-3 pl-4 text-sm sm:py-5 sm:pr-6 sm:pl-9">
+        <span className="text-muted-foreground truncate">{context}</span>
+        <span className="text-foreground max-w-[40vw] truncate text-center">{image.title}</span>
+
+        <div className="flex items-center justify-end gap-1">
+          {total > 1 && (
+            <span className="text-muted-foreground mr-3 tabular-nums">
+              {index + 1} / {total}
+            </span>
+          )}
+          {/* A toggle, not a way out: the panel opens beside the Image and this
+              closes it again. Never open on its own — the viewer is for looking,
+              and the Owner asks for the editing surface when they want it. */}
+          {detailsHref && (
+            <Link
+              to={detailsHref(image.id)}
+              preventScrollReset
+              replace
+              aria-pressed={detailsOpen}
+              className={cn(CONTROL, "h-9 px-3", detailsOpen && "bg-muted text-foreground")}
+            >
+              <InfoIcon className="size-4" /> Details
+            </Link>
+          )}
+          <DialogPrimitive.Close className={cn(CONTROL, "bg-muted text-foreground size-9")}>
+            <XIcon className="size-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </div>
       </div>
 
       {/* Clicking the surround closes; clicking an image does not, so a
@@ -435,8 +449,12 @@ function LightboxBody({
             ...slotSize(slotImage),
             viewTransitionName: isCurrent && morphId === slotImage.id ? MORPH_NAME : undefined,
           };
-          const className = `absolute top-0 left-0 rounded-lg opacity-(--dim) shadow-2xl ${
-            isCurrent ? "" : isNeighbour ? "cursor-pointer hover:opacity-60" : "pointer-events-none"
+          const className = `absolute top-0 left-0 rounded-md opacity-(--dim) transition-opacity ${
+            isCurrent
+              ? ""
+              : isNeighbour
+                ? "cursor-pointer hover:opacity-100"
+                : "pointer-events-none"
           }`;
 
           // Only the open slot plays. A video passing by, or waiting at the
@@ -494,39 +512,26 @@ function LightboxBody({
         })}
       </div>
 
-      <div className="flex min-h-14 items-center justify-center gap-4 px-4 py-3 text-xs text-white/60">
-        {total > 1 && (
-          <button type="button" className={cn(CONTROL, "size-9")} onClick={() => onStep(-1)}>
-            <ChevronLeftIcon className="size-5" />
-            <span className="sr-only">Previous image</span>
-          </button>
-        )}
-
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 px-3 py-3 sm:px-4 sm:py-5">
+        <div>
           {total > 1 && (
-            <span className="tabular-nums">
-              {index + 1} / {total}
-            </span>
-          )}
-          {image.sourcePageUrl && (
-            <a
-              href={image.sourcePageUrl}
-              target="_blank"
-              rel="noreferrer nofollow"
-              className="inline-flex min-w-0 items-center gap-1 truncate hover:text-white hover:underline"
-            >
-              <span className="truncate">{image.title || hostOf(image.sourcePageUrl)}</span>
-              <ExternalLinkIcon className="size-3 shrink-0" />
-            </a>
+            <button type="button" className={cn(CONTROL, "size-9")} onClick={() => onStep(-1)}>
+              <ArrowLeftIcon className="size-4" />
+              <span className="sr-only">Previous image</span>
+            </button>
           )}
         </div>
 
-        {total > 1 && (
-          <button type="button" className={cn(CONTROL, "size-9")} onClick={() => onStep(1)}>
-            <ChevronRightIcon className="size-5" />
-            <span className="sr-only">Next image</span>
-          </button>
-        )}
+        <ImageFacts image={image} />
+
+        <div className="flex justify-end">
+          {total > 1 && (
+            <button type="button" className={cn(CONTROL, "size-9")} onClick={() => onStep(1)}>
+              <ArrowRightIcon className="size-4" />
+              <span className="sr-only">Next image</span>
+            </button>
+          )}
+        </div>
       </div>
     </>
   );
@@ -803,7 +808,7 @@ function placeStrip(slots: Map<number, HTMLElement>, at: number, images: Lightbo
     element.style.translate = `${x} calc(50cqh + ${openHeight} / 2 - 100%)`;
     element.style.scale = `${1 - 0.5 * aside}`;
     element.style.transformOrigin = `${50 - 50 * side}% 100%`;
-    element.style.setProperty("--dim", `${1 - 0.65 * aside}`);
+    element.style.setProperty("--dim", `${1 - 0.3 * aside}`);
   }
 }
 
@@ -845,10 +850,23 @@ function blurStrip(
   stage.style.filter = `url(#${MOTION_BLUR_FILTER})`;
 }
 
-function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
+/** What the file is: `500×500 · PNG · 1.2MB`. */
+function ImageFacts({ image }: { image: LightboxImage }) {
+  const facts = [
+    `${image.width}×${image.height}`,
+    image.format.toUpperCase(),
+    image.durationMs !== null ? formatDuration(image.durationMs) : null,
+    formatBytes(image.byteSize).replace(" ", ""),
+  ].filter((fact) => fact !== null);
+
+  return (
+    <p className="text-muted-foreground flex items-center gap-2 font-mono text-xs uppercase">
+      {facts.map((fact, i) => (
+        <span key={i} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+          {i > 0 && <span aria-hidden>·</span>}
+          {fact}
+        </span>
+      ))}
+    </p>
+  );
 }

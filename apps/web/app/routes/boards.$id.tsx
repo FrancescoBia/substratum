@@ -134,7 +134,7 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
           Open anything in your Stream and tick this board in its details.
         </EmptyState>
       ) : (
-        <ImageGrid images={images} layout={layout} />
+        <ImageGrid images={images} context={board.name} layout={layout} />
       )}
     </div>
   );

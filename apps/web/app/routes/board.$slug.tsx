@@ -68,7 +68,7 @@ export default function PublicBoard({ loaderData }: Route.ComponentProps) {
       {images.length === 0 ? (
         <EmptyState title="Nothing on this board yet" />
       ) : (
-        <ImageGrid images={images} layout={gridLayout} readOnly />
+        <ImageGrid images={images} context={board.name} layout={gridLayout} readOnly />
       )}
 
       <footer className="text-muted-foreground mt-16 border-t pt-6 text-xs">

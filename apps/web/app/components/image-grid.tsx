@@ -92,9 +92,12 @@ export function ImageGrid({
   images,
   layout,
   readOnly = false,
+  context,
 }: {
   images: TileImage[];
   layout: GridLayout;
+  /** Where these images are — a Board's name, `Stream` — shown in the viewer's corner. */
+  context?: string;
   /** For visitors to a published Board: no way into the Owner's detail panel. */
   readOnly?: boolean;
 }) {
@@ -230,7 +233,12 @@ export function ImageGrid({
         ))}
       </div>
 
-      <Lightbox images={images} detailsHref={readOnly ? undefined : detailsHref} panel={panel} />
+      <Lightbox
+        images={images}
+        context={context}
+        detailsHref={readOnly ? undefined : detailsHref}
+        panel={panel}
+      />
     </section>
   );
 }

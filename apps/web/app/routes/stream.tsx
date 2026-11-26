@@ -46,7 +46,7 @@ export default function Stream({ loaderData }: Route.ComponentProps) {
           here.
         </EmptyState>
       ) : (
-        <ImageGrid images={images} layout={layout} />
+        <ImageGrid images={images} context="Stream" layout={layout} />
       )}
     </div>
   );

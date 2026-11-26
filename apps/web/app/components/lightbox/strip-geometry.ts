@@ -66,26 +66,28 @@ export function mix(from: string, to: string, amount: number): string {
   return `calc(${from} * ${1 - amount} + ${to} * ${amount})`;
 }
 
-/** How much of an off-centre image the page shows through. */
-const SIDE_DIM = 0.3;
-
 /**
  * Places every slot for the strip being at `at`, which is fractional while it
  * moves: each image is a straight-line blend of the two whole slots it is
  * between.
  *
- * Off-centre images are shown at half size and dimmed, and stand on the open
- * image's bottom edge, shrunk towards their inner bottom corner — so the
- * sliver at the edge stays the same width, and a neighbour stepped to grows
- * up and out of the row into place. The open image is centred, so its bottom
- * edge is a pure function of its dimensions too; between two images it is a
- * blend of both, and the row rides it.
+ * Off-centre images are shown at half size, and stand on the open image's
+ * bottom edge, shrunk towards their inner bottom corner — so the sliver at the
+ * edge stays the same width, and a neighbour stepped to grows up and out of the
+ * row into place. The open image is centred, so its bottom edge is a pure
+ * function of its dimensions too; between two images it is a blend of both,
+ * and the row rides it.
  *
  * Neighbours never collide. Two images a slot apart are blended by the same
  * amount between positions that are at least a gap apart at both ends, and a
  * blend of two such pairs is a gap apart too. Scaling cannot break that: the
  * origin is always inside the box, so a scaled image never leaves the space
  * its full-size box would take.
+ *
+ * Besides where it is, each slot gets `--aside` (0 for the open image, 1 for a
+ * neighbour and anything further out) and `--side` (-1 left to 1 right). How
+ * being off-centre looks — dimmed, on a backing, leaning in when pointed at —
+ * is the `lightbox-slot` utility's business, in `app.css`.
  */
 export function placeStrip(slots: Map<number, HTMLElement>, at: number, images: LightboxImage[]) {
   const below = Math.floor(at);
@@ -100,14 +102,13 @@ export function placeStrip(slots: Map<number, HTMLElement>, at: number, images: 
     const offset = slot - at;
     const whole = Math.floor(offset);
     const x = mix(slotX(whole), slotX(whole + 1), offset - whole);
-    // 0 for the open image, 1 for a neighbour and anything further out.
     const aside = Math.min(Math.abs(offset), 1);
     const side = Math.max(-1, Math.min(offset, 1));
 
     element.style.translate = `${x} calc(50cqh + ${openHeight} / 2 - 100%)`;
     element.style.scale = `${1 - 0.5 * aside}`;
     element.style.transformOrigin = `${50 - 50 * side}% 100%`;
-    element.style.setProperty("--dim", `${1 - SIDE_DIM * aside}`);
-    element.style.setProperty("--aside", `${aside * 100}%`);
+    element.style.setProperty("--aside", `${aside}`);
+    element.style.setProperty("--side", `${side}`);
   }
 }

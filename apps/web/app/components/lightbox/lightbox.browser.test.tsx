@@ -24,9 +24,13 @@ const settle = () => Promise.all(document.getAnimations().map((a) => a.finished)
 
 type Sample = { time: number; slot: number; target: number; painted: number };
 
+const sideDim = () =>
+  parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lightbox-side-dim"));
+
 /**
  * Every frame of a step, for every slot: the opacity the spring asked for (its
- * `--dim`) against the opacity actually painted. The two should move together;
+ * `--aside`, dimmed by `--lightbox-side-dim`) against the opacity actually
+ * painted. The two should move together;
  * anything between them is a CSS transition lagging the spring.
  */
 async function sampleStep(trigger: () => unknown) {
@@ -42,8 +46,8 @@ async function sampleStep(trigger: () => unknown) {
     const now = await nextFrame();
     const frame = slots().map((el) => ({
       time: now - start,
-      slot: Number(el.getAttribute("src")!.split("/")[2].charCodeAt(0) - 97),
-      target: parseFloat(getComputedStyle(el).getPropertyValue("--dim")),
+      slot: IMAGES.findIndex((image) => el.getAttribute("src") === `/img/${image.id}/medium`),
+      target: 1 - sideDim() * parseFloat(getComputedStyle(el).getPropertyValue("--aside")),
       painted: parseFloat(getComputedStyle(el).opacity),
     }));
     samples.push(...frame);

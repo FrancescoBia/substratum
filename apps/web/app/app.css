@@ -29,13 +29,50 @@
 }
 
 /**
- * What sits behind an off-centre image in the viewer, so a white image still
- * reads as a shape in light mode, and a black one in dark. The image is dimmed
- * on top of it, so only a third of this shows through (see `SIDE_DIM` in
- * `lightbox/strip-geometry.ts`).
+ * How an image in the viewer's strip looks for being off-centre. The strip
+ * (`placeStrip` in `lightbox/strip-geometry.ts`) only says where each slot is,
+ * plus `--aside` — 0 for the open image, 1 for a neighbour — and `--side`, -1
+ * left to 1 right. The rest is here:
+ *
+ * - `side-dim`: how much of a neighbour the page shows through.
+ * - `side-backing`: what sits behind it, so a white image still reads as a
+ *   shape in light mode, and a black one in dark. Only `side-dim` of it shows
+ *   through the image on top.
+ * - `hover-lift` and `hover-lean`: what pointing at a neighbour does — a little
+ *   more of it, and a lean in towards the open image, as a share of `--gap`, so
+ *   it never reaches even the widest one.
  */
 :root {
+  --lightbox-side-dim: 0.3;
   --lightbox-side-backing: --alpha(var(--color-foreground) / 15%);
+  --lightbox-hover-lift: 0.1;
+  --lightbox-hover-lean: 0.6;
+  --lightbox-hover-duration: 400ms;
+}
+
+/**
+ * `--dim` is read by the image inside, as its opacity. The lean is a
+ * `transform`, which the browser applies on top of the `translate` the strip
+ * writes, and only `transform` transitions, so the strip still moves without
+ * lag. It is doubled because the slot's half-size scale halves a `transform`
+ * on screen, and `--side` turns it towards the middle.
+ */
+@utility lightbox-slot {
+  --dim: calc(1 - var(--lightbox-side-dim) * var(--aside));
+  background-color: color-mix(
+    in oklab,
+    var(--lightbox-side-backing) calc(var(--aside) * 100%),
+    transparent
+  );
+  transition: transform var(--lightbox-hover-duration) var(--lightbox-ease);
+
+  &[data-pointed] {
+    --dim: calc(1 - var(--lightbox-side-dim) * var(--aside) + var(--lightbox-hover-lift));
+
+    @media (prefers-reduced-motion: no-preference) {
+      transform: translateX(calc(var(--gap) * var(--lightbox-hover-lean) * -2 * var(--side)));
+    }
+  }
 }
 
 ::view-transition-group(*) {

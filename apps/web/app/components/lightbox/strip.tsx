@@ -129,8 +129,7 @@ function StripSlot({
   const isNeighbour = Math.abs(offset) === 1;
   const viewTransitionName = morphing ? MORPH_NAME : undefined;
   const assetClassName = cn(
-    "size-full rounded-md transition-opacity duration-400 ease-(--lightbox-ease) outline-image in-data-moving:transition-none",
-    pointed ? "opacity-[calc(var(--dim)+0.1)]" : "opacity-(--dim)",
+    "size-full rounded-md opacity-(--dim) transition-opacity duration-(--lightbox-hover-duration) ease-(--lightbox-ease) outline-image in-data-moving:transition-none",
     !isCurrent && (isNeighbour ? "cursor-pointer" : "pointer-events-none"),
   );
 
@@ -181,26 +180,12 @@ function StripSlot({
       />
     );
 
-  // The shade sits under the dimmed image rather than on it, since `opacity`
-  // would fade a background along with the image — and a white image dimmed
-  // over a white page is still white.
-  //
-  // The lean is a `transform`, which the browser applies on top of the
-  // `translate` the spring writes — and only `transform` transitions, so the
-  // spring still moves the slot without lag. It covers 60% of `--gap`, so a
-  // neighbour never reaches even the widest open image; the 1.2 is that
-  // doubled, because the slot's half-size scale halves a `transform` on screen.
   return (
     <div
       ref={slotRef}
+      data-pointed={pointed || undefined}
       style={{ ...slotSize(image), viewTransitionName: NEIGHBOUR_TRANSITION_NAME[offset] }}
-      className={cn(
-        "absolute top-0 left-0 rounded-md bg-(--lightbox-side-backing)/(--aside) transition-[transform] duration-400 ease-(--lightbox-ease)",
-        pointed &&
-          (offset < 0
-            ? "motion-safe:transform-[translateX(calc(var(--gap)*1.2))]"
-            : "motion-safe:transform-[translateX(calc(var(--gap)*-1.2))]"),
-      )}
+      className="lightbox-slot absolute top-0 left-0 rounded-md"
     >
       {asset}
     </div>

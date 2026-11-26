@@ -154,13 +154,6 @@ export function skipLightboxRevalidation({
   return current.toString() === next.toString() ? false : defaultShouldRevalidate;
 }
 
-/** Builds the link that opens `id` full size, keeping the rest of the query. */
-export function lightboxHref(search: string, pathname: string, id: string): string {
-  const params = new URLSearchParams(search);
-  params.set(LIGHTBOX_PARAM, id);
-  return `${pathname}?${params}`;
-}
-
 const CONTROL =
   "text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex items-center justify-center gap-1.5 rounded-full outline-none transition focus-visible:ring-2";
 

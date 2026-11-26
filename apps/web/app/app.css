@@ -77,6 +77,85 @@
 }
 
 /**
+ * The viewer's neighbours slide in from their edge of the screen as it opens,
+ * and back out as it closes. Each wears a name only while it is a neighbour
+ * (`lightbox-prev`, `lightbox-next`, see `lightbox.tsx`), so it exists on just
+ * one side of the transition, and these replace the fade the browser would
+ * give it. `100%` is the slot's own width, which takes even its inner edge off
+ * screen. A reader who asked for less motion gets the fade alone.
+ *
+ * Opening, they wait until the open image has all but finished expanding —
+ * half its flight, which the hard deceleration makes about 90% of the way —
+ * and then come in at their own, slower pace, so the image arrives first and
+ * the strip settles around it. Closing, they leave with it, so Escape is never
+ * held up.
+ */
+:root {
+  --lightbox-slide: 100%;
+  --lightbox-sides-delay: calc(var(--lightbox-duration) / 2);
+  --lightbox-sides-duration: 500ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --lightbox-slide: 0%;
+  }
+}
+
+::view-transition-new(lightbox-prev),
+::view-transition-old(lightbox-prev),
+::view-transition-new(lightbox-next),
+::view-transition-old(lightbox-next) {
+  animation-duration: var(--lightbox-duration);
+  animation-timing-function: var(--lightbox-ease);
+  animation-fill-mode: both;
+}
+
+::view-transition-new(lightbox-prev),
+::view-transition-new(lightbox-next) {
+  animation-delay: var(--lightbox-sides-delay);
+  animation-duration: var(--lightbox-sides-duration);
+}
+
+::view-transition-new(lightbox-prev) {
+  animation-name: lightbox-slide-in-left;
+}
+::view-transition-old(lightbox-prev) {
+  animation-name: lightbox-slide-out-left;
+}
+::view-transition-new(lightbox-next) {
+  animation-name: lightbox-slide-in-right;
+}
+::view-transition-old(lightbox-next) {
+  animation-name: lightbox-slide-out-right;
+}
+
+@keyframes lightbox-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--lightbox-slide)));
+  }
+}
+@keyframes lightbox-slide-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--lightbox-slide)));
+  }
+}
+@keyframes lightbox-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(var(--lightbox-slide));
+  }
+}
+@keyframes lightbox-slide-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(var(--lightbox-slide));
+  }
+}
+
+/**
  * A masonry grid that fills left to right. Tiles keep their proportions and
  * columns end ragged, but grid auto-placement runs row-major, so tile 2 lands
  * to the right of tile 1 rather than beneath it. This replaced CSS

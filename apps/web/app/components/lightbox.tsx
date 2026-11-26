@@ -531,7 +531,14 @@ function LightboxBody({
             <div
               key={slot}
               ref={ref}
-              style={slotSize(slotImage)}
+              style={{
+                ...slotSize(slotImage),
+                viewTransitionName: isNeighbour
+                  ? offset < 0
+                    ? "lightbox-prev"
+                    : "lightbox-next"
+                  : undefined,
+              }}
               className={cn(
                 "absolute top-0 left-0 rounded-md bg-(--lightbox-side-backing)/(--aside) transition-[transform] duration-400 ease-(--lightbox-ease)",
                 isPointed &&

@@ -5,7 +5,7 @@ import {
   useGridLayout,
   ViewHeader,
 } from "~/components/image-grid";
-import { skipLightboxRevalidation } from "~/components/lightbox";
+import { skipLightboxRevalidation } from "~/components/lightbox/lightbox";
 import { UploadButton } from "~/components/upload-button";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listStream } from "~/lib/library.server";

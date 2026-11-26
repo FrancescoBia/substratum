@@ -4,7 +4,7 @@ import { cn } from "cn";
 import { LayoutDashboardIcon, LayoutGridIcon } from "lucide-react";
 import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router";
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
-import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox";
+import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox/lightbox";
 import { VideoPreview } from "~/components/video-preview";
 import { TAGS_ENABLED } from "~/lib/features";
 import type { GridImage } from "~/lib/library.server";

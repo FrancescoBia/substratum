@@ -32,7 +32,7 @@
  * What sits behind an off-centre image in the viewer, so a white image still
  * reads as a shape in light mode, and a black one in dark. The image is dimmed
  * on top of it, so only a third of this shows through (see `SIDE_DIM` in
- * `lightbox.tsx`).
+ * `lightbox/strip-geometry.ts`).
  */
 :root {
   --lightbox-side-backing: --alpha(var(--color-foreground) / 15%);

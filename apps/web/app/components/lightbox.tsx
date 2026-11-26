@@ -346,6 +346,10 @@ function LightboxBody({
     // Blur first: it reads the stage's width, which is free while nothing
     // has been written yet this frame and a forced layout after.
     blurStrip(stage.current, blur.current, velocity, frame);
+    // The spring sets each slot's opacity every frame. A CSS transition on top
+    // of that restarts every frame, barely moves, and then catches up all at
+    // once when the strip stops, so it is off while the strip moves.
+    stage.current?.toggleAttribute("data-moving", velocity !== 0);
     placeStrip(slots.current, at, images);
   });
 
@@ -367,6 +371,15 @@ function LightboxBody({
   // end: an `<img>` keeps painting what it has until the replacement has
   // decoded, so the upgrade is invisible whenever it happens.
   const srcSet = settledAt === index ? fullSizeSrcSet(image) : undefined;
+
+  // The neighbour the pointer has moved onto, which shows at full strength.
+  // Not CSS `:hover`: the strip slides images under a cursor that is standing
+  // still, and Chrome only re-checks `:hover` on the next mouse move, so an
+  // image would brighten or dim on its own, often after the strip has
+  // stopped. Only a real pointer move sets this, and it is tied to the index
+  // it was set at, so every step clears it.
+  const [pointed, setPointed] = useState<{ index: number; slot: number } | null>(null);
+  const pointedSlot = pointed?.index === index ? pointed.slot : null;
 
   return (
     <>
@@ -448,9 +461,9 @@ function LightboxBody({
             viewTransitionName: isCurrent && morphId === slotImage.id ? MORPH_NAME : undefined,
           };
           const assetClassName = cn(
-            "absolute top-0 left-0 rounded-md opacity-(--dim) transition-opacity outline-image",
-            !isCurrent &&
-              (isNeighbour ? "cursor-pointer hover:opacity-100" : "pointer-events-none"),
+            "absolute top-0 left-0 rounded-md transition-opacity outline-image in-data-moving:transition-none",
+            isNeighbour && pointedSlot === slot ? "opacity-100" : "opacity-(--dim)",
+            !isCurrent && (isNeighbour ? "cursor-pointer" : "pointer-events-none"),
           );
 
           // Only the open slot plays. A video passing by, or waiting at the
@@ -500,6 +513,13 @@ function LightboxBody({
               onClick={(event) => {
                 event.stopPropagation();
                 if (isNeighbour) onStep(offset);
+              }}
+              onPointerMove={(event) => {
+                if (!isNeighbour || event.pointerType === "touch" || pointedSlot === slot) return;
+                setPointed({ index, slot });
+              }}
+              onPointerLeave={() => {
+                if (pointedSlot === slot) setPointed(null);
               }}
               style={style}
               className={assetClassName}

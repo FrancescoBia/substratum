@@ -99,13 +99,18 @@ describe("Lightbox strip", () => {
     );
   });
 
-  test("moving the pointer onto a neighbour brings it to full strength", async () => {
+  test("moving the pointer onto a neighbour lifts it a little and leans it in", async () => {
     await open();
     const neighbour = document.querySelector<HTMLElement>(
       '[role=dialog] img[src="/img/b/medium"]',
     )!;
     await userEvent.hover(neighbour);
-    await expect.poll(() => getComputedStyle(neighbour).opacity).toBe("1");
+    await settle();
+
+    expect(parseFloat(getComputedStyle(neighbour).opacity)).toBeCloseTo(0.8);
+    // b is the right-hand neighbour, so leaning in is leftwards.
+    const lean = new DOMMatrix(getComputedStyle(neighbour.parentElement!).transform).m41;
+    expect(lean).toBeLessThan(0);
   });
 
   test("stepping by clicking a neighbour: painted opacity follows the spring", async () => {

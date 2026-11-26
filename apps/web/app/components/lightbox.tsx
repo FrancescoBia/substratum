@@ -372,8 +372,8 @@ function LightboxBody({
   // decoded, so the upgrade is invisible whenever it happens.
   const srcSet = settledAt === index ? fullSizeSrcSet(image) : undefined;
 
-  // The neighbour the pointer has moved onto, which shows at full strength.
-  // Not CSS `:hover`: the strip slides images under a cursor that is standing
+  // The neighbour the pointer has moved onto, which lifts a little and leans
+  // in towards the open image. Not CSS `:hover`: the strip slides images under a cursor that is standing
   // still, and Chrome only re-checks `:hover` on the next mouse move, so an
   // image would brighten or dim on its own, often after the strip has
   // stopped. Only a real pointer move sets this, and it is tied to the index
@@ -440,7 +440,7 @@ function LightboxBody({
 
       <div
         ref={stage}
-        className="relative min-h-0 flex-1 overflow-hidden [--gap:0.75rem] [--peek:1.5rem] @container-size sm:[--gap:1.5rem] sm:[--peek:3.5rem]"
+        className="relative min-h-0 flex-1 overflow-hidden [--gap:0.75rem] [--peek:1.5rem] @container-size sm:[--gap:2.5rem] sm:[--peek:3.5rem]"
         onClick={onClose}
       >
         {stripWindow(index, total).map((slot) => {
@@ -457,9 +457,10 @@ function LightboxBody({
             };
           };
           const viewTransitionName = isCurrent && morphId === slotImage.id ? MORPH_NAME : undefined;
+          const isPointed = isNeighbour && pointedSlot === slot;
           const assetClassName = cn(
-            "size-full rounded-md transition-opacity outline-image in-data-moving:transition-none",
-            isNeighbour && pointedSlot === slot ? "opacity-100" : "opacity-(--dim)",
+            "size-full rounded-md transition-opacity duration-400 ease-(--lightbox-ease) outline-image in-data-moving:transition-none",
+            isPointed ? "opacity-[calc(var(--dim)+0.1)]" : "opacity-(--dim)",
             !isCurrent && (isNeighbour ? "cursor-pointer" : "pointer-events-none"),
           );
 
@@ -519,12 +520,25 @@ function LightboxBody({
           // The shade sits under the dimmed image rather than on it, since
           // `opacity` would fade a background along with the image — and a
           // white image dimmed over a white page is still white.
+          //
+          // The lean is a `transform`, which the browser applies on top of the
+          // `translate` the spring writes — and only `transform` transitions,
+          // so the spring still moves the slot without lag. It covers 60% of
+          // `--gap`, so a neighbour never reaches even the widest open image;
+          // the 1.2 is that doubled, because the slot's half-size scale
+          // halves a `transform` on screen.
           return (
             <div
               key={slot}
               ref={ref}
               style={slotSize(slotImage)}
-              className="absolute top-0 left-0 rounded-md bg-(--lightbox-side-backing)/(--aside)"
+              className={cn(
+                "absolute top-0 left-0 rounded-md bg-(--lightbox-side-backing)/(--aside) transition-[transform] duration-400 ease-(--lightbox-ease)",
+                isPointed &&
+                  (offset < 0
+                    ? "motion-safe:transform-[translateX(calc(var(--gap)*1.2))]"
+                    : "motion-safe:transform-[translateX(calc(var(--gap)*-1.2))]"),
+              )}
             >
               {asset}
             </div>

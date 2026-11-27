@@ -127,19 +127,24 @@ export const AddBoard = ({
         data-show={showConfirm || undefined}
         className="add-board-confirm bg-primary text-primary-foreground focus-visible:ring-ring/50 absolute top-[3px] right-[3px] grid size-6 place-items-center rounded-md outline-none focus-visible:ring-3"
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="size-3.5"
-          aria-hidden
-        >
-          <path className="add-board-tick" d="M4 12l5 5L20 6" pathLength={1} />
-        </svg>
+        <DrawnTick />
       </button>
     </form>
   );
 };
+
+/** Draws itself when the confirm button shows (`.add-board-tick` in `add-board.css`). */
+const DrawnTick = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="size-3.5"
+    aria-hidden
+  >
+    <path className="add-board-tick" d="M4 12l5 5L20 6" pathLength={1} />
+  </svg>
+);

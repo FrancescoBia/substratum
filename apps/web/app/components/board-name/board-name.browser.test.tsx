@@ -59,19 +59,23 @@ describe("BoardName", () => {
     expect(corrected).toBeGreaterThan(1);
   });
 
-  test("cancels the push if the board is deselected halfway through", async () => {
+  test("slides back from mid-push if the board is deselected halfway through", async () => {
     const screen = await render(<Row name={KERNED} active={false} />);
+    const label = screen.container.querySelector<HTMLElement>(".inline-block")!;
+    const shift = () => parseFloat(getComputedStyle(label).translate) || 0;
+
     await screen.rerender(<Row name={KERNED} active />);
+    await expect.poll(shift, { interval: 1 }).toBeGreaterThan(5);
     await screen.rerender(<Row name={KERNED} active={false} />);
 
-    // Unselected, the label holds the name as plain text. What should be left
-    // on it is the CSS slide back, not the push still playing out over it.
-    const label = screen.getByText(KERNED).element() as HTMLElement;
+    // What should be left on the label is the CSS slide back, not the push
+    // still playing out over it, and it should start from where the push got to.
     const running = label
       .getAnimations()
       .map((a) => (a instanceof CSSTransition ? a.transitionProperty : "push"))
       .sort();
     expect(running).toEqual(["color", "translate"]);
+    expect(shift()).toBeGreaterThan(4);
   });
 
   test("fades the right edge only when the name runs into it", async () => {

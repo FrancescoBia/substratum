@@ -27,3 +27,10 @@ export function countLabel(items: Array<{ kind: "image" | "video" }>): string {
   if (videos > 0) parts.push(`${videos} Video${videos === 1 ? "" : "s"}`);
   return parts.join(", ");
 }
+
+/** `512 B`, `48 KB`, `1.2 MB`. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}

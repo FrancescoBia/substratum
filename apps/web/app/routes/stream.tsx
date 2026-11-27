@@ -5,7 +5,7 @@ import {
   useGridLayout,
   ViewHeader,
 } from "~/components/image-grid";
-import { skipLightboxRevalidation } from "~/components/lightbox";
+import { skipLightboxRevalidation } from "~/components/lightbox/routing";
 import { UploadButton } from "~/components/upload-button";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listStream } from "~/lib/library.server";
@@ -46,7 +46,7 @@ export default function Stream({ loaderData }: Route.ComponentProps) {
           here.
         </EmptyState>
       ) : (
-        <ImageGrid images={images} layout={layout} />
+        <ImageGrid images={images} context="Stream" layout={layout} />
       )}
     </div>
   );

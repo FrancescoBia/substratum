@@ -28,6 +28,53 @@
   --lightbox-ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/**
+ * How an image in the viewer's strip looks for being off-centre. The strip
+ * (`placeStrip` in `lightbox/strip-geometry.ts`) only says where each slot is,
+ * plus `--aside` — 0 for the open image, 1 for a neighbour — and `--side`, -1
+ * left to 1 right. The rest is here:
+ *
+ * - `side-dim`: how much of a neighbour the page shows through.
+ * - `side-backing`: what sits behind it, so a white image still reads as a
+ *   shape in light mode, and a black one in dark. Only `side-dim` of it shows
+ *   through the image on top.
+ * - `hover-lift` and `hover-lean`: what pointing at a neighbour does — a little
+ *   more of it, and a lean in towards the open image, as a share of `--gap`, so
+ *   it never reaches even the widest one.
+ */
+:root {
+  --lightbox-side-dim: 0.3;
+  --lightbox-side-backing: --alpha(var(--color-foreground) / 15%);
+  --lightbox-hover-lift: 0.1;
+  --lightbox-hover-lean: 0.6;
+  --lightbox-hover-duration: 400ms;
+}
+
+/**
+ * `--dim` is read by the image inside, as its opacity. The lean is a
+ * `transform`, which the browser applies on top of the `translate` the strip
+ * writes, and only `transform` transitions, so the strip still moves without
+ * lag. It is doubled because the slot's half-size scale halves a `transform`
+ * on screen, and `--side` turns it towards the middle.
+ */
+@utility lightbox-slot {
+  --dim: calc(1 - var(--lightbox-side-dim) * var(--aside));
+  background-color: color-mix(
+    in oklab,
+    var(--lightbox-side-backing) calc(var(--aside) * 100%),
+    transparent
+  );
+  transition: transform var(--lightbox-hover-duration) var(--lightbox-ease);
+
+  &[data-pointed] {
+    --dim: calc(1 - var(--lightbox-side-dim) * var(--aside) + var(--lightbox-hover-lift));
+
+    @media (prefers-reduced-motion: no-preference) {
+      transform: translateX(calc(var(--gap) * var(--lightbox-hover-lean) * -2 * var(--side)));
+    }
+  }
+}
+
 ::view-transition-group(*) {
   animation-duration: var(--lightbox-duration);
   animation-timing-function: var(--lightbox-ease);
@@ -64,6 +111,78 @@
      single sharp frame. The mosaic keeps a thumbnail's own proportions, so
      there the two frames match and this is not doing anything. */
   animation-duration: calc(var(--lightbox-duration) / 3);
+}
+
+/**
+ * The viewer's neighbours slide in from their edge of the screen as it opens,
+ * and back out as it closes. Each wears a name only while it is a neighbour
+ * (`lightbox-prev`, `lightbox-next`, see `lightbox.tsx`), so it exists on just
+ * one side of the transition, and these replace the fade the browser would
+ * give it. `100%` is the slot's own width, which takes even its inner edge off
+ * screen. A reader who asked for less motion gets the fade alone.
+ *
+ * Opening, they wait until the open image has all but finished expanding —
+ * half its flight, which the hard deceleration makes about 90% of the way —
+ * and then come in at their own, slower pace, so the image arrives first and
+ * the strip settles around it. Closing, they leave with it, so Escape is never
+ * held up.
+ */
+:root {
+  --lightbox-slide: 100%;
+  --lightbox-sides-delay: calc(var(--lightbox-duration) / 2);
+  --lightbox-sides-duration: 500ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --lightbox-slide: 0%;
+  }
+}
+
+::view-transition-new(lightbox-prev),
+::view-transition-old(lightbox-prev),
+::view-transition-new(lightbox-next),
+::view-transition-old(lightbox-next) {
+  animation-duration: var(--lightbox-duration);
+  animation-timing-function: var(--lightbox-ease);
+  animation-fill-mode: both;
+}
+
+::view-transition-new(lightbox-prev),
+::view-transition-new(lightbox-next) {
+  animation-delay: var(--lightbox-sides-delay);
+  animation-duration: var(--lightbox-sides-duration);
+}
+
+::view-transition-new(lightbox-prev),
+::view-transition-old(lightbox-prev) {
+  --lightbox-side: -1;
+}
+::view-transition-new(lightbox-next),
+::view-transition-old(lightbox-next) {
+  --lightbox-side: 1;
+}
+
+::view-transition-new(lightbox-prev),
+::view-transition-new(lightbox-next) {
+  animation-name: lightbox-slide-in;
+}
+::view-transition-old(lightbox-prev),
+::view-transition-old(lightbox-next) {
+  animation-name: lightbox-slide-out;
+}
+
+@keyframes lightbox-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--lightbox-side) * var(--lightbox-slide)));
+  }
+}
+@keyframes lightbox-slide-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--lightbox-side) * var(--lightbox-slide)));
+  }
 }
 
 /**

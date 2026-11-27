@@ -5,7 +5,7 @@ import {
   useGridLayout,
   ViewHeader,
 } from "~/components/image-grid";
-import { skipLightboxRevalidation } from "~/components/lightbox";
+import { skipLightboxRevalidation } from "~/components/lightbox/routing";
 import { requireOwnerSession } from "~/auth/session.server";
 import { listTagImages } from "~/lib/library.server";
 import { countLabel } from "~/lib/media";
@@ -39,7 +39,7 @@ export default function TagView({ loaderData }: Route.ComponentProps) {
       {images.length === 0 ? (
         <EmptyState title="Nothing tagged this yet" />
       ) : (
-        <ImageGrid images={images} layout={layout} />
+        <ImageGrid images={images} context={`#${name}`} layout={layout} />
       )}
     </div>
   );

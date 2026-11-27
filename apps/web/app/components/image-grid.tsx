@@ -4,7 +4,9 @@ import { cn } from "cn";
 import { LayoutDashboardIcon, LayoutGridIcon } from "lucide-react";
 import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router";
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
-import { Lightbox, LIGHTBOX_PARAM, morphFromTile, useTileMorphName } from "~/components/lightbox";
+import { Lightbox } from "~/components/lightbox/lightbox";
+import { morphFromTile, useTileMorphName } from "~/components/lightbox/morph";
+import { LIGHTBOX_PARAM } from "~/components/lightbox/routing";
 import { VideoPreview } from "~/components/video-preview";
 import { TAGS_ENABLED } from "~/lib/features";
 import type { GridImage } from "~/lib/library.server";
@@ -92,9 +94,12 @@ export function ImageGrid({
   images,
   layout,
   readOnly = false,
+  context,
 }: {
   images: TileImage[];
   layout: GridLayout;
+  /** Where these images are — a Board's name, `Stream` — shown in the viewer's corner. */
+  context?: string;
   /** For visitors to a published Board: no way into the Owner's detail panel. */
   readOnly?: boolean;
 }) {
@@ -230,7 +235,12 @@ export function ImageGrid({
         ))}
       </div>
 
-      <Lightbox images={images} detailsHref={readOnly ? undefined : detailsHref} panel={panel} />
+      <Lightbox
+        images={images}
+        context={context}
+        detailsHref={readOnly ? undefined : detailsHref}
+        panel={panel}
+      />
     </section>
   );
 }

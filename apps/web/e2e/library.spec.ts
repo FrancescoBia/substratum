@@ -382,10 +382,20 @@ test.describe("Full-size view", () => {
     await expect(viewer.getByText("2 / 3")).toBeVisible();
     expect(loaderFetches).toEqual([]);
 
-    // Stepping past the first image wraps round to the last.
+    // Stepping stops at either end rather than wrapping round.
     await page.keyboard.press("ArrowLeft");
     await page.keyboard.press("ArrowLeft");
+    await expect(page).toHaveURL(new RegExp(`\\?view=${ids[0]}`));
+    await expect(viewer.getByText("1 / 3")).toBeVisible();
+    await expect(viewer.getByRole("button", { name: "Previous image" })).toBeDisabled();
+    await expect(viewer.getByRole("button", { name: "Next image" })).toBeEnabled();
+
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await expect(page).toHaveURL(new RegExp(`\\?view=${ids[2]}`));
     await expect(viewer.getByText("3 / 3")).toBeVisible();
+    await expect(viewer.getByRole("button", { name: "Next image" })).toBeDisabled();
 
     await page.keyboard.press("Escape");
     await expect(viewer).toBeHidden();

@@ -23,6 +23,8 @@ function fixture(id: string, width: number, height: number, title: string | null
     width,
     height,
     durationMs: null,
+    format: "jpeg",
+    byteSize: width * height,
     title,
     sourcePageUrl: null,
     untriaged: false,
@@ -43,7 +45,7 @@ const meta = {
   component: ImageGrid,
   decorators: [withRouter],
   parameters: { layout: "padded" },
-  args: { images, layout: "flat" },
+  args: { images, layout: "flat", context: "Graphic Design" },
 } satisfies Meta<typeof ImageGrid>;
 
 export default meta;

@@ -25,7 +25,7 @@ import {
   useGridLayout,
   ViewHeader,
 } from "~/components/image-grid";
-import { skipLightboxRevalidation } from "~/components/lightbox";
+import { skipLightboxRevalidation } from "~/components/lightbox/routing";
 import { PublishPopover } from "~/components/publish-popover";
 import { requireOwnerSession } from "~/auth/session.server";
 import { db, schema } from "~/db/index.server";
@@ -134,7 +134,7 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
           Open anything in your Stream and tick this board in its details.
         </EmptyState>
       ) : (
-        <ImageGrid images={images} layout={layout} />
+        <ImageGrid images={images} context={board.name} layout={layout} />
       )}
     </div>
   );

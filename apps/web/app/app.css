@@ -393,3 +393,31 @@
     stroke-dashoffset: 0 !important;
   }
 }
+
+/**
+ * A board's row arriving in the sidebar (`BoardItem` in `sidebar.tsx`): its
+ * slot grows from nothing on the settle curve, so the rows below move down to
+ * make room rather than jumping.
+ */
+.board-slot {
+  display: grid;
+  grid-template-rows: 1fr;
+
+  &[data-opening] {
+    animation: board-slot-open var(--board-settle) both;
+
+    & > * {
+      overflow: hidden;
+    }
+  }
+
+  & > * {
+    min-height: 0;
+  }
+}
+
+@keyframes board-slot-open {
+  from {
+    grid-template-rows: 0fr;
+  }
+}

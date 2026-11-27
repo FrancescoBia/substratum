@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { Form, data, redirect, useNavigation } from "react-router";
 import { hashPassword, validatePassword } from "~/auth/password.server";
 import { createSession, getOwner } from "~/auth/session.server";
+import { AuthShell } from "~/components/auth-shell";
 import { db, schema } from "~/db/index.server";
 import type { Route } from "./+types/setup";
 
@@ -50,9 +51,11 @@ export default function Setup({ actionData }: Route.ComponentProps) {
   const busy = navigation.state !== "idle";
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">Welcome to Substratum</h1>
+    <AuthShell>
+      <div>
+        <h1 className="text-foreground text-2xl font-semibold tracking-tight">
+          Welcome to Substratum
+        </h1>
         <p className="text-muted-foreground mt-2 text-sm">
           This instance is brand new. Create the account you'll use to sign in — you're the only
           person who ever will.
@@ -61,7 +64,14 @@ export default function Setup({ actionData }: Route.ComponentProps) {
         <Form method="post" className="mt-8 flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" autoComplete="username" required />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="username"
+              required
+              className="h-10 px-3"
+            />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -72,6 +82,7 @@ export default function Setup({ actionData }: Route.ComponentProps) {
               type="password"
               autoComplete="new-password"
               required
+              className="h-10 px-3"
             />
             <p className="text-muted-foreground text-xs">At least 10 characters.</p>
           </div>
@@ -84,6 +95,7 @@ export default function Setup({ actionData }: Route.ComponentProps) {
               type="password"
               autoComplete="new-password"
               required
+              className="h-10 px-3"
             />
           </div>
 
@@ -93,11 +105,11 @@ export default function Setup({ actionData }: Route.ComponentProps) {
             </p>
           )}
 
-          <Button type="submit" disabled={busy} className="mt-2">
+          <Button type="submit" size="lg" disabled={busy} className="mt-2 h-10">
             {busy ? "Creating account…" : "Create account"}
           </Button>
         </Form>
       </div>
-    </main>
+    </AuthShell>
   );
 }

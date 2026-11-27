@@ -35,8 +35,7 @@ const MAX_LAG = 2.5;
  * every render, so slots that have just mounted are placed before the browser
  * gets to draw them where they are not.
  *
- * `paint` also gets the strip's velocity, in slots per second, and how long
- * the frame being painted took, in seconds — between them, how far it moved.
+ * `paint` also gets the strip's velocity, in slots per second.
  *
  * Returns the position the strip last came to rest at, or `null` before it
  * first has: the one moment it is worth starting expensive work. Never sooner
@@ -44,7 +43,7 @@ const MAX_LAG = 2.5;
  */
 export function useStripSpring(
   target: number,
-  paint: (at: number, velocity: number, frame: number) => void,
+  paint: (at: number, velocity: number) => void,
 ): number | null {
   const spring = useRef({
     at: target,
@@ -71,7 +70,7 @@ export function useStripSpring(
     }
 
     state.at = Math.min(Math.max(state.at, target - MAX_LAG), target + MAX_LAG);
-    paint(state.at, state.velocity, 1 / 60);
+    paint(state.at, state.velocity);
     if (state.frame) return;
 
     if (state.at === target && state.velocity === 0) {
@@ -111,7 +110,7 @@ export function useStripSpring(
       } else {
         state.frame = requestAnimationFrame(tick);
       }
-      paintRef.current(state.at, state.velocity, frame);
+      paintRef.current(state.at, state.velocity);
     }
 
     state.last = performance.now();

@@ -2,7 +2,6 @@ import { cn } from "cn";
 import { useRef, useState, type PointerEvent } from "react";
 import { fullSizeSrcSet } from "~/lib/image-variants";
 import type { LightboxImage } from "./lightbox";
-import { blurStrip, MotionBlurFilter } from "./motion-blur";
 import { MORPH_NAME, useMorphTarget } from "./morph";
 import { placeStrip, slotSize, stripWindow } from "./strip-geometry";
 import { useStripSpring } from "./use-strip-spring";
@@ -31,12 +30,8 @@ export function Strip({
   const { pointedSlot, handlersFor } = usePointedNeighbour(index);
 
   const stage = useRef<HTMLDivElement>(null);
-  const blur = useRef<SVGFEGaussianBlurElement>(null);
-  const settledAt = useStripSpring(index, (at, velocity, frame) => {
+  const settledAt = useStripSpring(index, (at, velocity) => {
     if (stage.current) {
-      // Blur first: it reads the stage's width, which is free while nothing
-      // has been written yet this frame and a forced layout after.
-      blurStrip(stage.current, blur.current, velocity, frame);
       // The spring sets each slot's opacity every frame. A CSS transition on
       // top of that restarts every frame, barely moves, and then catches up
       // all at once when the strip stops, so it is off while the strip moves.
@@ -66,8 +61,6 @@ export function Strip({
 
   return (
     <>
-      <MotionBlurFilter ref={blur} />
-
       {/* `container-type: size` is what lets every slot be laid out in CSS
           alone: a slot's width and offset are fractions of this box, and the
           image's own size, which is not known until it loads, never enters

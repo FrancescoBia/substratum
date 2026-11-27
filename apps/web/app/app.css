@@ -154,41 +154,34 @@
   animation-duration: var(--lightbox-sides-duration);
 }
 
-::view-transition-new(lightbox-prev) {
-  animation-name: lightbox-slide-in-left;
-}
+::view-transition-new(lightbox-prev),
 ::view-transition-old(lightbox-prev) {
-  animation-name: lightbox-slide-out-left;
+  --lightbox-side: -1;
 }
-::view-transition-new(lightbox-next) {
-  animation-name: lightbox-slide-in-right;
-}
+::view-transition-new(lightbox-next),
 ::view-transition-old(lightbox-next) {
-  animation-name: lightbox-slide-out-right;
+  --lightbox-side: 1;
 }
 
-@keyframes lightbox-slide-in-left {
+::view-transition-new(lightbox-prev),
+::view-transition-new(lightbox-next) {
+  animation-name: lightbox-slide-in;
+}
+::view-transition-old(lightbox-prev),
+::view-transition-old(lightbox-next) {
+  animation-name: lightbox-slide-out;
+}
+
+@keyframes lightbox-slide-in {
   from {
     opacity: 0;
-    transform: translateX(calc(-1 * var(--lightbox-slide)));
+    transform: translateX(calc(var(--lightbox-side) * var(--lightbox-slide)));
   }
 }
-@keyframes lightbox-slide-out-left {
+@keyframes lightbox-slide-out {
   to {
     opacity: 0;
-    transform: translateX(calc(-1 * var(--lightbox-slide)));
-  }
-}
-@keyframes lightbox-slide-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(var(--lightbox-slide));
-  }
-}
-@keyframes lightbox-slide-out-right {
-  to {
-    opacity: 0;
-    transform: translateX(var(--lightbox-slide));
+    transform: translateX(calc(var(--lightbox-side) * var(--lightbox-slide)));
   }
 }
 

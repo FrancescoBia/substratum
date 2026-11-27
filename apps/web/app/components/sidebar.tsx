@@ -1,11 +1,11 @@
 import { Button } from "@repo/ui/components/button";
 import Logo from "@repo/ui/assets/logo/substratum_logo.svg?react";
-import { Input } from "@repo/ui/components/input";
 import { ScrollArea } from "@repo/ui/components/scroll-area";
 import { cn } from "cn";
-import { CheckCircle2Icon, GlobeIcon, InboxIcon, LogOutIcon, PlusCircleIcon } from "lucide-react";
+import { GlobeIcon, InboxIcon, LogOutIcon } from "lucide-react";
 import { Suspense, useState } from "react";
 import { Await, Link, NavLink, useFetcher, useSubmit } from "react-router";
+import { AddBoard } from "~/components/add-board";
 import { AppVersion } from "~/components/app-version";
 import { BoardName } from "~/components/board-name/board-name";
 import { SettingsDialog } from "~/components/settings-dialog";
@@ -67,42 +67,12 @@ export const Sidebar = ({
       </ScrollArea>
 
       <div className="space-y-2 px-3 py-2">
-        {creating ? (
-          <createBoard.Form
-            method="post"
-            action="/boards"
-            className="flex gap-2"
-            onSubmit={() => setCreating(false)}
-          >
-            <input type="hidden" name="intent" value="create" />
-            <Input
-              name="name"
-              placeholder="Board name…"
-              autoFocus
-              className="h-8"
-              onBlur={(event) => {
-                if (
-                  event.relatedTarget &&
-                  event.currentTarget.form?.contains(event.relatedTarget)
-                ) {
-                  return;
-                }
-                if (!event.currentTarget.value.trim()) setCreating(false);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") setCreating(false);
-              }}
-            />
-            <Button type="submit">
-              <CheckCircle2Icon className="size-icon" />
-            </Button>
-          </createBoard.Form>
-        ) : (
-          <Button onClick={() => setCreating(true)} variant="secondary" className="w-full">
-            <PlusCircleIcon className="size-icon" />
-            Add Board
-          </Button>
-        )}
+        <AddBoard
+          onOpenChange={setCreating}
+          onCreate={(name) =>
+            createBoard.submit({ intent: "create", name }, { method: "post", action: "/boards" })
+          }
+        />
 
         <div className="flex gap-1 px-2 items-center">
           <Button

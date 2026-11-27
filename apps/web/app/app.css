@@ -241,3 +241,155 @@
 :root {
   --board-settle: 240ms cubic-bezier(0.23, 1, 0.32, 1);
 }
+
+/**
+ * The Add Board button turning into the field that names the board
+ * (`add-board.tsx`). The label sits where the input's text starts and is pushed
+ * to the centre while closed: `cqw` is the field's own width and `50%` the
+ * label's, so it centres without measuring and renders right on the server.
+ * The confirm button waits for a pause in typing, then its tick draws itself.
+ */
+.add-board {
+  --add-board-inset: 10px;
+  --add-board-icon: 14px;
+  --add-board-gap: 6px;
+
+  container-type: inline-size;
+  background: var(--secondary);
+  border-color: transparent;
+  color: var(--muted-foreground);
+  transition:
+    background-color 200ms ease-out,
+    border-color 200ms ease-out,
+    box-shadow 200ms ease-out;
+
+  &[data-open] {
+    background: transparent;
+    border-color: var(--input);
+  }
+
+  &:has(.add-board-trigger:active) {
+    translate: 0 1px;
+  }
+
+  &:has(.add-board-trigger:focus-visible),
+  &[data-open]:focus-within {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .add-board:not([data-open]):hover {
+    background: color-mix(in oklch, var(--secondary), var(--foreground) 5%);
+  }
+}
+
+.dark .add-board[data-open] {
+  background: color-mix(in oklch, var(--input) 30%, transparent);
+}
+
+.add-board-text {
+  translate: calc(
+      50cqw - 50% + (var(--add-board-icon) + var(--add-board-gap)) / 2 - var(--add-board-inset)
+    )
+    0;
+  transition: translate var(--board-settle);
+
+  [data-open] & {
+    translate: 0 0;
+  }
+}
+
+.add-board-icon {
+  transition:
+    opacity 160ms ease-out 100ms,
+    scale 160ms ease-out 100ms;
+
+  [data-open] & {
+    opacity: 0;
+    scale: 0.6;
+    transition-duration: 100ms;
+    transition-delay: 0ms;
+  }
+}
+
+.add-board-label {
+  transition: opacity 160ms ease-out 60ms;
+
+  [data-open] & {
+    opacity: 0;
+    transition-duration: 120ms;
+    transition-delay: 0ms;
+  }
+}
+
+.add-board-placeholder {
+  opacity: 0;
+  transition: opacity 100ms ease-out;
+
+  [data-open] & {
+    opacity: 1;
+    transition: opacity 180ms ease-out 60ms;
+  }
+}
+
+.add-board-input {
+  pointer-events: none;
+
+  [data-open] & {
+    pointer-events: auto;
+  }
+}
+
+.add-board-confirm {
+  opacity: 0;
+  scale: 0.85;
+  pointer-events: none;
+  transition:
+    opacity 120ms ease-out,
+    scale 120ms ease-out;
+
+  &[data-show] {
+    opacity: 1;
+    scale: 1;
+    pointer-events: auto;
+    transition:
+      opacity 150ms ease-out,
+      scale 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  &[data-show]:active {
+    scale: 0.9;
+  }
+}
+
+.add-board-tick {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 0ms 120ms;
+
+  [data-show] & {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 240ms cubic-bezier(0.65, 0, 0.35, 1) 90ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .add-board,
+  .add-board-text,
+  .add-board-icon,
+  .add-board-confirm,
+  .add-board-tick {
+    transition-property: opacity, background-color, border-color, box-shadow !important;
+  }
+
+  .add-board-icon,
+  .add-board-confirm {
+    scale: 1 !important;
+  }
+
+  .add-board-tick {
+    stroke-dashoffset: 0 !important;
+  }
+}

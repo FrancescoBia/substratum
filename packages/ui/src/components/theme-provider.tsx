@@ -4,7 +4,7 @@ type Theme = "dark" | "light" | "system";
 
 // Shared by <ThemeScript> and <ThemeProvider> so the pre-paint script and the
 // React state can never disagree about where the theme is stored.
-const DEFAULT_THEME: Theme = "dark";
+const DEFAULT_THEME: Theme = "system";
 const STORAGE_KEY = "ui-theme";
 
 type ThemeProviderProps = {

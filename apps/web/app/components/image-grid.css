@@ -1,0 +1,30 @@
+/**
+ * A board's tiles arriving when it opens (`ImageGrid`'s `animated`): each one
+ * lifts a few pixels while a soft blur clears, in reading order. `--i` is the
+ * tile's index, set inline.
+ *
+ * The stagger accelerates: the gap between tiles starts at ~44ms and shrinks
+ * as the grid fills, so every tile still arrives after its neighbour but the
+ * delays close in on `--entrance-spread` and never pass it. A screenful
+ * (~20 tiles) has started by ~470ms, and a board of hundreds never waits on
+ * its tail. `--entrance-pace` is how many tiles it takes to get about two
+ * thirds of the way there.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .grid-entrance > * {
+    --entrance-spread: 620ms;
+    --entrance-pace: 14;
+    animation: grid-tile-in 640ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+    animation-delay: calc(
+      var(--entrance-spread) * (1 - exp(var(--i, 0) / var(--entrance-pace) * -1))
+    );
+  }
+}
+
+@keyframes grid-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(6px);
+  }
+}

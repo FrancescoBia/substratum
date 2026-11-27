@@ -48,7 +48,7 @@ export default function Trash({ loaderData }: Route.ComponentProps) {
                 src={`/img/${image.id}/medium`}
                 alt={image.title ?? ""}
                 loading="lazy"
-                className="bg-muted aspect-4/5 w-full rounded-lg object-cover opacity-60"
+                className="bg-muted aspect-square w-full rounded-lg object-cover opacity-60"
               />
               {/* Up top, clear of the Restore and Delete buttons along the bottom. */}
               {image.kind === "video" && (

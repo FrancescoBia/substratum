@@ -84,7 +84,7 @@ test.describe("Stream and upload", () => {
     expect(Math.abs(secondTile.y - firstTile.y)).toBeLessThan(2);
 
     // And the mosaic's actual promise: a tile is as tall as its own proportions
-    // rather than cropped to the flat grid's uniform 4/5.
+    // rather than cropped to the flat grid's uniform square.
     const thumbnail = page.locator('[data-layout="mosaic"] img').first();
     const declared = await thumbnail.evaluate((node) => {
       const image = node as HTMLImageElement;

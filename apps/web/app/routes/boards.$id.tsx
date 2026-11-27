@@ -134,7 +134,9 @@ export default function BoardView({ loaderData }: Route.ComponentProps) {
           Open anything in your Stream and tick this board in its details.
         </EmptyState>
       ) : (
-        <ImageGrid images={images} context={board.name} layout={layout} />
+        // Keyed by board so moving to another board remounts the grid and
+        // its tiles play their entrance again.
+        <ImageGrid key={board.id} images={images} context={board.name} layout={layout} animated />
       )}
     </div>
   );

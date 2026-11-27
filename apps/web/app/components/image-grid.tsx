@@ -2,8 +2,10 @@ import { Button } from "@repo/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/components/tooltip";
 import { cn } from "cn";
 import { LayoutDashboardIcon, LayoutGridIcon } from "lucide-react";
+import { useRef } from "react";
 import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router";
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
+import { useGridExit } from "~/components/grid-exit";
 import { Lightbox } from "~/components/lightbox/lightbox";
 import { morphFromTile, useTileMorphName } from "~/components/lightbox/morph";
 import { LIGHTBOX_PARAM } from "~/components/lightbox/routing";
@@ -31,7 +33,7 @@ const GUTTER_TRACKS = 6;
  * How far from square a mosaic tile may get, as height ÷ width. A panorama or a
  * long infographic would otherwise be a sliver or many screens tall, so both ends
  * are clamped and the thumbnail crops to fit — the full image is one click away in
- * the lightbox, and the flat grid crops everything to 4/5 regardless.
+ * the lightbox, and the flat grid crops everything square regardless.
  */
 const MIN_TILE_RATIO = 0.25;
 const MAX_TILE_RATIO = 2.5;
@@ -94,10 +96,16 @@ export function ImageGrid({
   images,
   layout,
   readOnly = false,
+  animated = false,
   context,
 }: {
   images: TileImage[];
   layout: GridLayout;
+  /**
+   * Tiles play their arrival when the grid mounts (`image-grid.css`) and fade
+   * out quickly when it unmounts (`grid-exit.ts`).
+   */
+  animated?: boolean;
   /** Where these images are — a Board's name, `Stream` — shown in the viewer's corner. */
   context?: string;
   /** For visitors to a published Board: no way into the Owner's detail panel. */
@@ -107,6 +115,8 @@ export function ImageGrid({
   const navigate = useNavigate();
   const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
   const tileMorphName = useTileMorphName();
+  const gridRef = useRef<HTMLDivElement>(null);
+  useGridExit(gridRef, animated);
 
   // A tile opens the viewer with nothing else on: the details column is
   // something the Owner turns on from in there, not a thing every look brings.
@@ -158,20 +168,27 @@ export function ImageGrid({
   return (
     <section className={layout === "mosaic" ? "@container" : undefined}>
       <div
+        ref={gridRef}
         data-layout={layout}
-        className={
+        className={cn(
           layout === "mosaic"
             ? "mosaic"
-            : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        }
+            : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+          animated && "grid-entrance",
+        )}
       >
-        {images.map((image) => (
+        {images.map((image, index) => (
           <div
             key={image.id}
             // `pb-[6%]` is the vertical gutter, and `GUTTER_TRACKS` is what pays
             // for it — 6% of the tile's width is exactly 6 row tracks.
             className={cn("group relative", layout === "mosaic" && "pb-[6%]")}
-            style={layout === "mosaic" ? { gridRowEnd: `span ${tileSpan(image)}` } : undefined}
+            style={
+              {
+                gridRowEnd: layout === "mosaic" ? `span ${tileSpan(image)}` : undefined,
+                "--i": animated ? index : undefined,
+              } as React.CSSProperties
+            }
           >
             {/* `viewTransition` plus the nomination below expands this tile
                 into the viewer rather than cutting to it — see `morphFromTile`.
@@ -194,7 +211,7 @@ export function ImageGrid({
                 // `medium`, not `thumb`: a tile is ~300 CSS px, so a retina
                 // display wants ~600 real pixels and the 400px `thumb` was being
                 // upscaled 2–3× — worst on landscape images, whose short edge is
-                // what `aspect-4/5` + `object-cover` has to stretch to fill.
+                // what `aspect-square` + `object-cover` has to stretch to fill.
                 // Deliberately a single candidate rather than a `srcSet`: `sizes`
                 // is a static list evaluated before layout, so it cannot follow a
                 // column width the Owner is free to change.
@@ -212,7 +229,7 @@ export function ImageGrid({
                 // whose ratio was clamped, where the top is the informative end.
                 className={cn(
                   "bg-muted w-full rounded-inherit outline-image object-cover transition group-hover:brightness-90",
-                  layout === "mosaic" ? "h-full" : "aspect-4/5",
+                  layout === "mosaic" ? "h-full" : "aspect-square",
                   layout === "mosaic" && isClamped(image) && "object-top",
                 )}
               />

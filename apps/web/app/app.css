@@ -5,6 +5,8 @@
  * so both consumers move together.
  */
 @import "@repo/ui/globals.css";
+@import "./components/add-board/add-board.css";
+@import "./components/sidebar/board-item.css";
 
 /**
  * Stories sit next to the components they describe, but Storybook builds them
@@ -235,9 +237,10 @@
 
 /**
  * How a board row settles: the selection background wiping in, and the name and
- * asterisk sliding back on deselect (`sidebar.tsx`, `board-name.tsx`). The push
+ * asterisk sliding back on deselect (`board-item.tsx`, `board-name.tsx`). The push
  * itself is a spring computed in `board-name/push-spring.ts` and set inline as `--push`.
  */
 :root {
-  --board-settle: 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  --board-settle-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --board-settle: 240ms var(--board-settle-ease);
 }

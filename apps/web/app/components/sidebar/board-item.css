@@ -1,0 +1,40 @@
+/**
+ * A board's row arriving in the sidebar (`board-item.tsx`): its
+ * slot grows from nothing on the settle curve, so the rows below move down to
+ * make room rather than jumping.
+ */
+.board-slot {
+  display: grid;
+  grid-template-rows: 1fr;
+
+  &[data-opening] {
+    animation: board-slot-open var(--board-settle) both;
+
+    & > * {
+      overflow: hidden;
+    }
+  }
+
+  & > * {
+    min-height: 0;
+  }
+}
+
+/**
+ * A board row's focus ring goes on the row itself, inside the link's 1px of
+ * spacing. `data-quiet-focus` holds it back when focus was moved there after a
+ * click (see `move-focus.ts`).
+ */
+.board-link {
+  outline: none;
+
+  &:focus-visible:not([data-quiet-focus]) > div {
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+}
+
+@keyframes board-slot-open {
+  from {
+    grid-template-rows: 0fr;
+  }
+}

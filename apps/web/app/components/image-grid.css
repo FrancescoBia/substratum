@@ -1,5 +1,5 @@
 /**
- * A board's tiles arriving when it opens (`ImageGrid`'s `entrance`): each one
+ * A board's tiles arriving when it opens (`ImageGrid`'s `animated`): each one
  * lifts a few pixels while a soft blur clears, in reading order. `--i` is the
  * tile's index, set inline.
  *

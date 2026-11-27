@@ -1,12 +1,34 @@
+import { type RefObject, useLayoutEffect } from "react";
+
 const EXIT_MS = 160;
 const EXIT_EASE = "cubic-bezier(0.23, 1, 0.32, 1)";
 
 /**
- * Lets a board's grid fade out after React has already removed it, so the
- * next view's tiles arrive underneath rather than after a cut. Call it while
- * the grid is still in the document (a layout effect's cleanup); it copies the
- * tiles that are on screen into an inert overlay pinned where they were, and
- * fades that away.
+ * Lets a grid fade out after React has already removed it, so the next view's
+ * tiles arrive underneath rather than after a cut.
+ *
+ * It runs in a layout effect's cleanup, which is while the grid is still in the
+ * document and the last moment its tiles can be copied. A throw there would
+ * take the page down with it, so the exit is skipped instead.
+ */
+export function useGridExit(ref: RefObject<HTMLElement | null>, enabled: boolean) {
+  useLayoutEffect(() => {
+    const grid = ref.current;
+    if (!enabled || !grid) return;
+    return () => {
+      try {
+        playGridExit(grid);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+  }, [ref, enabled]);
+}
+
+/**
+ * Copies the tiles of `grid` that are on screen into an inert overlay pinned
+ * where they were, and fades that away. Call it while the grid is still in the
+ * document.
  *
  * Nothing happens if the grid is still connected once React's commit is done,
  * which is StrictMode rehearsing an unmount rather than a real one.

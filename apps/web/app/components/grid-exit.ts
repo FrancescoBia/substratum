@@ -36,37 +36,36 @@ export function useGridExit(ref: RefObject<HTMLElement | null>, enabled: boolean
 export function playGridExit(grid: HTMLElement) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-  // The grid's parent is the `@container` the mosaic's row tracks resolve
-  // against, so the copy takes it along or the tiles would lose their heights.
-  const container = grid.parentElement;
   const viewport = grid.closest("main");
-  if (!container || !viewport) return;
-
+  if (!viewport) return;
   const frame = viewport.getBoundingClientRect();
-  const box = container.getBoundingClientRect();
 
   // Only the tiles on screen are copied, so the work done in the middle of a
-  // navigation stays the same however big the board is.
-  const copy = grid.cloneNode(false) as HTMLElement;
-  copy.classList.remove("grid-entrance");
+  // navigation stays the same however big the board is. Each is pinned at the
+  // box it was measured at rather than laid out again in a fresh grid, which
+  // would pack a scrolled-down subset from the top, and a mosaic differently.
+  const tiles: HTMLElement[] = [];
   for (const tile of grid.children) {
     const rect = tile.getBoundingClientRect();
-    if (rect.bottom >= frame.top && rect.top <= frame.bottom) copy.append(tile.cloneNode(true));
+    if (rect.bottom < frame.top || rect.top > frame.bottom) continue;
+    const copy = tile.cloneNode(true) as HTMLElement;
+    Object.assign(copy.style, {
+      position: "absolute",
+      left: `${rect.left - frame.left}px`,
+      top: `${rect.top - frame.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      margin: "0",
+      // The mosaic's gutter is a percentage padding, which would resolve
+      // against the overlay instead of the tile's grid column.
+      padding: getComputedStyle(tile).padding,
+    });
+    copy.querySelectorAll<HTMLElement>("[data-lightbox-tile]").forEach((img) => {
+      img.removeAttribute("data-lightbox-tile");
+      img.style.viewTransitionName = "";
+    });
+    tiles.push(copy);
   }
-  copy.querySelectorAll<HTMLElement>("[data-lightbox-tile]").forEach((img) => {
-    img.removeAttribute("data-lightbox-tile");
-    img.style.viewTransitionName = "";
-  });
-
-  const shell = container.cloneNode(false) as HTMLElement;
-  shell.append(copy);
-  Object.assign(shell.style, {
-    position: "absolute",
-    left: `${box.left - frame.left}px`,
-    top: `${box.top - frame.top}px`,
-    width: `${box.width}px`,
-    margin: "0",
-  });
 
   const ghost = document.createElement("div");
   ghost.setAttribute("aria-hidden", "true");
@@ -86,7 +85,7 @@ export function playGridExit(grid: HTMLElement) {
     contain: "strict",
     willChange: "opacity",
   });
-  ghost.append(shell);
+  ghost.append(...tiles);
 
   queueMicrotask(() => {
     if (grid.isConnected) return;

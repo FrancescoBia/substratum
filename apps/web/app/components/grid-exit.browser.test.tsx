@@ -55,9 +55,32 @@ describe("playGridExit", () => {
     await flush();
 
     const ghost = document.body.querySelector<HTMLElement>("[aria-hidden]");
-    const copied = ghost!.querySelector("section > div")!.children.length;
+    const copied = ghost!.children.length;
     expect(copied).toBeGreaterThan(0);
     expect(copied).toBeLessThan(12);
+  });
+
+  test("keeps each copied tile where it was on screen after scrolling down", async () => {
+    const { main, grid } = mountGrid(12);
+    main.scrollTop = 550;
+    const box = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      return [rect.left, rect.top, rect.width, rect.height].map(Math.round);
+    };
+    const frame = main.getBoundingClientRect();
+    const visible = [...grid.children]
+      .filter((tile) => {
+        const rect = tile.getBoundingClientRect();
+        return rect.bottom >= frame.top && rect.top <= frame.bottom;
+      })
+      .map(box);
+
+    playGridExit(grid);
+    main.remove();
+    await flush();
+
+    const ghost = document.body.querySelector<HTMLElement>("[aria-hidden]");
+    expect([...ghost!.children].map(box)).toEqual(visible);
   });
 
   test("does nothing when the grid is still there, as in a StrictMode rehearsal", async () => {

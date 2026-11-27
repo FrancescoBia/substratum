@@ -23,13 +23,14 @@ export function playGridExit(grid: HTMLElement) {
   const frame = viewport.getBoundingClientRect();
   const box = container.getBoundingClientRect();
 
-  const copy = grid.cloneNode(true) as HTMLElement;
+  // Only the tiles on screen are copied, so the work done in the middle of a
+  // navigation stays the same however big the board is.
+  const copy = grid.cloneNode(false) as HTMLElement;
   copy.classList.remove("grid-entrance");
-  const copies = [...copy.children];
-  [...grid.children].forEach((tile, i) => {
+  for (const tile of grid.children) {
     const rect = tile.getBoundingClientRect();
-    if (rect.bottom < frame.top || rect.top > frame.bottom) copies[i].remove();
-  });
+    if (rect.bottom >= frame.top && rect.top <= frame.bottom) copy.append(tile.cloneNode(true));
+  }
   copy.querySelectorAll<HTMLElement>("[data-lightbox-tile]").forEach((img) => {
     img.removeAttribute("data-lightbox-tile");
     img.style.viewTransitionName = "";
@@ -56,6 +57,12 @@ export function playGridExit(grid: HTMLElement) {
     height: `${frame.height}px`,
     overflow: "hidden",
     pointerEvents: "none",
+    // Its own layer, laid out apart from the page: adding it costs the page
+    // no relayout, and the fade below runs on the compositor alone, clear of
+    // the sidebar's selection, which animates on the main thread at the same
+    // moment.
+    contain: "strict",
+    willChange: "opacity",
   });
   ghost.append(shell);
 
@@ -63,7 +70,7 @@ export function playGridExit(grid: HTMLElement) {
     if (grid.isConnected) return;
     document.body.append(ghost);
     ghost
-      .animate([{ opacity: 1 }, { opacity: 0, filter: "blur(2px)" }], {
+      .animate([{ opacity: 1 }, { opacity: 0 }], {
         duration: EXIT_MS,
         easing: EXIT_EASE,
         fill: "forwards",

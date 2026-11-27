@@ -1,5 +1,6 @@
 import { PlusCircleIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { moveFocus } from "~/lib/move-focus";
 
 const PAUSE_MS = 300;
 
@@ -7,7 +8,8 @@ export const AddBoard = ({
   onCreate,
   onOpenChange,
 }: {
-  onCreate: (name: string) => void;
+  /** `quiet`: the field was opened with a click, so focus moved afterwards shouldn't ring. */
+  onCreate: (name: string, options: { quiet: boolean }) => void;
   onOpenChange?: (open: boolean) => void;
 }) => {
   const [open, setOpenState] = useState(false);
@@ -16,6 +18,7 @@ export const AddBoard = ({
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const openedByPointer = useRef(false);
 
   const filled = name.trim().length > 0;
 
@@ -58,8 +61,10 @@ export const AddBoard = ({
           inputRef.current?.focus();
           return;
         }
-        onCreate(name.trim());
-        cancel();
+        const quiet = openedByPointer.current;
+        onCreate(name.trim(), { quiet });
+        close();
+        if (triggerRef.current) moveFocus(triggerRef.current, { quiet });
       }}
     >
       <button
@@ -69,7 +74,9 @@ export const AddBoard = ({
         aria-hidden={open}
         aria-label="Add Board"
         className="add-board-trigger absolute inset-0 rounded-[inherit] outline-none"
-        onClick={() => {
+        onClick={(event) => {
+          // `detail` counts clicks, and is 0 when Enter or Space pressed the button.
+          openedByPointer.current = event.detail > 0;
           setOpen(true);
           inputRef.current?.focus();
         }}

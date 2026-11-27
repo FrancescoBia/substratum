@@ -272,7 +272,7 @@
     translate: 0 1px;
   }
 
-  &:has(.add-board-trigger:focus-visible),
+  &:has(.add-board-trigger:focus-visible:not([data-quiet-focus])),
   &[data-open]:focus-within {
     border-color: var(--ring);
     box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
@@ -413,6 +413,19 @@
 
   & > * {
     min-height: 0;
+  }
+}
+
+/**
+ * A board row's focus ring goes on the row itself, inside the link's 1px of
+ * spacing. `data-quiet-focus` holds it back when focus was moved there after a
+ * click (see `move-focus.ts`).
+ */
+.board-link {
+  outline: none;
+
+  &:focus-visible:not([data-quiet-focus]) > div {
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 50%, transparent);
   }
 }
 

@@ -8,6 +8,7 @@ import { Await, Link, NavLink, useFetcher, useNavigate, useSubmit } from "react-
 import { AddBoard } from "~/components/add-board";
 import { AppVersion } from "~/components/app-version";
 import { BoardName } from "~/components/board-name/board-name";
+import { moveFocus } from "~/lib/move-focus";
 import { SettingsDialog } from "~/components/settings-dialog";
 import type { AvailableUpdate } from "~/lib/update-check.server";
 
@@ -30,18 +31,30 @@ export const Sidebar = ({
   const navigate = useNavigate();
   const entering = useEnteringIds(boards.map((board) => board.id));
 
+  const asideRef = useRef<HTMLElement>(null);
+  const quietArrival = useRef(false);
+
   // Open the new board once the list has it, so its row arrives unselected and
-  // the selection plays on it like any other.
+  // the selection plays on it like any other. Focus follows to its row, unless
+  // the person has already moved it somewhere else.
   const opened = useRef<unknown>(null);
   useEffect(() => {
     const data = createBoard.data;
     if (createBoard.state !== "idle" || !data?.ok || !data.id || opened.current === data) return;
     opened.current = data;
     navigate(`/boards/${data.id}`);
+
+    const aside = asideRef.current;
+    const row = aside?.querySelector<HTMLElement>(`a[href="/boards/${data.id}"]`);
+    const focusInField = aside?.querySelector(".add-board")?.contains(document.activeElement);
+    if (row && focusInField) moveFocus(row, { quiet: quietArrival.current });
   }, [createBoard.state, createBoard.data, navigate]);
 
   return (
-    <aside className="bg-sidebar flex w-70 shrink-0 flex-col text-muted-foreground px-1">
+    <aside
+      ref={asideRef}
+      className="bg-sidebar flex w-70 shrink-0 flex-col text-muted-foreground px-1"
+    >
       {/* Header */}
       <div className="flex justify-between items-center p-6">
         <Link
@@ -81,9 +94,13 @@ export const Sidebar = ({
       <div className="space-y-2 px-3 py-2">
         <AddBoard
           onOpenChange={setCreating}
-          onCreate={(name) =>
-            createBoard.submit({ intent: "create", name }, { method: "post", action: "/boards" })
-          }
+          onCreate={(name, { quiet }) => {
+            quietArrival.current = quiet;
+            void createBoard.submit(
+              { intent: "create", name },
+              { method: "post", action: "/boards" },
+            );
+          }}
         />
 
         <div className="flex gap-1 px-2 items-center">
@@ -167,7 +184,7 @@ const BoardItem = ({ board, entering }: { board: Board; entering: boolean }) => 
       }}
     >
       <div>
-        <NavLink to={`/boards/${board.id}`} className="py-px block group">
+        <NavLink to={`/boards/${board.id}`} className="board-link py-px block group">
           {({ isActive }) => (
             <div
               className={cn(

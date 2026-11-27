@@ -33,7 +33,7 @@ const GUTTER_TRACKS = 6;
  * How far from square a mosaic tile may get, as height ÷ width. A panorama or a
  * long infographic would otherwise be a sliver or many screens tall, so both ends
  * are clamped and the thumbnail crops to fit — the full image is one click away in
- * the lightbox, and the flat grid crops everything to 4/5 regardless.
+ * the lightbox, and the flat grid crops everything square regardless.
  */
 const MIN_TILE_RATIO = 0.25;
 const MAX_TILE_RATIO = 2.5;
@@ -225,7 +225,7 @@ export function ImageGrid({
                 // `medium`, not `thumb`: a tile is ~300 CSS px, so a retina
                 // display wants ~600 real pixels and the 400px `thumb` was being
                 // upscaled 2–3× — worst on landscape images, whose short edge is
-                // what `aspect-4/5` + `object-cover` has to stretch to fill.
+                // what `aspect-square` + `object-cover` has to stretch to fill.
                 // Deliberately a single candidate rather than a `srcSet`: `sizes`
                 // is a static list evaluated before layout, so it cannot follow a
                 // column width the Owner is free to change.
@@ -243,7 +243,7 @@ export function ImageGrid({
                 // whose ratio was clamped, where the top is the informative end.
                 className={cn(
                   "bg-muted w-full rounded-inherit outline-image object-cover transition group-hover:brightness-90",
-                  layout === "mosaic" ? "h-full" : "aspect-4/5",
+                  layout === "mosaic" ? "h-full" : "aspect-square",
                   layout === "mosaic" && isClamped(image) && "object-top",
                 )}
               />

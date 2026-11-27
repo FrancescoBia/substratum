@@ -91,7 +91,7 @@
  * Sizing both frames is the whole trick. The default is `inline-size: 100%;
  * block-size: auto`, which keeps each snapshot's own aspect ratio and lets it
  * spill out of the box the group is animating — and the two ends here are
- * different shapes by definition, a 4/5 crop at one end and the full image at
+ * different shapes by definition, a square crop at one end and the full image at
  * the other. Filling the box and cropping with `object-fit` instead keeps both
  * frames inside it for the whole flight, so the cross-fade between them reads
  * as one image being re-cropped rather than as two images sliding past.
@@ -107,7 +107,7 @@
   object-fit: cover;
 
   /* The cross-fade is shorter than the flight it happens during. A tile in the
-     flat grid is a 4/5 crop of an image the viewer shows whole, so the two
+     flat grid is a square crop of an image the viewer shows whole, so the two
      frames are the same picture at two different zooms and there is no
      duration at which they line up — but landing the blend early keeps the
      double exposure small and brief, and leaves most of the movement to a

@@ -199,10 +199,11 @@ const usePushIn = (
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Kept so a deselect mid-push can stop them (see the cleanup below).
+    const labelRunning: Animation[] = [];
     const running: Animation[] = [];
 
     // Colour still washes across under reduced motion; only the movement goes.
-    running.push(
+    labelRunning.push(
       label.animate(colour, {
         ...tint,
         delay: colorDelay(visible - 1, visible),
@@ -210,7 +211,7 @@ const usePushIn = (
       }),
     );
     if (!reduce) {
-      running.push(
+      labelRunning.push(
         label.animate([{ translate: "0px" }, { translate: `${SHIFT}px` }], {
           duration: PUSH.duration,
           delay: lead,
@@ -241,10 +242,22 @@ const usePushIn = (
     });
 
     // The label outlives the selection. Left running, a quick deselect would
-    // see it finish the push in the accent colour, then snap back. Cancelled
-    // here, the label's CSS transition picks up from wherever it got to.
+    // see it finish the push in the accent colour, then snap back. Cancelling
+    // alone snaps back too: Chrome starts no transition from a value that only
+    // an animation held. So the label's current values are written inline and
+    // flushed first, and its CSS transition slides back from there.
     return () => {
-      for (const animation of running) animation.cancel();
+      for (const animation of labelRunning) {
+        try {
+          animation.commitStyles();
+        } catch {
+          // The label is already gone; there's nothing to slide back.
+        }
+      }
+      for (const animation of [...labelRunning, ...running]) animation.cancel();
+      getComputedStyle(label).getPropertyValue("translate");
+      label.style.removeProperty("translate");
+      label.style.removeProperty("color");
     };
   }, [labelRef, clipRef, active]);
 };

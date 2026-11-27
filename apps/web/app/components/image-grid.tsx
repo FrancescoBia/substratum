@@ -94,10 +94,13 @@ export function ImageGrid({
   images,
   layout,
   readOnly = false,
+  entrance = false,
   context,
 }: {
   images: TileImage[];
   layout: GridLayout;
+  /** Tiles play their arrival when the grid mounts — see `image-grid.css`. */
+  entrance?: boolean;
   /** Where these images are — a Board's name, `Stream` — shown in the viewer's corner. */
   context?: string;
   /** For visitors to a published Board: no way into the Owner's detail panel. */
@@ -159,19 +162,25 @@ export function ImageGrid({
     <section className={layout === "mosaic" ? "@container" : undefined}>
       <div
         data-layout={layout}
-        className={
+        className={cn(
           layout === "mosaic"
             ? "mosaic"
-            : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        }
+            : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+          entrance && "grid-entrance",
+        )}
       >
-        {images.map((image) => (
+        {images.map((image, index) => (
           <div
             key={image.id}
             // `pb-[6%]` is the vertical gutter, and `GUTTER_TRACKS` is what pays
             // for it — 6% of the tile's width is exactly 6 row tracks.
             className={cn("group relative", layout === "mosaic" && "pb-[6%]")}
-            style={layout === "mosaic" ? { gridRowEnd: `span ${tileSpan(image)}` } : undefined}
+            style={
+              {
+                ...(layout === "mosaic" && { gridRowEnd: `span ${tileSpan(image)}` }),
+                ...(entrance && { "--i": index }),
+              } as React.CSSProperties
+            }
           >
             {/* `viewTransition` plus the nomination below expands this tile
                 into the viewer rather than cutting to it — see `morphFromTile`.

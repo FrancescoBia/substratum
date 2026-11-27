@@ -1,0 +1,21 @@
+/**
+ * A board's tiles arriving when it opens (`ImageGrid`'s `entrance`): each one
+ * lifts a few pixels while a soft blur clears, in reading order. `--i` is the
+ * tile's index, set inline. The stagger stops growing after ten tiles so a big
+ * board never waits on its tail, and anything below the fold has finished
+ * long before it is scrolled to.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .grid-entrance > * {
+    animation: grid-tile-in 640ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+    animation-delay: calc(min(var(--i, 0), 10) * 44ms);
+  }
+}
+
+@keyframes grid-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(6px);
+  }
+}

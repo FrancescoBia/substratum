@@ -7,6 +7,7 @@
 @import "@repo/ui/globals.css";
 @import "./components/add-board/add-board.css";
 @import "./components/sidebar/board-item.css";
+@import "./components/image-grid.css";
 
 /**
  * Stories sit next to the components they describe, but Storybook builds them

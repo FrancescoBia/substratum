@@ -2,8 +2,10 @@ import { Button } from "@repo/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@repo/ui/components/tooltip";
 import { cn } from "cn";
 import { LayoutDashboardIcon, LayoutGridIcon } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { Link, useFetcher, useLocation, useNavigate, useRouteLoaderData } from "react-router";
 import { DETAIL_PARAM, DetailPanelBody } from "~/components/detail-panel";
+import { playGridExit } from "~/components/grid-exit";
 import { Lightbox } from "~/components/lightbox/lightbox";
 import { morphFromTile, useTileMorphName } from "~/components/lightbox/morph";
 import { LIGHTBOX_PARAM } from "~/components/lightbox/routing";
@@ -99,7 +101,10 @@ export function ImageGrid({
 }: {
   images: TileImage[];
   layout: GridLayout;
-  /** Tiles play their arrival when the grid mounts — see `image-grid.css`. */
+  /**
+   * Tiles play their arrival when the grid mounts (`image-grid.css`) and fade
+   * out quickly when it unmounts (`grid-exit.ts`).
+   */
   entrance?: boolean;
   /** Where these images are — a Board's name, `Stream` — shown in the viewer's corner. */
   context?: string;
@@ -110,6 +115,22 @@ export function ImageGrid({
   const navigate = useNavigate();
   const library = useRouteLoaderData<typeof libraryLoader>("routes/library");
   const tileMorphName = useTileMorphName();
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // A layout effect's cleanup runs while the grid is still in the document,
+  // which is the last moment its tiles can be copied for the exit. A throw
+  // here would take the page down with it, so the exit is skipped instead.
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!entrance || !grid) return;
+    return () => {
+      try {
+        playGridExit(grid);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+  }, [entrance]);
 
   // A tile opens the viewer with nothing else on: the details column is
   // something the Owner turns on from in there, not a thing every look brings.
@@ -161,6 +182,7 @@ export function ImageGrid({
   return (
     <section className={layout === "mosaic" ? "@container" : undefined}>
       <div
+        ref={gridRef}
         data-layout={layout}
         className={cn(
           layout === "mosaic"
